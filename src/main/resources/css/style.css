@@ -1,0 +1,10 @@
+.toolBarButton{
+    -fx-pref-width: 24px;
+    -fx-pref-height: 24px;
+    -fx-padding: 2px;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 3px;
+}
+.toolBarButton:hover{
+    -fx-background-color: #FFCC00;
+}
