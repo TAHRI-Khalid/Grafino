@@ -19,7 +19,7 @@ public class Transition extends Component {
         } else {
             ctx.setFill(Color.WHITE);
         }
-        ctx.fillRect(position.getX(), position.getY(), Style.UNIT_WIDTH, Style.UNIT_HEIGHT);
+        ctx.fillRect(position.getX(), position.getY() + Style.GAP, Style.UNIT_WIDTH, Style.UNIT_HEIGHT - Style.GAP * 2);
         ctx.strokeLine(position.getX() + Style.UNIT_WIDTH / 2, position.getY(), position.getX() + Style.UNIT_WIDTH / 2, position.getY() + Style.UNIT_HEIGHT);
         ctx.strokeLine(position.getX() + Style.UNIT_WIDTH / 3, position.getY() + Style.UNIT_HEIGHT / 2, position.getX() + Style.UNIT_WIDTH * 2 / 3, position.getY() + Style.UNIT_HEIGHT / 2);
     }
@@ -31,10 +31,8 @@ public class Transition extends Component {
 
         var begin = this.parent.position.add(Style.UNIT_WIDTH / 2, Style.UNIT_HEIGHT);
         var end = this.position.add(Style.UNIT_WIDTH / 2, 0);
-        var middle= begin.midpoint(end);
 
-        ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), middle.getY());
-        ctx.strokeLine(begin.getX(), middle.getY(), end.getX(), middle.getY());
-        ctx.strokeLine(end.getX(), middle.getY(), end.getX(), end.getY());
+        ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
+        ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
     }
 }

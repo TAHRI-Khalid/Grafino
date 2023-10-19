@@ -17,14 +17,13 @@ import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Transition;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 public class MainUI extends BorderPane {
-    private final Canvas canvas = new Canvas(800, 600);
+    private final Canvas canvas = new Canvas(1200, 800);
     private final GraphicsContext ctx = canvas.getGraphicsContext2D();
-    private final TopToolBar toolBar = new TopToolBar();
-    private final ToolBar statusBar = new ToolBar();
     private final List<Component> components = new ArrayList<>();
     private double pressedH = 0;
     private double pressedV = 0;
@@ -34,12 +33,12 @@ public class MainUI extends BorderPane {
         scrollpane.setFitToHeight(true);
         scrollpane.setFitToWidth(true);
         scrollpane.setContent(canvas);
-        scrollpane.setBackground(new Background(new BackgroundFill(Style.MAIN_COLOR, null, null)));
         this.setCenter(scrollpane);
 
         var initStep = new InitStep(ctx, 350, 50);
         components.add(initStep);
 
+        var toolBar = new TopToolBar();
         this.setTop(toolBar);
         toolBar.setOnStepBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
@@ -67,6 +66,32 @@ public class MainUI extends BorderPane {
             });
         });
 
+        toolBar.setOnOrBranchBtnClick(event -> {
+            getSelectedComponent().ifPresent(component -> {
+                if (component instanceof Step step && !step.getChildren().isEmpty()) {
+                    components.forEach(com -> com.setSelected(false));
+                    var farComponent=getThefarComponent(step.getChildren());
+                    var transition = new Transition(ctx, farComponent.getX()+(Style.UNIT_WIDTH*2), step.getY() + Style.UNIT_HEIGHT);
+                    transition.setSelected(true);
+                    step.addChild(transition);
+                    components.add(transition);
+                }
+            });
+        });
+        toolBar.setOnAndBranchBtnClick(event -> {
+            getSelectedComponent().ifPresent(component -> {
+                if (component instanceof Transition transition && !transition.getChildren().isEmpty()) {
+                    components.forEach(com -> com.setSelected(false));
+                    var farComponent=getThefarComponent(transition.getChildren());
+                    var step = new Step(ctx, farComponent.getX()+(Style.UNIT_WIDTH*2), transition.getY() + Style.UNIT_HEIGHT);
+                    step.setSelected(true);
+                    transition.addChild(step);
+                    components.add(step);
+                }
+            });
+        });
+
+        var statusBar = new ToolBar();
         statusBar.setBackground(new Background(new BackgroundFill(Style.MAIN_COLOR, null, null)));
         statusBar.setPadding(new Insets(10));
         this.setBottom(statusBar);
@@ -103,5 +128,8 @@ public class MainUI extends BorderPane {
 
     private Optional<Component> getSelectedComponent() {
         return components.stream().filter(Component::isSelected).findFirst();
+    }
+    private Component getThefarComponent(List<Component> components){
+        return components.stream().sorted(Comparator.comparing(Component::getX)).toList().getLast();
     }
 }

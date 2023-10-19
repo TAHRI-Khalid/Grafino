@@ -11,18 +11,8 @@ public class InitStep extends Step {
 
     @Override
     public void drawComponent() {
+        super.drawComponent();
         var gap = 8;
-        ctx.setLineWidth(Style.LINE_WIDTH);
-        ctx.setStroke(Style.LINE_COLOR);
-
-        if (selected){
-            ctx.setFill(Style.SELECTION_COLOR);
-        }else {
-            ctx.setFill(Color.WHITE);
-        }
-
-        ctx.fillRect(position.getX(), position.getY(), Style.UNIT_WIDTH, Style.UNIT_HEIGHT);
-        ctx.strokeRect(position.getX(), position.getY(), Style.UNIT_WIDTH, Style.UNIT_HEIGHT);
-        ctx.strokeRect(position.getX() + gap, position.getY() + gap, Style.UNIT_WIDTH - (2 * gap), Style.UNIT_HEIGHT - (2 * gap));
+        ctx.strokeRect(position.getX() + gap, position.getY() + Style.GAP + gap, Style.UNIT_WIDTH - gap * 2, Style.UNIT_HEIGHT - Style.GAP * 2 - gap * 2);
     }
 }
