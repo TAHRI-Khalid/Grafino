@@ -1,5 +1,6 @@
 package tk.tahri.grafino.component;
 
+import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import tk.tahri.grafino.Style;
@@ -29,10 +30,19 @@ public class Transition extends Component {
         ctx.setLineWidth(Style.LINE_WIDTH);
         ctx.setStroke(Style.LINE_COLOR);
 
-        var begin = this.parent.position.add(Style.UNIT_WIDTH / 2, Style.UNIT_HEIGHT);
-        var end = this.position.add(Style.UNIT_WIDTH / 2, 0);
-
-        ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
-        ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
+        for (var child :children) {
+            var begin = new Point2D(getX()+Style.UNIT_WIDTH/2,getY()+Style.UNIT_HEIGHT);
+            var end =  new Point2D(child.getX()+Style.UNIT_WIDTH/2,child.getY());
+            if (child.getParents().size()==1){
+                ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
+                ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
+                if (this.getChildren().size() > 1){
+                    ctx.strokeLine(begin.getX(), begin.getY()-Style.GAP/2, end.getX(), begin.getY()-Style.GAP/2);
+                }
+            }else {
+                ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
+                ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.MouseEvent;
 import tk.tahri.grafino.Style;
+import tk.tahri.grafino.Vertex;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,9 +13,9 @@ public abstract class Component {
     protected Point2D position;
     protected final GraphicsContext ctx;
     protected boolean selected = false;
-    protected boolean shouldDrawVertex = false;
+    protected Vertex vertex = Vertex.NONE;
     protected double radius = 12;
-    protected Component parent;
+    protected List<Component> parents=new ArrayList<>();
     protected List<Component> children = new ArrayList<>();
 
     protected Component(GraphicsContext ctx, double x, double y) {
@@ -46,7 +47,7 @@ public abstract class Component {
 
     public void addChild(Component component) {
         this.children.add(component);
-        component.setParent(this);
+        component.parents.add(this);
     }
 
     public double getX() {
@@ -73,38 +74,38 @@ public abstract class Component {
         this.position = position;
     }
 
-    public Component getParent() {
-        return parent;
+    public List<Component> getParents() {
+        return parents;
     }
 
-    public void setParent(Component parent) {
-        this.parent = parent;
+    public void setParents(List<Component> parents) {
+        this.parents = parents;
     }
 
-    public void setShouldDrawVertex(boolean shouldDrawVertex) {
-        this.shouldDrawVertex = shouldDrawVertex;
+    public void setVertex(Vertex vertex) {
+        this.vertex = vertex;
     }
 
     public void drawVertex() {
-        if (shouldDrawVertex) {
-            ctx.setFill(Style.SELECTION_COLOR);
-            ctx.setStroke(Style.LINE_COLOR);
-            ctx.setLineWidth(Style.LINE_WIDTH);
-
-            if (parent == null) {
-                drawTopVertex();
-            }
-            if (children.isEmpty()) {
-                drawBottomVertex();
+        ctx.setFill(Style.SELECTION_COLOR);
+        ctx.setStroke(Style.LINE_COLOR);
+        ctx.setLineWidth(Style.LINE_WIDTH);
+        switch (vertex) {
+            case TOP -> drawTopVertex();
+            case BOTTOM -> drawBottomVertex();
+            case BOTH -> {
+                if (parents.isEmpty()) drawTopVertex();
+                if (children.isEmpty()) drawBottomVertex();
             }
         }
     }
 
-    public void drawTopVertex(){
+    private void drawTopVertex() {
         ctx.fillOval(getX() - radius / 2 + Style.UNIT_WIDTH / 2, getY(), radius, radius);
         ctx.strokeOval(getX() - radius / 2 + Style.UNIT_WIDTH / 2, getY(), radius, radius);
     }
-    public void drawBottomVertex(){
+
+    private void drawBottomVertex() {
         ctx.fillOval(getX() - radius / 2 + Style.UNIT_WIDTH / 2, getY() + Style.UNIT_HEIGHT - radius, radius, radius);
         ctx.strokeOval(getX() - radius / 2 + Style.UNIT_WIDTH / 2, getY() + Style.UNIT_HEIGHT - radius, radius, radius);
     }
@@ -116,4 +117,11 @@ public abstract class Component {
                 mouseY >= top.getY() && mouseY <= bottom.getY();
     }
 
+    public void drawDraggedLink(Component selectedComponent, Point2D mouseDragPosition) {
+        var begin = new Point2D(selectedComponent.getX() + Style.UNIT_WIDTH / 2, selectedComponent.getY() + Style.UNIT_HEIGHT);
+        var end = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
+
+        ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
+        ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
+    }
 }
