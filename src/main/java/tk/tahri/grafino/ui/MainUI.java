@@ -10,6 +10,7 @@ import javafx.scene.control.ToolBar;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
+import tk.tahri.grafino.Operation;
 import tk.tahri.grafino.Style;
 import tk.tahri.grafino.component.Component;
 import tk.tahri.grafino.component.InitStep;
@@ -20,13 +21,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 public class MainUI extends BorderPane {
     private final Canvas canvas = new Canvas(1200, 800);
     private final GraphicsContext ctx = canvas.getGraphicsContext2D();
     private final List<Component> components = new ArrayList<>();
+    private Operation operation = Operation.PRESSED_TO_MOVE;
     private double pressedH = 0;
     private double pressedV = 0;
+    private Point2D mouseDrag;
 
     public MainUI() {
         var scrollpane = new ScrollPane();
@@ -37,6 +41,9 @@ public class MainUI extends BorderPane {
 
         var initStep = new InitStep(ctx, 350, 50);
         components.add(initStep);
+
+        canvas.widthProperty().bind(scrollpane.widthProperty());
+        canvas.heightProperty().bind(scrollpane.heightProperty());
 
         var toolBar = new TopToolBar();
         this.setTop(toolBar);
@@ -70,20 +77,21 @@ public class MainUI extends BorderPane {
             getSelectedComponent().ifPresent(component -> {
                 if (component instanceof Step step && !step.getChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
-                    var farComponent=getThefarComponent(step.getChildren());
-                    var transition = new Transition(ctx, farComponent.getX()+(Style.UNIT_WIDTH*2), step.getY() + Style.UNIT_HEIGHT);
+                    var farComponent = getTheExtremeRightComponent(step.getChildren());
+                    var transition = new Transition(ctx, farComponent.getX() + (Style.UNIT_WIDTH * 3), step.getY() + Style.UNIT_HEIGHT);
                     transition.setSelected(true);
                     step.addChild(transition);
                     components.add(transition);
                 }
             });
         });
+
         toolBar.setOnAndBranchBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
                 if (component instanceof Transition transition && !transition.getChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
-                    var farComponent=getThefarComponent(transition.getChildren());
-                    var step = new Step(ctx, farComponent.getX()+(Style.UNIT_WIDTH*2), transition.getY() + Style.UNIT_HEIGHT);
+                    var farComponent = getTheExtremeRightComponent(transition.getChildren());
+                    var step = new Step(ctx, farComponent.getX() + (Style.UNIT_WIDTH * 3), transition.getY() + Style.UNIT_HEIGHT);
                     step.setSelected(true);
                     transition.addChild(step);
                     components.add(step);
@@ -101,27 +109,80 @@ public class MainUI extends BorderPane {
                     .filter(com -> com.isPressed(event))
                     .findFirst();
             components.forEach(com -> com.setSelected(false));
-            if (pressedComponent.isPresent()) {
-                pressedComponent.get().setSelected(true);
-                pressedH = event.getX() - pressedComponent.get().getX();
-                pressedV = event.getY() - pressedComponent.get().getY();
-            }
+            pressedComponent.ifPresent(component -> {
+                component.setSelected(true);
+
+                if (component.isTopVertexPressed(event)) {
+                    operation = Operation.PRESSED_TO_TOP_LINK;
+                } else if (component.isBottomVertexPressed(event)) {
+                    operation = Operation.PRESSED_TO_BOTTOM_LINK;
+                } else {
+                    operation = Operation.PRESSED_TO_MOVE;
+                }
+
+                pressedH = event.getX() - component.getX();
+                pressedV = event.getY() - component.getY();
+            });
         });
 
         canvas.setOnMouseDragged(event -> {
             if (getSelectedComponent().isPresent() && event.isPrimaryButtonDown()) {
                 var component = getSelectedComponent().get();
-                var position = new Point2D(event.getX() - pressedH, event.getY() - pressedV);
-                component.setPosition(position);
+                switch (operation) {
+                    case PRESSED_TO_MOVE -> {
+                        var position = new Point2D(event.getX() - pressedH, event.getY() - pressedV);
+                        component.setPosition(position);
+                        mouseDrag = null;
+                    }
+                    case PRESSED_TO_TOP_LINK -> {
+                    }
+                    case PRESSED_TO_BOTTOM_LINK -> {
+                        mouseDrag = new Point2D(event.getX(), event.getY());
+                        Predicate<Component> predicate = com -> com instanceof Step;
+                        components.stream()
+                                .filter(com -> com.isPressed(event))
+                                .filter(predicate)
+                                .findFirst()
+                                .ifPresent(Component::drawTopVertex);
+                    }
+                }
             }
         });
 
+        canvas.setOnMouseReleased(event -> {
+            mouseDrag = null;
+        });
+
+        canvas.setOnMouseMoved(event -> {
+            components.forEach(component -> component.setShouldDrawVertex(false));
+            components.stream()
+                    .filter(component -> component.isPressed(event))
+                    .findFirst()
+                    .ifPresent(component -> component.setShouldDrawVertex(true));
+        });
+
         new AnimationTimer() {
+            private long lastUpdate = 0;
+
             @Override
-            public void handle(long l) {
-                ctx.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
-                components.forEach(Component::drawComponent);
-                components.forEach(Component::drawLink);
+            public void handle(long now) {
+                if (now - lastUpdate >= 40_000_000) {
+                    ctx.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+                    components.forEach(Component::drawComponent);
+                    components.forEach(Component::drawLink);
+                    components.forEach(Component::drawVertex);
+
+                    if (mouseDrag != null) {
+                        if (operation == Operation.PRESSED_TO_BOTTOM_LINK) {
+                            getSelectedComponent().ifPresent(component -> {
+                                var begin = new Point2D(component.getX() + Style.UNIT_WIDTH / 2, component.getY() + Style.UNIT_HEIGHT);
+                                ctx.strokeLine(begin.getX(), begin.getY(), mouseDrag.getX(), mouseDrag.getY());
+                            });
+                        }
+                    }
+
+                    lastUpdate = now;
+                }
             }
         }.start();
     }
@@ -129,7 +190,18 @@ public class MainUI extends BorderPane {
     private Optional<Component> getSelectedComponent() {
         return components.stream().filter(Component::isSelected).findFirst();
     }
-    private Component getThefarComponent(List<Component> components){
-        return components.stream().sorted(Comparator.comparing(Component::getX)).toList().getLast();
+
+    private Component getTheExtremeRightComponent(List<Component> components) {
+        return components.stream()
+                .sorted(Comparator.comparing(Component::getX))
+                .toList()
+                .getLast();
+    }
+
+    private Component getTheExtremeLeftComponent(List<Component> components) {
+        return components.stream()
+                .sorted(Comparator.comparing(Component::getX).reversed())
+                .toList()
+                .getLast();
     }
 }
