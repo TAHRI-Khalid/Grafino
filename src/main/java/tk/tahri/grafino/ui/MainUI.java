@@ -18,7 +18,6 @@ import tk.tahri.grafino.component.Component;
 import tk.tahri.grafino.component.InitStep;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Transition;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -114,9 +113,7 @@ public class MainUI extends BorderPane {
             pressedComponent.ifPresent(component -> {
                 component.setSelected(true);
 
-                if (component.isTopVertexPressed(event)) {
-                    operation = Operation.PRESSED_TO_TOP_LINK;
-                } else if (component.isBottomVertexPressed(event)) {
+                if (component.isBottomVertexPressed(event)) {
                     operation = Operation.PRESSED_TO_BOTTOM_LINK;
                 } else {
                     operation = Operation.PRESSED_TO_MOVE;
@@ -215,10 +212,4 @@ public class MainUI extends BorderPane {
                 .getLast();
     }
 
-    private Component getTheExtremeLeftComponent(List<Component> components) {
-        return components.stream()
-                .sorted(Comparator.comparing(Component::getX).reversed())
-                .toList()
-                .getLast();
-    }
 }
