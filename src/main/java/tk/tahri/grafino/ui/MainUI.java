@@ -137,11 +137,14 @@ public class MainUI extends BorderPane {
                         component.setPosition(position);
                         mouseDragPosition = null;
                     }
-                    case PRESSED_TO_TOP_LINK -> {
-                    }
                     case PRESSED_TO_BOTTOM_LINK -> {
                         mouseDragPosition = new Point2D(event.getX(), event.getY());
-                        Predicate<Component> predicate = com -> com instanceof Step;
+                        Predicate<Component> predicate ;
+                        if (component instanceof Step){
+                             predicate = com -> com instanceof Transition;
+                        }else {
+                            predicate = com -> com instanceof Step;
+                        }
                         components.stream()
                                 .filter(com -> com.isPressed(event))
                                 .filter(predicate)
@@ -155,13 +158,15 @@ public class MainUI extends BorderPane {
         canvas.setOnMouseReleased(event -> {
             getSelectedComponent().ifPresent(source -> {
                 components.stream()
-                        .filter(component -> component.isPressed(event))
-                        .findFirst()
-                        .ifPresent(target -> {
-                            if (source instanceof Transition && target instanceof Step) {
-                                source.addChild(target);
-                            }
-                        });
+                    .filter(component -> component.isPressed(event))
+                    .findFirst()
+                    .ifPresent(target -> {
+                        if (source instanceof Transition && target instanceof Step) {
+                            source.addChild(target);
+                        }else if(source instanceof Step && target instanceof Transition){
+                            source.addChild(target);
+                        }
+                    });
             });
             mouseDragPosition = null;
         });

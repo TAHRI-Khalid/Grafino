@@ -30,16 +30,18 @@ public class Step extends Component {
     public void drawLink() {
         ctx.setLineWidth(Style.LINE_WIDTH);
         ctx.setStroke(Style.LINE_COLOR);
+        var begin = new Point2D(getX()+Style.UNIT_WIDTH/2,getY()+Style.UNIT_HEIGHT);
 
         for (var child :children) {
-            var begin = new Point2D(getX()+Style.UNIT_WIDTH/2,getY()+Style.UNIT_HEIGHT);
             var end =  new Point2D(child.getX()+Style.UNIT_WIDTH/2,child.getY());
             if (child.getParents().size()==1){
                 ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
                 ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
+
             }else {
                 ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
                 ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
+                ctx.strokeLine(begin.getX(), end.getY()+Style.GAP/2, end.getX(), end.getY()+Style.GAP/2);
             }
         }
     }
