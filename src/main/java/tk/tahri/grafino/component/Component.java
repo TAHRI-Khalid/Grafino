@@ -10,12 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Component {
-    protected Point2D position;
     protected final GraphicsContext ctx;
+    protected Point2D position;
     protected boolean selected = false;
     protected Vertex vertex = Vertex.NONE;
     protected double radius = 12;
-    protected List<Component> parents=new ArrayList<>();
+    protected List<Component> parents = new ArrayList<>();
     protected List<Component> children = new ArrayList<>();
 
     protected Component(GraphicsContext ctx, double x, double y) {
@@ -117,11 +117,4 @@ public abstract class Component {
                 mouseY >= top.getY() && mouseY <= bottom.getY();
     }
 
-    public void drawDraggedLink(Component selectedComponent, Point2D mouseDragPosition) {
-        var begin = new Point2D(selectedComponent.getX() + Style.UNIT_WIDTH / 2, selectedComponent.getY() + Style.UNIT_HEIGHT);
-        var end = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
-
-        ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
-        ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
-    }
 }

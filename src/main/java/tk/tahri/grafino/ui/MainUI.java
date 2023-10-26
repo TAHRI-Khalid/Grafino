@@ -7,6 +7,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToolBar;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
@@ -18,6 +19,7 @@ import tk.tahri.grafino.component.Component;
 import tk.tahri.grafino.component.InitStep;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Transition;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -136,10 +138,10 @@ public class MainUI extends BorderPane {
                     }
                     case PRESSED_TO_BOTTOM_LINK -> {
                         mouseDragPosition = new Point2D(event.getX(), event.getY());
-                        Predicate<Component> predicate ;
-                        if (component instanceof Step){
-                             predicate = com -> com instanceof Transition;
-                        }else {
+                        Predicate<Component> predicate;
+                        if (component instanceof Step) {
+                            predicate = com -> com instanceof Transition;
+                        } else {
                             predicate = com -> com instanceof Step;
                         }
                         components.stream()
@@ -155,15 +157,15 @@ public class MainUI extends BorderPane {
         canvas.setOnMouseReleased(event -> {
             getSelectedComponent().ifPresent(source -> {
                 components.stream()
-                    .filter(component -> component.isPressed(event))
-                    .findFirst()
-                    .ifPresent(target -> {
-                        if (source instanceof Transition && target instanceof Step) {
-                            source.addChild(target);
-                        }else if(source instanceof Step && target instanceof Transition){
-                            source.addChild(target);
-                        }
-                    });
+                        .filter(component -> component.isPressed(event))
+                        .findFirst()
+                        .ifPresent(target -> {
+                            if (source instanceof Transition && target instanceof Step) {
+                                source.addChild(target);
+                            } else if (source instanceof Step && target instanceof Transition) {
+                                source.addChild(target);
+                            }
+                        });
             });
             mouseDragPosition = null;
         });
@@ -176,6 +178,19 @@ public class MainUI extends BorderPane {
                     .ifPresent(component -> component.setVertex(Vertex.BOTH));
         });
 
+        this.setOnKeyPressed(event -> {
+            getSelectedComponent().ifPresent(component -> {
+                int step = event.isControlDown() ? 5 : 1;
+                switch (event.getCode()) {
+                    case UP -> component.setPosition(new Point2D(component.getX(), component.getY() - step));
+                    case DOWN -> component.setPosition(new Point2D(component.getX(), component.getY() + step));
+                    case LEFT -> component.setPosition(new Point2D(component.getX() - step, component.getY()));
+                    case RIGHT -> component.setPosition(new Point2D(component.getX() + step, component.getY()));
+                }
+                System.out.println(event.getCode());
+            });
+        });
+
         new AnimationTimer() {
             private long lastUpdate = 0;
 
@@ -183,16 +198,14 @@ public class MainUI extends BorderPane {
             public void handle(long now) {
                 if (now - lastUpdate >= 40_000_000) {
                     ctx.setFill(Color.WHITE);
-                    ctx.fillRect(0,0,canvas.getWidth(),canvas.getHeight());
+                    ctx.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
                     //ctx.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
                     components.forEach(Component::drawComponent);
                     components.forEach(Component::drawLink);
                     components.forEach(Component::drawVertex);
 
                     if (mouseDragPosition != null && operation == Operation.PRESSED_TO_BOTTOM_LINK) {
-                        getSelectedComponent().ifPresent(selectedComponent -> {
-                            components.forEach(component -> component.drawDraggedLink(selectedComponent, mouseDragPosition));
-                        });
+                        getSelectedComponent().ifPresent(component -> drawDraggedLink(component, mouseDragPosition));
                     }
 
                     lastUpdate = now;
@@ -212,4 +225,15 @@ public class MainUI extends BorderPane {
                 .getLast();
     }
 
+    private void drawDraggedLink(Component selectedComponent, Point2D mouseDragPosition) {
+        var begin = new Point2D(selectedComponent.getX() + Style.UNIT_WIDTH / 2, selectedComponent.getY() + Style.UNIT_HEIGHT);
+        var end = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
+        if (end.getY() < begin.getY()) {
+            ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
+            ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
+        } else {
+            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
+            ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
+        }
+    }
 }
