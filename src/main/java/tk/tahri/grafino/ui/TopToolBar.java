@@ -10,7 +10,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
-import tk.tahri.grafino.Style;
+import tk.tahri.grafino.component.Component;
+
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -22,7 +23,8 @@ public class TopToolBar extends ToolBar {
     private final Button orBranchBtn = new Button();
     private final Button andBranchBtn = new Button();
 
-    public final Supplier<ActionEvent> actionEventSupplier=()->null;
+    public final Supplier<ActionEvent> actionEventSupplier = () -> null;
+
     public TopToolBar() {
         stepBtn.getStyleClass().add("toolBarButton");
         var stepImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Step_v3.png"))));
@@ -64,28 +66,33 @@ public class TopToolBar extends ToolBar {
         andImg.setFitHeight(30);
         andBranchBtn.setGraphic(andImg);
 
-        this.setBackground(new Background(new BackgroundFill(Style.MAIN_COLOR, null, null)));
-        this.getItems().addAll(stepBtn, transitionBtn,endBtn,jumpBtn,orBranchBtn,andBranchBtn,new Separator());
+        this.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
+        this.getItems().addAll(stepBtn, transitionBtn, endBtn, jumpBtn, orBranchBtn, andBranchBtn, new Separator());
         this.setPadding(new Insets(10));
 
     }
 
-    public void setOnStepBtnClick(EventHandler<ActionEvent> event){
+    public void setOnStepBtnClick(EventHandler<ActionEvent> event) {
         this.stepBtn.setOnAction(event);
     }
-    public void setOnTransitionBtnClick(EventHandler<ActionEvent> event){
+
+    public void setOnTransitionBtnClick(EventHandler<ActionEvent> event) {
         this.transitionBtn.setOnAction(event);
     }
-    public void setOnEndBtnClick(EventHandler<ActionEvent> event){
+
+    public void setOnEndBtnClick(EventHandler<ActionEvent> event) {
         this.endBtn.setOnAction(event);
     }
-    public void setOnJumpBtnClick(EventHandler<ActionEvent> event){
+
+    public void setOnJumpBtnClick(EventHandler<ActionEvent> event) {
         this.jumpBtn.setOnAction(event);
     }
-    public void setOnOrBranchBtnClick(EventHandler<ActionEvent> event){
+
+    public void setOnOrBranchBtnClick(EventHandler<ActionEvent> event) {
         this.orBranchBtn.setOnAction(event);
     }
-    public void setOnAndBranchBtnClick(EventHandler<ActionEvent> event){
+
+    public void setOnAndBranchBtnClick(EventHandler<ActionEvent> event) {
         this.andBranchBtn.setOnAction(event);
     }
 }

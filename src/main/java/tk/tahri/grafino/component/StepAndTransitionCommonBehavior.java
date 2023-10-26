@@ -1,0 +1,91 @@
+package tk.tahri.grafino.component;
+
+import javafx.geometry.Point2D;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseEvent;
+import tk.tahri.grafino.Vertex;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public abstract class StepAndTransitionCommonBehavior extends Component {
+    protected List<Link>  linksFromParents=new ArrayList<>();
+    protected List<Link> linksToChildren=new ArrayList<>();
+    protected Point2D position;
+    protected Vertex vertex = Vertex.NONE;
+    protected final double radius = 12;
+
+    protected StepAndTransitionCommonBehavior(GraphicsContext ctx) {
+        super(ctx);
+    }
+
+    public double getX() {
+        return position.getX();
+    }
+
+    public double getY() {
+        return position.getY();
+    }
+
+    public void drawVertex() {
+        ctx.setFill( SELECTION_COLOR);
+        ctx.setStroke( LINE_COLOR);
+        ctx.setLineWidth( LINE_WIDTH);
+        switch (vertex) {
+            case TOP -> drawTopVertex();
+            case BOTTOM -> drawBottomVertex();
+            case BOTH -> {
+                if (this.linksFromParents.isEmpty()) drawTopVertex();
+                if (this.linksToChildren.isEmpty()) drawBottomVertex();
+            }
+        }
+    }
+
+    private void drawTopVertex() {
+        ctx.fillOval(getX() - radius / 2 +  UNIT_WIDTH / 2, getY(), radius, radius);
+        ctx.strokeOval(getX() - radius / 2 +  UNIT_WIDTH / 2, getY(), radius, radius);
+    }
+
+    private void drawBottomVertex() {
+        ctx.fillOval(getX() - radius / 2 +  UNIT_WIDTH / 2, getY() +  UNIT_HEIGHT - radius, radius, radius);
+        ctx.strokeOval(getX() - radius / 2 +  UNIT_WIDTH / 2, getY() +  UNIT_HEIGHT - radius, radius, radius);
+    }
+
+    @Override
+    public boolean isPointIntoRegion(Point2D point) {
+        var topPoint = new Point2D(this.getX(), this.getY());
+        var bottomPoint = new Point2D(this.getX() +  UNIT_WIDTH, this.getY() +  UNIT_HEIGHT);
+        return point.getX()>= topPoint.getX() && point.getX() <= bottomPoint.getX() &&
+                point.getY() >= topPoint.getY() && point.getY()<= bottomPoint.getY();
+    }
+
+    /*
+    public boolean isBottomVertexPressed(MouseEvent event) {
+        var point=new Point2D(event.getX(),event.getY());
+        var topPoint = new Point2D(this.getX() +  UNIT_WIDTH / 2 - radius / 2, this.getY() +  UNIT_HEIGHT - radius);
+        var bottomPoint = new Point2D(this.getX() +  UNIT_WIDTH / 2 + radius / 2, this.getY() +  UNIT_HEIGHT);
+        return  super.isPointIntoRegion(point, topPoint, bottomPoint);
+    }
+
+     */
+
+    public void addLink(Link link) {
+        this.linksToChildren.add(link);
+    }
+
+    public List<Link> getLinksFromParents() {
+        return linksFromParents;
+    }
+
+    public void setLinksFromParents(List<Link> linksFromParents) {
+        this.linksFromParents = linksFromParents;
+    }
+
+    public List<Link> getLinksToChildren() {
+        return linksToChildren;
+    }
+
+    public void setLinksToChildren(List<Link> linksToChildren) {
+        this.linksToChildren = linksToChildren;
+    }
+}

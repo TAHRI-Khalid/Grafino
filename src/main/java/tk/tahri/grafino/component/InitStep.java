@@ -1,18 +1,18 @@
 package tk.tahri.grafino.component;
 
+import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
-import tk.tahri.grafino.Style;
 
 public class InitStep extends Step {
-    public InitStep(GraphicsContext gtx, double x, double y) {
-        super(gtx, x, y);
+    public InitStep(GraphicsContext gtx, Point2D position) {
+        super(gtx);
+        this.position=position;
     }
 
     @Override
     public void drawComponent() {
         super.drawComponent();
         var gap = 8;
-        ctx.strokeRect(position.getX() + gap, position.getY() + Style.GAP + gap, Style.UNIT_WIDTH - gap * 2, Style.UNIT_HEIGHT - Style.GAP * 2 - gap * 2);
+        ctx.strokeRect(getX() + gap, getY() +  GAP + gap,  UNIT_WIDTH - gap * 2,  UNIT_HEIGHT -  GAP * 2 - gap * 2);
     }
 }
