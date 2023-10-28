@@ -1,6 +1,5 @@
 package tk.tahri.grafino.component;
 
-import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
 
 public class Transition extends StepAndTransitionCommonBehavior {
@@ -10,17 +9,16 @@ public class Transition extends StepAndTransitionCommonBehavior {
 
 
     @Override
-    protected void drawNormalStep() {
+    protected void drawNormalComponent() {
        // ctx.fillRect( getX(),  getY() +  GAP,  UNIT_WIDTH,  UNIT_HEIGHT -  GAP * 2);
         ctx.strokeLine( getX() +  UNIT_WIDTH / 2,  getY(),  getX() +  UNIT_WIDTH / 2,  getY() +  UNIT_HEIGHT);
         ctx.strokeLine( getX() +  UNIT_WIDTH / 3,  getY() +  UNIT_HEIGHT / 2,  getX() +  UNIT_WIDTH * 2 / 3,  getY() +  UNIT_HEIGHT / 2);
     }
 
     @Override
-    protected void drawSelectedStep() {
+    protected void drawSelectedComponent() {
         //ctx.fillRect( getX(),  getY() +  GAP,  UNIT_WIDTH,  UNIT_HEIGHT -  GAP * 2);
-        ctx.strokeLine( getX() +  UNIT_WIDTH / 2,  getY(),  getX() +  UNIT_WIDTH / 2,  getY() +  UNIT_HEIGHT);
-        ctx.strokeLine( getX() +  UNIT_WIDTH / 3,  getY() +  UNIT_HEIGHT / 2,  getX() +  UNIT_WIDTH * 2 / 3,  getY() +  UNIT_HEIGHT / 2);
+        drawNormalComponent();
     }
 
 

@@ -8,7 +8,8 @@ public abstract class Component {
     public static final Color MAIN_COLOR = Color.rgb(0, 109, 112);
     public static final Color LINE_COLOR = Color.rgb(23, 161, 165);
     public static final Color SELECTION_COLOR = Color.rgb(255, 204, 0);
-    public static final double LINE_WIDTH = 2;
+    public static final double LINE_WIDTH = 2.5;
+    public static final double SELECTION_CONTOUR_WIDTH = 3;
     public static final double UNIT_WIDTH = 80;
     public static final double UNIT_HEIGHT = 68;
     public static final double GAP = 10;
@@ -22,21 +23,21 @@ public abstract class Component {
 
     public void drawComponent() {
         if (selected) {
-            ctx.setLineWidth(LINE_WIDTH + 6);
+            ctx.setLineWidth(LINE_WIDTH + 2 * SELECTION_CONTOUR_WIDTH);
             ctx.setStroke(SELECTION_COLOR);
-            drawSelectedStep();
+            drawSelectedComponent();
         }
         ctx.setLineWidth(LINE_WIDTH);
         ctx.setStroke(LINE_COLOR);
         ctx.setFill(Color.WHITE);
-        drawNormalStep();
+        drawNormalComponent();
     }
 
-    protected abstract void drawNormalStep();
+    protected abstract void drawNormalComponent();
 
-    protected abstract void drawSelectedStep();
+    protected abstract void drawSelectedComponent();
 
-    public abstract boolean isPointIntoRegion(Point2D point);
+    public abstract boolean isPointOnTheComponent(Point2D point);
 
     public boolean isSelected() {
         return selected;
