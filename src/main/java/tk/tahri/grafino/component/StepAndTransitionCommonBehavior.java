@@ -16,6 +16,7 @@ public abstract class StepAndTransitionCommonBehavior extends Component {
 
     protected StepAndTransitionCommonBehavior(GraphicsContext ctx) {
         super(ctx);
+        this.setSelected(true);
     }
 
     public double getX() {
