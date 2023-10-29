@@ -12,7 +12,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
 import tk.tahri.grafino.Operation;
-import tk.tahri.grafino.Vertex;
+import tk.tahri.grafino.Handle;
 import tk.tahri.grafino.component.*;
 
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ public class MainUI extends BorderPane {
         scrollpane.setContent(canvas);
         this.setCenter(scrollpane);
 
-        var initStep = new InitStep(ctx, new Point2D(300, 100));
+        var initStep = new InitStep(ctx, new Point2D(600, 100));
         components.add(initStep);
 
         canvas.widthProperty().bind(scrollpane.widthProperty());
@@ -47,14 +47,11 @@ public class MainUI extends BorderPane {
         this.setTop(toolBar);
         toolBar.setOnStepBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
-                if (component instanceof Transition transition) {
-                    if (!transition.getLinksToChildren().isEmpty()) return;
+                if (component instanceof Transition transition && transition.getLinksToChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
                     var step = new Step(ctx);
                     step.setSelected(true);
-                    var link = new Link(ctx, transition, step);
-                    transition.getLinksToChildren().add(link);
-                    step.getLinksFromParents().add(link);
+                    var link = Link.between(ctx, transition, step);
                     components.add(link);
                     components.add(step);
                 }
@@ -63,29 +60,26 @@ public class MainUI extends BorderPane {
 
         toolBar.setOnTransitionBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
-                if (component instanceof Step step) {
-                    if (!step.getLinksToChildren().isEmpty()) return;
+                if (component instanceof Step step && step.getLinksToChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
                     var transition = new Transition(ctx);
                     transition.setSelected(true);
-                    var link = new Link(ctx, step, transition);
-                    step.getLinksToChildren().add(link);
-                    transition.getLinksFromParents().add(link);
+                    var link = Link.between(ctx, step, transition);
                     components.add(link);
                     components.add(transition);
                 }
             });
         });
 
-        /*
+
         toolBar.setOnOrBranchBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
-                if (component instanceof Step step && !step.getChildren().isEmpty()) {
+                if (component instanceof Step step && !step.getLinksToChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
-                    var farComponent = getTheExtremeRightComponent(step.getChildren());
-                    var transition = new Transition(ctx, farComponent.getX() + (Style.UNIT_WIDTH * 3), step.getY() + Style.UNIT_HEIGHT);
+                    var transition = new Transition(ctx);
                     transition.setSelected(true);
-                    step.addChild(transition);
+                    var link = Link.between(ctx, step, transition);
+                    components.add(link);
                     components.add(transition);
                 }
             });
@@ -93,35 +87,32 @@ public class MainUI extends BorderPane {
 
         toolBar.setOnAndBranchBtnClick(event -> {
             getSelectedComponent().ifPresent(component -> {
-                if (component instanceof Transition transition && !transition.getChildren().isEmpty()) {
+                if (component instanceof Transition transition && !transition.getLinksToChildren().isEmpty()) {
                     components.forEach(com -> com.setSelected(false));
-                    var farComponent = getTheExtremeRightComponent(transition.getChildren());
-                    var step = new Step(ctx, farComponent.getX() + (Style.UNIT_WIDTH * 3), transition.getY() + Style.UNIT_HEIGHT);
+                    var step = new Step(ctx);
                     step.setSelected(true);
-                    transition.addChild(step);
+                    var link = Link.between(ctx, transition, step);
+                    components.add(link);
                     components.add(step);
                 }
             });
         });
 
-
-         */
         var statusBar = new ToolBar();
         statusBar.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
         statusBar.setPadding(new Insets(10));
         this.setBottom(statusBar);
 
-
         canvas.setOnMousePressed(event -> {
             var pressedComponent = components.stream()
-                    .filter(com -> com.isPointOnTheComponent(new Point2D(event.getX(), event.getY())))
+                    .filter(com -> com.isPointOnTheComponent(event.getX(), event.getY()))
                     .findFirst();
             components.forEach(com -> com.setSelected(false));
             pressedComponent.ifPresent(component -> {
                 component.setSelected(true);
 
                 if (component instanceof StepAndTransitionCommonBehavior stepOrTransition) {
-                    if (stepOrTransition.isBottomVertexPressed(new Point2D(event.getX(), event.getY()))) {
+                    if (stepOrTransition.isBottomHandlePressed(new Point2D(event.getX(), event.getY()))) {
                         operation = Operation.PRESSED_TO_BOTTOM_LINK;
                     } else {
                         operation = Operation.PRESSED_TO_MOVE;
@@ -152,28 +143,30 @@ public class MainUI extends BorderPane {
                                 predicate = com -> com instanceof Step;
                             }
                             components.stream()
-                                    .filter(com ->com instanceof  StepAndTransitionCommonBehavior)
+                                    .filter(com -> com instanceof StepAndTransitionCommonBehavior)
                                     .map(com -> (StepAndTransitionCommonBehavior) com)
-                                    .filter(com -> com.isPointOnTheComponent(new Point2D(event.getX(), event.getY())))
+                                    .filter(com -> com.isPointOnTheComponent(event.getX(), event.getY()))
                                     .filter(predicate)
                                     .findFirst()
-                                    .ifPresent(com -> com.setVertex(Vertex.TOP));
+                                    .ifPresent(com -> com.setHandle(Handle.TOP));
                         }
                     }
                 }
             }
         });
-    /*
+
         canvas.setOnMouseReleased(event -> {
             getSelectedComponent().ifPresent(source -> {
                 components.stream()
-                        .filter(component -> component.isPressed(event))
+                        .filter(component -> component.isPointOnTheComponent(event.getX(), event.getY()))
                         .findFirst()
                         .ifPresent(target -> {
                             if (source instanceof Transition && target instanceof Step) {
-                                source.addChild(target);
+                                var link = Link.between(ctx, source, (StepAndTransitionCommonBehavior) target);
+                                components.add(link);
                             } else if (source instanceof Step && target instanceof Transition) {
-                                source.addChild(target);
+                                var link = Link.between(ctx, source, (StepAndTransitionCommonBehavior) target);
+                                components.add(link);
                             }
                         });
             });
@@ -181,28 +174,32 @@ public class MainUI extends BorderPane {
         });
 
         canvas.setOnMouseMoved(event -> {
-            components.forEach(component -> component.setVertex(Vertex.NONE));
             components.stream()
-                    .filter(component -> component.isPressed(event))
+                    .filter(component -> component instanceof StepAndTransitionCommonBehavior)
+                    .forEach(component -> ((StepAndTransitionCommonBehavior) component).setHandle(Handle.NONE));
+
+            components.stream()
+                    .filter(component -> component instanceof StepAndTransitionCommonBehavior)
+                    .filter(component -> component.isPointOnTheComponent(event.getX(), event.getY()))
                     .findFirst()
-                    .ifPresent(component -> component.setVertex(Vertex.BOTH));
+                    .ifPresent(component -> ((StepAndTransitionCommonBehavior) component).setHandle(Handle.BOTH));
         });
 
         this.setOnKeyPressed(event -> {
             getSelectedComponent().ifPresent(component -> {
                 int step = event.isControlDown() ? 5 : 1;
                 switch (event.getCode()) {
-                    case UP -> component.setPosition(new Point2D(component.getX(), component.getY() - step));
-                    case DOWN -> component.setPosition(new Point2D(component.getX(), component.getY() + step));
-                    case LEFT -> component.setPosition(new Point2D(component.getX() - step, component.getY()));
-                    case RIGHT -> component.setPosition(new Point2D(component.getX() + step, component.getY()));
+                    case UP -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() - step));
+                    case DOWN ->
+                            component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
+                    case LEFT ->
+                            component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
+                    case RIGHT ->
+                            component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
                 }
-                System.out.println(event.getCode());
             });
         });
 
-
-         */
         new AnimationTimer() {
             private long lastUpdate = 0;
 
@@ -213,10 +210,14 @@ public class MainUI extends BorderPane {
                     ctx.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
                     components.forEach(Component::drawComponent);
-                    //components.forEach(Component::drawVertex);
+
+                    components.stream()
+                            .filter(component -> component instanceof StepAndTransitionCommonBehavior)
+                            .map(component -> (StepAndTransitionCommonBehavior) component)
+                            .forEach(StepAndTransitionCommonBehavior::drawHandle);
 
                     if (mouseDragPosition != null && operation == Operation.PRESSED_TO_BOTTOM_LINK) {
-                        //getSelectedComponent().ifPresent(component -> drawDraggedLink(component, mouseDragPosition));
+                        getSelectedComponent().ifPresent(component -> drawDraggedLink(component, mouseDragPosition));
                     }
 
                     lastUpdate = now;
@@ -225,20 +226,16 @@ public class MainUI extends BorderPane {
         }.start();
     }
 
-    private Optional<Component> getSelectedComponent() {
-        return components.stream().filter(Component::isSelected).findFirst();
-    }
-  /*
-    private Component getTheExtremeRightComponent(List<Component> components) {
+    private Optional<StepAndTransitionCommonBehavior> getSelectedComponent() {
         return components.stream()
-                .sorted(Comparator.comparing(Component::getX))
-                .toList()
-                .getLast();
+                .filter(component -> component instanceof StepAndTransitionCommonBehavior)
+                .map(component -> (StepAndTransitionCommonBehavior) component)
+                .filter(Component::isSelected)
+                .findFirst();
     }
 
-
-    private void drawDraggedLink(Component selectedComponent, Point2D mouseDragPosition) {
-        var begin = new Point2D(selectedComponent.getX() + Style.UNIT_WIDTH / 2, selectedComponent.getY() + Style.UNIT_HEIGHT);
+    private void drawDraggedLink(StepAndTransitionCommonBehavior selectedComponent, Point2D mouseDragPosition) {
+        var begin = new Point2D(selectedComponent.getX() + Component.UNIT_WIDTH / 2, selectedComponent.getY() + Component.UNIT_HEIGHT);
         var end = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
         if (end.getY() < begin.getY()) {
             ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
@@ -249,5 +246,4 @@ public class MainUI extends BorderPane {
         }
     }
 
-     */
 }

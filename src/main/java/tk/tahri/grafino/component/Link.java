@@ -4,6 +4,7 @@ import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class Link extends Component {
@@ -11,29 +12,58 @@ public class Link extends Component {
     private final StepAndTransitionCommonBehavior parentComponent;
     private final StepAndTransitionCommonBehavior childComponent;
 
-    public Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
-                StepAndTransitionCommonBehavior childComponent) {
+    private Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
+                 StepAndTransitionCommonBehavior childComponent) {
         super(ctx);
         this.parentComponent = parentComponent;
         this.childComponent = childComponent;
-        childComponent.position = new Point2D(parentComponent.getX(), parentComponent.getY() + UNIT_HEIGHT);
+        this.parentComponent.getLinksToChildren().add(this);
+        this.childComponent.getLinksFromParents().add(this);
+        this.update();
     }
 
+    public static Link between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
+                               StepAndTransitionCommonBehavior childComponent) {
 
-    public Component getParentComponent() {
+        if (childComponent.position != null) {
+            return new Link(ctx, parentComponent, childComponent);
+        }
+
+        if (parentComponent.getLinksToChildren().isEmpty()) {
+            childComponent.position = new Point2D(parentComponent.getX(), parentComponent.getY() + UNIT_HEIGHT);
+        } else {
+            var component = parentComponent.getLinksToChildren().stream()
+                    .map(Link::getChildComponent)
+                    .sorted(Comparator.comparing(StepAndTransitionCommonBehavior::getX))
+                    .toList()
+                    .getLast();
+            childComponent.position = new Point2D(component.getX() + 3 * UNIT_WIDTH, parentComponent.getY() + UNIT_HEIGHT);
+        }
+        return new Link(ctx, parentComponent, childComponent);
+    }
+
+    public StepAndTransitionCommonBehavior getParentComponent() {
         return parentComponent;
     }
 
-    public Component getChildComponent() {
+    public StepAndTransitionCommonBehavior getChildComponent() {
         return childComponent;
     }
 
-
     @Override
     protected void drawNormalComponent() {
+        int space = 6;
         for (int i = 0; i < path.size() - 1; ++i) {
             var from = path.get(i);
             var to = path.get(i + 1);
+            if (from.getY() == to.getY()) {
+                if (parentComponent instanceof Transition transition && transition.getLinksToChildren().size() > 1) {
+                    ctx.strokeLine(from.getX(), from.getY() - space, to.getX(), to.getY() - space);
+                }
+                if (childComponent instanceof Transition transition && transition.getLinksFromParents().size() > 1) {
+                    ctx.strokeLine(from.getX(), from.getY() + space, to.getX(), to.getY() + space);
+                }
+            }
             ctx.strokeLine(from.getX(), from.getY(), to.getX(), to.getY());
         }
     }
@@ -78,5 +108,6 @@ public class Link extends Component {
         path.clear();
         path.addAll(List.of(begin, middle, end));
     }
+
 }
 

@@ -38,6 +38,10 @@ public abstract class Component {
     protected abstract void drawSelectedComponent();
 
     public abstract boolean isPointOnTheComponent(Point2D point);
+    public boolean isPointOnTheComponent(double x, double y){
+        var point=new Point2D(x,y);
+        return isPointOnTheComponent(point);
+    }
 
     public boolean isSelected() {
         return selected;

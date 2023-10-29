@@ -1,5 +1,5 @@
 package tk.tahri.grafino;
 
-public enum Vertex {
+public enum Handle {
     NONE, TOP, BOTTOM, BOTH
 }
