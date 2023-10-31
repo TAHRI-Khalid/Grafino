@@ -148,6 +148,9 @@ public class MainUI extends BorderPane {
                     }
                 }
             }
+            getSelectedLink().ifPresent(link -> {
+                link.updateLink(new Point2D(event.getX(),event.getY()));
+            });
         });
 
         canvas.setOnMouseReleased(event -> {
@@ -155,10 +158,18 @@ public class MainUI extends BorderPane {
                     .filter(component -> component.isPointOnTheComponent(event.getX(), event.getY()))
                     .findFirst()
                     .ifPresent(target -> {
-                        if (source instanceof Transition && target instanceof Step) {
-                            Link.between(ctx, source, target);
-                        } else if (source instanceof Step && target instanceof Transition) {
-                            Link.between(ctx, source, target);
+                        if (source.getY() > target.getY()) {
+                            double distance = event.getX() - target.getX() <= Component.UNIT_WIDTH / 2 ? -Component.UNIT_WIDTH / 2 : Component.UNIT_WIDTH * 1.5;
+                            var middle = new Point2D(target.getX() + distance, target.getY());
+                            if (source instanceof Transition && target instanceof Step) {
+                                Link.between(ctx, source, target, middle);
+                            }
+                        } else {
+                            if (source instanceof Transition && target instanceof Step) {
+                                Link.between(ctx, source, target);
+                            } else if (source instanceof Step && target instanceof Transition) {
+                                Link.between(ctx, source, target);
+                            }
                         }
                     }));
             mouseDragPosition = null;
@@ -177,12 +188,9 @@ public class MainUI extends BorderPane {
             int step = event.isControlDown() ? 5 : 1;
             switch (event.getCode()) {
                 case UP -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() - step));
-                case DOWN ->
-                        component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
-                case LEFT ->
-                        component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
-                case RIGHT ->
-                        component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
+                case DOWN -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
+                case LEFT -> component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
+                case RIGHT -> component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
             }
         }));
 
@@ -222,15 +230,30 @@ public class MainUI extends BorderPane {
         return components.stream().filter(Component::isSelected).findFirst();
     }
 
+    private Optional<Link> getSelectedLink() {
+        return components.stream()
+                .map(StepAndTransitionCommonBehavior::getLinksToChildren)
+                .flatMap(List::stream)
+                .filter(Link::isSelected)
+                .findFirst();
+    }
+
     private void drawDraggedLink(StepAndTransitionCommonBehavior selectedComponent, Point2D mouseDragPosition) {
         var begin = new Point2D(selectedComponent.getX() + Component.UNIT_WIDTH / 2, selectedComponent.getY() + Component.UNIT_HEIGHT);
-        var end = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
-        if (end.getY() < begin.getY()) {
-            ctx.strokeLine(begin.getX(), begin.getY(), end.getX(), begin.getY());
-            ctx.strokeLine(end.getX(), begin.getY(), end.getX(), end.getY());
+        var mouse = new Point2D(mouseDragPosition.getX(), mouseDragPosition.getY());
+        if (mouse.getY() < begin.getY()) {
+            if (Math.abs(begin.getX() - mouse.getX()) > Component.UNIT_WIDTH) {
+                ctx.strokeLine(begin.getX(), begin.getY(), mouse.getX(), begin.getY());
+                ctx.strokeLine(mouse.getX(), begin.getY(), mouse.getX(), mouse.getY());
+            } else {
+                double distance = begin.getX() - mouse.getX() >= 0 ? -Component.UNIT_WIDTH : Component.UNIT_WIDTH;
+                ctx.strokeLine(begin.getX(), begin.getY(), begin.getX() + distance, begin.getY());
+                ctx.strokeLine(begin.getX() + distance, begin.getY(), begin.getX() + distance, mouse.getY());
+                ctx.strokeLine(begin.getX() + distance, mouse.getY(), mouse.getX(), mouse.getY());
+            }
         } else {
-            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), end.getY());
-            ctx.strokeLine(begin.getX(), end.getY(), end.getX(), end.getY());
+            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), mouse.getY());
+            ctx.strokeLine(begin.getX(), mouse.getY(), mouse.getX(), mouse.getY());
         }
     }
 
