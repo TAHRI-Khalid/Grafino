@@ -84,6 +84,16 @@ public class Link extends Component {
             }
             ctx.strokeLine(from.getX(), from.getY(), to.getX(), to.getY());
         }
+        drawArrow();
+    }
+
+    private void drawArrow() {
+        if (path.size() == 4) {
+            double length = 15;
+            var center = path.get(1).midpoint(path.get(2)).subtract(0, length / 2);
+            ctx.strokeLine(center.getX(), center.getY(), center.getX() - length / 3, center.getY() + length);
+            ctx.strokeLine(center.getX(), center.getY(), center.getX() + length / 3, center.getY() + length);
+        }
     }
 
     @Override
