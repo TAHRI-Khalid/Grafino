@@ -148,9 +148,7 @@ public class MainUI extends BorderPane {
                     }
                 }
             }
-            getSelectedLink().ifPresent(link -> {
-                link.updateLink(new Point2D(event.getX(),event.getY()));
-            });
+            getSelectedLink().ifPresent(link -> link.updateLink(new Point2D(event.getX(),event.getY())));
         });
 
         canvas.setOnMouseReleased(event -> {

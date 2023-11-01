@@ -13,27 +13,24 @@ public class Link extends Component {
     private final StepAndTransitionCommonBehavior childComponent;
 
     private Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
-                 StepAndTransitionCommonBehavior childComponent) {
+                 StepAndTransitionCommonBehavior childComponent, List<Point2D> path) {
         super(ctx);
         this.parentComponent = parentComponent;
         this.childComponent = childComponent;
         this.parentComponent.getLinksToChildren().add(this);
         this.childComponent.getLinksFromParents().add(this);
-        this.update();
-    }
-
-    private Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
-                 StepAndTransitionCommonBehavior childComponent, List<Point2D> path) {
-        this(ctx, parentComponent, childComponent);
-        this.path.clear();
         this.path.addAll(path);
     }
 
     public static void between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
                                StepAndTransitionCommonBehavior childComponent) {
 
+        var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         if (childComponent.position != null) {
-            new Link(ctx, parentComponent, childComponent);
+            var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
+            var middle = new Point2D(begin.getX(), end.getY());
+            var path = List.of(begin, middle, end);
+            new Link(ctx, parentComponent, childComponent, path);
             return;
         }
 
@@ -47,7 +44,10 @@ public class Link extends Component {
                     .getLast();
             childComponent.position = new Point2D(component.getX() + 3 * UNIT_WIDTH, parentComponent.getY() + UNIT_HEIGHT);
         }
-        new Link(ctx, parentComponent, childComponent);
+        var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
+        var middle = new Point2D(end.getX(), begin.getY());
+        var path = List.of(begin, middle, end);
+        new Link(ctx, parentComponent, childComponent, path);
     }
 
     public static void between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
@@ -131,13 +131,13 @@ public class Link extends Component {
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
 
-        if (path.size() <= 3) {
+        if (parentComponent.getY()+ UNIT_HEIGHT <= childComponent.getY()) {
             var middle = childComponent.getLinksFromParents().size() == 1 ?
                     new Point2D(end.getX(), begin.getY()) :
                     new Point2D(begin.getX(), end.getY());
             path.clear();
             path.addAll(List.of(begin, middle, end));
-        } else if (path.size() == 4) {
+        } else {
             var middleBottom = new Point2D(path.get(1).getX(), begin.getY());
             var middleTop = new Point2D(path.get(2).getX(), end.getY());
             path.clear();
