@@ -56,7 +56,8 @@ public class Link extends Component {
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
         var middleBottom = new Point2D(middle.getX(), begin.getY());
-        var path = List.of(begin, middleBottom, middle, end);
+        var middleTop = new Point2D(middle.getX(), end.getY());
+        var path = List.of(begin, middleBottom, middleTop, end);
         new Link(ctx, parentComponent, childComponent, path);
     }
 
@@ -131,21 +132,22 @@ public class Link extends Component {
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
 
-        if (parentComponent.getY()+ UNIT_HEIGHT <= childComponent.getY()) {
+        if (parentComponent.getY() + UNIT_HEIGHT <= childComponent.getY()) {
             var middle = childComponent.getLinksFromParents().size() == 1 ?
                     new Point2D(end.getX(), begin.getY()) :
                     new Point2D(begin.getX(), end.getY());
             path.clear();
             path.addAll(List.of(begin, middle, end));
         } else {
-            var middleBottom = new Point2D(path.get(1).getX(), begin.getY());
-            var middleTop = new Point2D(path.get(2).getX(), end.getY());
+            var middle=begin.midpoint(end);
+            var middleBottom = new Point2D(middle.getX(), begin.getY());
+            var middleTop = new Point2D(middle.getX(), end.getY());
             path.clear();
             path.addAll(List.of(begin, middleBottom, middleTop, end));
         }
     }
 
-    public void updateLink(Point2D point) {
+    public void updateSelectedLink(Point2D point) {
         if (path.size() == 4) {
             var middleBottom = new Point2D(point.getX(), path.get(1).getY());
             var middleTop = new Point2D(point.getX(), path.get(2).getY());
