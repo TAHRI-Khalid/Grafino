@@ -4,26 +4,24 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
-import javafx.scene.control.Separator;
 import javafx.scene.control.ToolBar;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.*;
 import tk.tahri.grafino.component.Component;
-
 import java.util.Objects;
-import java.util.function.Supplier;
 
 public class TopToolBar extends ToolBar {
     private final Button stepBtn = new Button();
     private final Button transitionBtn = new Button();
-    private final Button endBtn = new Button();
-    private final Button jumpBtn = new Button();
+    //private final Button endBtn = new Button();
+    //private final Button jumpBtn = new Button();
     private final Button orBranchBtn = new Button();
     private final Button andBranchBtn = new Button();
-
-    public final Supplier<ActionEvent> actionEventSupplier = () -> null;
+    private final Button addVariableBtn = new Button();
+    private final Button removeVariableBtn = new Button();
+    private final Button grafcetBtn = new Button();
+    private final Button variableBtn = new Button();
 
     public TopToolBar() {
         stepBtn.getStyleClass().add("toolBarButton");
@@ -38,27 +36,11 @@ public class TopToolBar extends ToolBar {
         transitionImg.setFitHeight(30);
         transitionBtn.setGraphic(transitionImg);
 
-
-        endBtn.getStyleClass().add("toolBarButton");
-        var endImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/End_v3.png"))));
-        endImg.setFitWidth(30);
-        endImg.setFitHeight(30);
-        endBtn.setGraphic(endImg);
-
-
-        jumpBtn.getStyleClass().add("toolBarButton");
-        var jumpImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Jump_v3.png"))));
-        jumpImg.setFitWidth(30);
-        jumpImg.setFitHeight(30);
-        jumpBtn.setGraphic(jumpImg);
-
-
         orBranchBtn.getStyleClass().add("toolBarButton");
         var orImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Or_Branch_v3.png"))));
         orImg.setFitWidth(30);
         orImg.setFitHeight(30);
         orBranchBtn.setGraphic(orImg);
-
 
         andBranchBtn.getStyleClass().add("toolBarButton");
         var andImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/And_Branch_v3.png"))));
@@ -66,8 +48,32 @@ public class TopToolBar extends ToolBar {
         andImg.setFitHeight(30);
         andBranchBtn.setGraphic(andImg);
 
+        addVariableBtn.getStyleClass().add("toolBarButton");
+        var addVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/addVariable_v3.png"))));
+        addVariableImg.setFitWidth(30);
+        addVariableImg.setFitHeight(30);
+        addVariableBtn.setGraphic(addVariableImg);
+
+        removeVariableBtn.getStyleClass().add("toolBarButton");
+        var removeVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/RemoveVariable_v3.png"))));
+        removeVariableImg.setFitWidth(30);
+        removeVariableImg.setFitHeight(30);
+        removeVariableBtn.setGraphic(removeVariableImg);
+
+        variableBtn.getStyleClass().add("toolBarButton");
+        var variableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/variables_v3.png"))));
+        variableImg.setFitWidth(30);
+        variableImg.setFitHeight(30);
+        variableBtn.setGraphic(variableImg);
+
+        grafcetBtn.getStyleClass().add("toolBarButton");
+        var grafcetImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/grafcet.png"))));
+        grafcetImg.setFitWidth(30);
+        grafcetImg.setFitHeight(30);
+        grafcetBtn.setGraphic(grafcetImg);
+
         this.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
-        this.getItems().addAll(stepBtn, transitionBtn, endBtn, jumpBtn, orBranchBtn, andBranchBtn, new Separator());
+        this.setGrafcetToolsVisible(true);
         this.setPadding(new Insets(10));
 
     }
@@ -80,19 +86,37 @@ public class TopToolBar extends ToolBar {
         this.transitionBtn.setOnAction(event);
     }
 
-    public void setOnEndBtnClick(EventHandler<ActionEvent> event) {
-        this.endBtn.setOnAction(event);
-    }
-
-    public void setOnJumpBtnClick(EventHandler<ActionEvent> event) {
-        this.jumpBtn.setOnAction(event);
-    }
-
     public void setOnOrBranchBtnClick(EventHandler<ActionEvent> event) {
         this.orBranchBtn.setOnAction(event);
     }
 
     public void setOnAndBranchBtnClick(EventHandler<ActionEvent> event) {
         this.andBranchBtn.setOnAction(event);
+    }
+
+    public void setOnAddVariableBtnClick(EventHandler<ActionEvent> event) {
+        this.addVariableBtn.setOnAction(event);
+    }
+    public void setOnRemoveSelectedVariable(EventHandler<ActionEvent> event) {
+        this.removeVariableBtn.setOnAction(event);
+    }
+
+    public void setOnGrafcetBtnClick(EventHandler<ActionEvent> event) {
+        this.grafcetBtn.setOnAction(event);
+    }
+
+    public void setOnVariableTableBtnClick(EventHandler<ActionEvent> event) {
+        this.variableBtn.setOnAction(event);
+    }
+
+    public void setGrafcetToolsVisible(boolean value) {
+        this.getItems().clear();
+        var region = new Region();
+        HBox.setHgrow(region, Priority.ALWAYS);
+        if (value) {
+            this.getItems().addAll(stepBtn, transitionBtn, orBranchBtn, andBranchBtn, region, grafcetBtn, variableBtn);
+        } else {
+            this.getItems().addAll(addVariableBtn, removeVariableBtn, region, grafcetBtn, variableBtn);
+        }
     }
 }

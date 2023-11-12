@@ -4,7 +4,7 @@ import javafx.geometry.Point2D;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.text.TextAlignment;
 
-public class Transition extends StepAndTransitionCommonBehavior {
+public non-sealed class Transition extends StepAndTransitionCommonBehavior {
     private static int transitionCounter = 0;
 
     public Transition(GraphicsContext ctx) {

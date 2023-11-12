@@ -12,7 +12,7 @@ public class InitStep extends Step {
     @Override
     public void drawComponent() {
         super.drawComponent();
-        var gap = 8;
+        var gap = 5;
         ctx.strokeRect(getX() + gap, getY() +  GAP + gap,  UNIT_WIDTH - gap * 2,  UNIT_HEIGHT -  GAP * 2 - gap * 2);
     }
 }

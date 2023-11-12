@@ -10,7 +10,7 @@ import tk.tahri.grafino.Handle;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class StepAndTransitionCommonBehavior extends Component {
+public sealed abstract class StepAndTransitionCommonBehavior extends Component  permits Step,Transition{
     protected List<Link> linksFromParents = new ArrayList<>();
     protected List<Link> linksToChildren = new ArrayList<>();
     protected Point2D position;
@@ -94,5 +94,9 @@ public abstract class StepAndTransitionCommonBehavior extends Component {
         ctx.setFont(Font.font("", FontWeight.BOLD, 18));
         ctx.setTextBaseline(VPos.CENTER);
         ctx.fillText(number, position.getX(), position.getY());
+    }
+
+    public int getNumber() {
+        return number;
     }
 }

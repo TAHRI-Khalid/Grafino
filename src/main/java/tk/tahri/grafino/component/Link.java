@@ -139,9 +139,8 @@ public class Link extends Component {
             path.clear();
             path.addAll(List.of(begin, middle, end));
         } else {
-            var middle=begin.midpoint(end);
-            var middleBottom = new Point2D(middle.getX(), begin.getY());
-            var middleTop = new Point2D(middle.getX(), end.getY());
+            var middleBottom = new Point2D(path.get(1).getX(), begin.getY());
+            var middleTop = new Point2D(path.get(2).getX(), end.getY());
             path.clear();
             path.addAll(List.of(begin, middleBottom, middleTop, end));
         }
