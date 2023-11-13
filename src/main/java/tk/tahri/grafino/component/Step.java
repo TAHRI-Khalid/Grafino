@@ -14,7 +14,7 @@ import java.util.List;
 
 public non-sealed class Step extends StepAndTransitionCommonBehavior {
 
-    private List<Action> actions = new ArrayList<>();
+    private final List<Action> actions = new ArrayList<>();
 
     private static int stepCounter = 0;
 
@@ -51,8 +51,7 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
         ctx.setTextAlign(TextAlignment.LEFT);
 
         var begin = new Point2D(getX() + UNIT_WIDTH + GAP, getY() + 1.5 * GAP);
-        for (int i = 0; i < actions.size(); i++) {
-            var action = actions.get(i);
+        for (Action action : actions) {
             var variable = action.variable().getName().toUpperCase();
             final Text text = new Text(variable);
             text.setFont(font);
@@ -64,12 +63,7 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
         }
     }
 
-
     public List<Action> getActions() {
         return actions;
-    }
-
-    public void setActions(List<Action> actions) {
-        this.actions = actions;
     }
 }

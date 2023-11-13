@@ -17,12 +17,13 @@ public class StepProperty extends VBox {
     private VBox listOfActions = new VBox(5);
 
     public StepProperty(Step step, List<Variable> outputVaribles) {
-        this.setPrefWidth(400);
+        this.getStyleClass().add("property-box");
+
         var title = new Label("Step : S" + step.getNumber());
-        title.getStyleClass().add("title");
+        title.getStyleClass().add("property-title");
         var separator = new Separator();
 
-        this.getChildren().addAll(title, separator, listOfActions);
+        this.getChildren().addAll(title, separator);
         showActions(step);
 
         var label = new Label("Actions :");
@@ -33,14 +34,13 @@ public class StepProperty extends VBox {
         qualifierComboBox.getSelectionModel().select(0);
         qualifierComboBox.setMaxWidth(Double.MAX_VALUE);
 
-        var actionBox = new TilePane();
-        actionBox.setAlignment(Pos.CENTER);
+        var actionsBox = new TilePane();
+        actionsBox.getStyleClass().add("actions-box");
 
         outputVaribles.forEach(variable -> {
             var btnAction = new Button(variable.getName());
-            actionBox.getChildren().add(btnAction);
-            btnAction.setMnemonicParsing(false);
-            btnAction.setWrapText(true);
+            actionsBox.getChildren().add(btnAction);
+            btnAction.getStyleClass().add("action-btn");
             btnAction.setOnAction(actionEvent -> {
                 var action = new Action(
                         qualifierComboBox.getSelectionModel().getSelectedItem(),
@@ -53,7 +53,7 @@ public class StepProperty extends VBox {
             });
         });
 
-        this.getChildren().addAll(label, qualifierComboBox, actionBox);
+        this.getChildren().addAll(label, qualifierComboBox, actionsBox,new Separator(),listOfActions);
     }
 
     private void showActions(Step step) {
@@ -68,7 +68,7 @@ public class StepProperty extends VBox {
 class ActionView extends HBox {
     public ActionView(Step step, Action action, VBox container) {
         this.getStyleClass().add("action-control");
-        var btnDelete = new Button("x");
+        var btnDelete = new Button("X");
 
         btnDelete.setOnAction(actionEvent -> {
             step.getActions().remove(action);

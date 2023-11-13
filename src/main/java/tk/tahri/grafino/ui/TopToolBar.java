@@ -25,43 +25,43 @@ public class TopToolBar extends ToolBar {
 
     public TopToolBar() {
         stepBtn.getStyleClass().add("toolBarButton");
-        var stepImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Step_v3.png"))));
+        var stepImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Step.png"))));
         stepImg.setFitWidth(30);
         stepImg.setFitHeight(30);
         stepBtn.setGraphic(stepImg);
 
         transitionBtn.getStyleClass().add("toolBarButton");
-        var transitionImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Transition_v3.png"))));
+        var transitionImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Transition.png"))));
         transitionImg.setFitWidth(30);
         transitionImg.setFitHeight(30);
         transitionBtn.setGraphic(transitionImg);
 
         orBranchBtn.getStyleClass().add("toolBarButton");
-        var orImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Or_Branch_v3.png"))));
+        var orImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/Or_Branch.png"))));
         orImg.setFitWidth(30);
         orImg.setFitHeight(30);
         orBranchBtn.setGraphic(orImg);
 
         andBranchBtn.getStyleClass().add("toolBarButton");
-        var andImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/And_Branch_v3.png"))));
+        var andImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/And_Branch.png"))));
         andImg.setFitWidth(30);
         andImg.setFitHeight(30);
         andBranchBtn.setGraphic(andImg);
 
         addVariableBtn.getStyleClass().add("toolBarButton");
-        var addVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/addVariable_v3.png"))));
+        var addVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/addVariable.png"))));
         addVariableImg.setFitWidth(30);
         addVariableImg.setFitHeight(30);
         addVariableBtn.setGraphic(addVariableImg);
 
         removeVariableBtn.getStyleClass().add("toolBarButton");
-        var removeVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/RemoveVariable_v3.png"))));
+        var removeVariableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/RemoveVariable.png"))));
         removeVariableImg.setFitWidth(30);
         removeVariableImg.setFitHeight(30);
         removeVariableBtn.setGraphic(removeVariableImg);
 
         variableBtn.getStyleClass().add("toolBarButton");
-        var variableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/variables_v3.png"))));
+        var variableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/variables.png"))));
         variableImg.setFitWidth(30);
         variableImg.setFitHeight(30);
         variableBtn.setGraphic(variableImg);
