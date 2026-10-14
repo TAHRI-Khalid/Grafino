@@ -6,23 +6,29 @@ import javafx.scene.canvas.GraphicsContext;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 public class Link extends Component {
+    private String id = UUID.randomUUID().toString();
     private final List<Point2D> path = new ArrayList<>();
     private final StepAndTransitionCommonBehavior parentComponent;
     private final StepAndTransitionCommonBehavior childComponent;
 
-    private Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
-                 StepAndTransitionCommonBehavior childComponent, List<Point2D> path) {
+    public Link(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
+                StepAndTransitionCommonBehavior childComponent, List<Point2D> path) {
         super(ctx);
         this.parentComponent = parentComponent;
         this.childComponent = childComponent;
-        this.parentComponent.getLinksToChildren().add(this);
-        this.childComponent.getLinksFromParents().add(this);
+        if (!this.parentComponent.getLinksToChildren().contains(this)) {
+            this.parentComponent.getLinksToChildren().add(this);
+        }
+        if (!this.childComponent.getLinksFromParents().contains(this)) {
+            this.childComponent.getLinksFromParents().add(this);
+        }
         this.path.addAll(path);
     }
 
-    public static void between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
+    public static Link between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
                                StepAndTransitionCommonBehavior childComponent) {
 
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
@@ -30,8 +36,7 @@ public class Link extends Component {
             var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
             var middle = new Point2D(begin.getX(), end.getY());
             var path = List.of(begin, middle, end);
-            new Link(ctx, parentComponent, childComponent, path);
-            return;
+            return new Link(ctx, parentComponent, childComponent, path);
         }
 
         if (parentComponent.getLinksToChildren().isEmpty()) {
@@ -47,10 +52,10 @@ public class Link extends Component {
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
         var middle = new Point2D(end.getX(), begin.getY());
         var path = List.of(begin, middle, end);
-        new Link(ctx, parentComponent, childComponent, path);
+        return new Link(ctx, parentComponent, childComponent, path);
     }
 
-    public static void between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
+    public static Link between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
                                StepAndTransitionCommonBehavior childComponent, Point2D middle) {
 
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
@@ -58,7 +63,24 @@ public class Link extends Component {
         var middleBottom = new Point2D(middle.getX(), begin.getY());
         var middleTop = new Point2D(middle.getX(), end.getY());
         var path = List.of(begin, middleBottom, middleTop, end);
-        new Link(ctx, parentComponent, childComponent, path);
+        return new Link(ctx, parentComponent, childComponent, path);
+    }
+
+    public void remove() {
+        parentComponent.getLinksToChildren().remove(this);
+        childComponent.getLinksFromParents().remove(this);
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public List<Point2D> getPath() {
+        return path;
     }
 
     public StepAndTransitionCommonBehavior getParentComponent() {
@@ -71,7 +93,7 @@ public class Link extends Component {
 
     @Override
     protected void drawNormalComponent() {
-        int space = 6;
+        int space = 4;
         for (int i = 0; i < path.size() - 1; ++i) {
             var from = path.get(i);
             var to = path.get(i + 1);
@@ -89,11 +111,11 @@ public class Link extends Component {
     }
 
     private void drawArrow() {
-        if (path.size() == 4) {
-            double length = 15;
+        if (path.size() >= 4) {
+            double length = 14;
             var center = path.get(1).midpoint(path.get(2)).subtract(0, length / 2);
-            ctx.strokeLine(center.getX(), center.getY(), center.getX() - length / 3, center.getY() + length);
-            ctx.strokeLine(center.getX(), center.getY(), center.getX() + length / 3, center.getY() + length);
+            ctx.strokeLine(center.getX(), center.getY(), center.getX() - 6, center.getY() + length);
+            ctx.strokeLine(center.getX(), center.getY(), center.getX() + 6, center.getY() + length);
         }
     }
 
@@ -108,20 +130,13 @@ public class Link extends Component {
             var from = path.get(i);
             var to = path.get(i + 1);
 
-            var topPoint = new Point2D(0, 0);
-            var bottomPoint = new Point2D(0, 0);
+            double minX = Math.min(from.getX(), to.getX()) - SELECTION_CONTOUR_WIDTH - LINE_WIDTH;
+            double maxX = Math.max(from.getX(), to.getX()) + SELECTION_CONTOUR_WIDTH + LINE_WIDTH;
+            double minY = Math.min(from.getY(), to.getY()) - SELECTION_CONTOUR_WIDTH - LINE_WIDTH;
+            double maxY = Math.max(from.getY(), to.getY()) + SELECTION_CONTOUR_WIDTH + LINE_WIDTH;
 
-            if (from.getY() == to.getY()) {
-                topPoint = new Point2D(from.getX(), from.getY() - SELECTION_CONTOUR_WIDTH - LINE_WIDTH / 2);
-                bottomPoint = new Point2D(to.getX(), to.getY() + SELECTION_CONTOUR_WIDTH + LINE_WIDTH / 2);
-            } else if (from.getX() == to.getX()) {
-                topPoint = new Point2D(from.getX() - SELECTION_CONTOUR_WIDTH - LINE_WIDTH / 2, from.getY());
-                bottomPoint = new Point2D(to.getX() + SELECTION_CONTOUR_WIDTH + LINE_WIDTH / 2, to.getY());
-            }
-            if ((point.getX() >= topPoint.getX() && point.getX() <= bottomPoint.getX() ||
-                    point.getX() >= bottomPoint.getX() && point.getX() <= topPoint.getX()) &&
-                    (point.getY() >= topPoint.getY() && point.getY() <= bottomPoint.getY() ||
-                            point.getY() >= bottomPoint.getY() && point.getY() <= topPoint.getY())) {
+            if (point.getX() >= minX && point.getX() <= maxX &&
+                point.getY() >= minY && point.getY() <= maxY) {
                 return true;
             }
         }
@@ -139,8 +154,9 @@ public class Link extends Component {
             path.clear();
             path.addAll(List.of(begin, middle, end));
         } else {
-            var middleBottom = new Point2D(path.get(1).getX(), begin.getY());
-            var middleTop = new Point2D(path.get(2).getX(), end.getY());
+            double midX = (path.size() >= 4) ? path.get(1).getX() : (parentComponent.getX() - 60);
+            var middleBottom = new Point2D(midX, begin.getY());
+            var middleTop = new Point2D(midX, end.getY());
             path.clear();
             path.addAll(List.of(begin, middleBottom, middleTop, end));
         }
@@ -150,11 +166,8 @@ public class Link extends Component {
         if (path.size() == 4) {
             var middleBottom = new Point2D(point.getX(), path.get(1).getY());
             var middleTop = new Point2D(point.getX(), path.get(2).getY());
-            path.remove(1);
-            path.add(1, middleBottom);
-            path.remove(2);
-            path.add(2, middleTop);
+            path.set(1, middleBottom);
+            path.set(2, middleTop);
         }
     }
 }
-

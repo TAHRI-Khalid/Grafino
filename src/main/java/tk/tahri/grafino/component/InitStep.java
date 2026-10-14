@@ -6,13 +6,12 @@ import javafx.scene.canvas.GraphicsContext;
 public class InitStep extends Step {
     public InitStep(GraphicsContext gtx, Point2D position) {
         super(gtx);
-        this.position=position;
+        this.position = position;
+        this.setInitial(true);
     }
 
-    @Override
-    public void drawComponent() {
-        super.drawComponent();
-        var gap = 5;
-        ctx.strokeRect(getX() + gap, getY() +  GAP + gap,  UNIT_WIDTH - gap * 2,  UNIT_HEIGHT -  GAP * 2 - gap * 2);
+    public InitStep(GraphicsContext gtx, String id, int number, Point2D position) {
+        super(gtx, id, number, true);
+        this.position = position;
     }
 }

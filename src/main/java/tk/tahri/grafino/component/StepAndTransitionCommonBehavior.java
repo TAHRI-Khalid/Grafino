@@ -17,6 +17,7 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component  
     protected Handle handle = Handle.NONE;
     protected final double radius = 12;
     protected int number;
+    protected String id = java.util.UUID.randomUUID().toString();
 
     protected StepAndTransitionCommonBehavior(GraphicsContext ctx) {
         super(ctx);
@@ -81,6 +82,10 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component  
         this.handle = handle;
     }
 
+    public Handle getHandle() {
+        return handle;
+    }
+
     public List<Link> getLinksFromParents() {
         return linksFromParents;
     }
@@ -98,5 +103,25 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component  
 
     public int getNumber() {
         return number;
+    }
+
+    public void setNumber(int number) {
+        this.number = number;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public Point2D getPosition() {
+        return position;
+    }
+
+    public void setPosition(Point2D position) {
+        this.position = position;
     }
 }

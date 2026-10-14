@@ -15,51 +15,122 @@ import java.util.List;
 public non-sealed class Step extends StepAndTransitionCommonBehavior {
 
     private final List<Action> actions = new ArrayList<>();
-
     private static int stepCounter = 0;
+    private boolean initial = false;
 
     public Step(GraphicsContext gtx) {
         super(gtx);
         this.number = ++stepCounter;
     }
 
+    public Step(GraphicsContext gtx, String id, int number, boolean initial) {
+        super(gtx);
+        this.id = id;
+        this.number = number;
+        this.initial = initial;
+        if (number > stepCounter) {
+            stepCounter = number;
+        }
+    }
+
+    public static void resetCounter(int value) {
+        stepCounter = value;
+    }
+
+    public static int getCounter() {
+        return stepCounter;
+    }
+
+    public boolean isInitial() {
+        return initial;
+    }
+
+    public void setInitial(boolean initial) {
+        this.initial = initial;
+    }
+
+    @Override
     protected void drawNormalComponent() {
+        // Trait vertical de passage
         ctx.strokeLine(getX() + UNIT_WIDTH / 2, getY(), getX() + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT);
+
+        // Fond et contour carré
+        ctx.setFill(Color.WHITE);
         ctx.fillRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
         ctx.strokeRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
 
+        // Si étape initiale : double carré selon la norme CEI 60848
+        if (initial) {
+            double innerGap = 5.0;
+            ctx.strokeRect(getX() + innerGap, getY() + GAP + innerGap,
+                    UNIT_WIDTH - innerGap * 2, UNIT_HEIGHT - GAP * 2 - innerGap * 2);
+        }
+
+        // Repère au centre (ex: 1, 2 ou S1)
         ctx.setTextAlign(TextAlignment.CENTER);
-        this.drawNumber("S" + this.number, new Point2D(getX() + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT / 2));
+        this.drawNumber(String.valueOf(this.number), new Point2D(getX() + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT / 2));
 
         drawActions();
     }
 
+    @Override
     protected void drawSelectedComponent() {
         drawNormalComponent();
     }
 
     protected void drawActions() {
-        if (this.getActions().isEmpty()) {
+        if (this.actions.isEmpty()) {
             return;
         }
-        var font = Font.font("", FontWeight.BOLD, 18);
+
+        var font = Font.font("", FontWeight.BOLD, 14);
+        var qualFont = Font.font("", FontWeight.BOLD, 13);
+
+        // Ligne de liaison horizontale vers le premier bloc action
         ctx.strokeLine(getX() + UNIT_WIDTH, getY() + UNIT_HEIGHT / 2, getX() + UNIT_WIDTH + GAP, getY() + UNIT_HEIGHT / 2);
 
-        ctx.setFill(Color.DARKORANGE);
-        ctx.setFont(font);
-        ctx.setTextBaseline(VPos.CENTER);
-        ctx.setTextAlign(TextAlignment.LEFT);
+        var curX = getX() + UNIT_WIDTH + GAP;
+        double actY = getY() + 1.2 * GAP;
+        double actH = UNIT_HEIGHT - 2.4 * GAP;
 
-        var begin = new Point2D(getX() + UNIT_WIDTH + GAP, getY() + 1.5 * GAP);
         for (Action action : actions) {
-            var variable = action.variable().getName().toUpperCase();
-            final Text text = new Text(variable);
-            text.setFont(font);
-            final double width = text.getLayoutBounds().getWidth();
+            String qual = action.qualifier() != null ? action.qualifier().trim() : "N";
+            String varName = action.variable() != null ? action.variable().getName().toUpperCase() : "";
 
-            ctx.strokeRect(begin.getX(), begin.getY(), width + 2 * GAP, UNIT_HEIGHT - 3 * GAP);
-            ctx.fillText(variable, begin.getX() + GAP, getY() + UNIT_HEIGHT / 2);
-            begin = begin.add(width + 2 * GAP, 0);
+            final Text text = new Text(varName);
+            text.setFont(font);
+            final double textWidth = Math.max(30, text.getLayoutBounds().getWidth());
+
+            boolean showQualifier = !qual.equalsIgnoreCase("Normal") && !qual.equalsIgnoreCase("N") && !qual.isEmpty();
+            double qualWidth = showQualifier ? 24 : 0;
+            double totalWidth = qualWidth + textWidth + 2 * GAP;
+
+            // Fond blanc du rectangle d'action
+            ctx.setFill(Color.WHITE);
+            ctx.fillRect(curX, actY, totalWidth, actH);
+            ctx.strokeRect(curX, actY, totalWidth, actH);
+
+            if (showQualifier) {
+                // Ligne verticale séparatrice de la case qualificateur
+                ctx.strokeLine(curX + qualWidth, actY, curX + qualWidth, actY + actH);
+
+                // Texte du qualificateur (ex: S, R, D)
+                ctx.setFill(Color.rgb(180, 40, 40));
+                ctx.setFont(qualFont);
+                ctx.setTextBaseline(VPos.CENTER);
+                ctx.setTextAlign(TextAlignment.CENTER);
+                String qLetter = qual.substring(0, 1).toUpperCase();
+                ctx.fillText(qLetter, curX + qualWidth / 2, getY() + UNIT_HEIGHT / 2);
+            }
+
+            // Texte de l'action / variable
+            ctx.setFill(MAIN_COLOR);
+            ctx.setFont(font);
+            ctx.setTextBaseline(VPos.CENTER);
+            ctx.setTextAlign(TextAlignment.CENTER);
+            ctx.fillText(varName, curX + qualWidth + (totalWidth - qualWidth) / 2, getY() + UNIT_HEIGHT / 2);
+
+            curX += totalWidth;
         }
     }
 
