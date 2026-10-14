@@ -90,7 +90,7 @@ public class Grafcet extends Pane {
 
             // Check if a component is clicked
             var clickedComponent = components.stream()
-                    .filter(com -> com.isPointOnTheComponent(world.getX(), world.getY()))
+                    .filter(com -> com.isPointNearOrOn(world, 5.0))
                     .findFirst();
 
             if (clickedComponent.isPresent()) {
@@ -153,8 +153,9 @@ public class Grafcet extends Pane {
 
                         components.forEach(com -> com.setHandle(Handle.NONE));
                         components.stream()
-                                .filter(com -> com.isPointOnTheComponent(world.getX(), world.getY()))
+                                .filter(com -> com != component)
                                 .filter(predicate)
+                                .filter(com -> com.isPointNearOrOn(world, 25.0))
                                 .findFirst()
                                 .ifPresent(com -> com.setHandle(Handle.TOP));
                     }
@@ -186,34 +187,24 @@ public class Grafcet extends Pane {
 
             if (operation == Operation.PRESSED_TO_BOTTOM_LINK && getSelectedComponent().isPresent()) {
                 var source = getSelectedComponent().get();
+                Predicate<Component> predicate = (source instanceof Step)
+                        ? com -> com instanceof Transition
+                        : com -> com instanceof Step;
+
                 var targetOpt = components.stream()
-                        .filter(component -> component.isPointOnTheComponent(world.getX(), world.getY()))
+                        .filter(component -> component != source)
+                        .filter(predicate)
+                        .filter(component -> component.isPointNearOrOn(world, 25.0))
                         .findFirst();
 
                 if (targetOpt.isPresent()) {
                     var target = targetOpt.get();
-                    if (target != source) {
-                        boolean validAlternation = (source instanceof Step && target instanceof Transition)
-                                || (source instanceof Transition && target instanceof Step);
+                    boolean exists = source.getLinksToChildren().stream()
+                            .anyMatch(l -> l.getChildComponent() == target);
 
-                        boolean exists = source.getLinksToChildren().stream()
-                                .anyMatch(l -> l.getChildComponent() == target);
-
-                        if (validAlternation && !exists) {
-                            if (target.getY() < source.getY()) {
-                                var begin = new Point2D(source.getX() + Component.UNIT_WIDTH / 2, source.getY() + Component.UNIT_HEIGHT);
-                                var middle = begin.midpoint(world);
-
-                                if (Math.abs(begin.getX() - middle.getX()) < Component.UNIT_WIDTH) {
-                                    double distance = begin.getX() - world.getX() >= 0 ? -Component.UNIT_WIDTH : Component.UNIT_WIDTH;
-                                    middle = new Point2D(begin.getX() + distance, middle.getY());
-                                }
-                                Link.between(ctx, source, target, middle);
-                            } else {
-                                Link.between(ctx, source, target);
-                            }
-                            stateChanged = true;
-                        }
+                    if (!exists) {
+                        Link.between(ctx, source, target);
+                        stateChanged = true;
                     }
                 }
             }
@@ -233,7 +224,7 @@ public class Grafcet extends Pane {
             Point2D world = screenToWorld(event.getX(), event.getY());
             boolean changed = false;
             for (var component : components) {
-                if (component.isPointOnTheComponent(world.getX(), world.getY())) {
+                if (component.isPointNearOrOn(world, 0.0)) {
                     if (component.getHandle() != Handle.BOTH) {
                         component.setHandle(Handle.BOTH);
                         changed = true;
@@ -350,23 +341,45 @@ public class Grafcet extends Pane {
 
     private void drawDraggedLink(StepAndTransitionCommonBehavior selectedComponent, Point2D mouseDragWorld) {
         final var begin = new Point2D(selectedComponent.getX() + Component.UNIT_WIDTH / 2, selectedComponent.getY() + Component.UNIT_HEIGHT);
-        final var mouse = mouseDragWorld;
-        var middle = begin.midpoint(mouse);
+        final var dragPoint = mouseDragWorld;
+
+        Predicate<Component> predicate = (selectedComponent instanceof Step)
+                ? com -> com instanceof Transition
+                : com -> com instanceof Step;
+
+        var snapTarget = components.stream()
+                .filter(c -> c != selectedComponent)
+                .filter(predicate)
+                .filter(c -> c.isPointNearOrOn(dragPoint, 25.0))
+                .findFirst();
+
+        Point2D mouse = snapTarget
+                .map(target -> new Point2D(target.getX() + Component.UNIT_WIDTH / 2, target.getY()))
+                .orElse(dragPoint);
 
         ctx.setStroke(Component.LINE_COLOR);
         ctx.setLineWidth(Component.LINE_WIDTH);
 
-        if (mouse.getY() < begin.getY()) {
-            if (Math.abs(begin.getX() - middle.getX()) < Component.UNIT_WIDTH) {
-                double distance = begin.getX() - mouse.getX() >= 0 ? -Component.UNIT_WIDTH : Component.UNIT_WIDTH;
-                middle = new Point2D(begin.getX() + distance, middle.getY());
+        if (mouse.getY() >= begin.getY()) {
+            if (Math.abs(begin.getX() - mouse.getX()) < 1.0) {
+                ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), mouse.getY());
+            } else {
+                double midY = (begin.getY() + mouse.getY()) / 2.0;
+                ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), midY);
+                ctx.strokeLine(begin.getX(), midY, mouse.getX(), midY);
+                ctx.strokeLine(mouse.getX(), midY, mouse.getX(), mouse.getY());
             }
-            ctx.strokeLine(begin.getX(), begin.getY(), middle.getX(), begin.getY());
-            ctx.strokeLine(middle.getX(), begin.getY(), middle.getX(), mouse.getY());
-            ctx.strokeLine(middle.getX(), mouse.getY(), mouse.getX(), mouse.getY());
         } else {
-            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), mouse.getY());
-            ctx.strokeLine(begin.getX(), mouse.getY(), mouse.getX(), mouse.getY());
+            double corridorX = Math.min(begin.getX(), mouse.getX()) - 60.0;
+            double clearanceY = 20.0;
+            double bottomY = begin.getY() + clearanceY;
+            double topY = mouse.getY() - clearanceY;
+
+            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), bottomY);
+            ctx.strokeLine(begin.getX(), bottomY, corridorX, bottomY);
+            ctx.strokeLine(corridorX, bottomY, corridorX, topY);
+            ctx.strokeLine(corridorX, topY, mouse.getX(), topY);
+            ctx.strokeLine(mouse.getX(), topY, mouse.getX(), mouse.getY());
         }
     }
 
@@ -660,11 +673,13 @@ public class Grafcet extends Pane {
             var parent = lookup.get(lm.getSourceId());
             var child = lookup.get(lm.getTargetId());
             if (parent != null && child != null) {
-                if (lm.getIntermediatePoints().size() == 4) {
-                    Point2D middle = new Point2D(lm.getIntermediatePoints().get(1)[0], lm.getIntermediatePoints().get(1)[1]);
-                    Link.between(ctx, parent, child, middle);
-                } else {
-                    Link.between(ctx, parent, child);
+                var link = Link.between(ctx, parent, child);
+                if (lm.getIntermediatePoints().size() >= 6) {
+                    Point2D middle = new Point2D(lm.getIntermediatePoints().get(2)[0], 0);
+                    link.updateSelectedLink(middle);
+                } else if (lm.getIntermediatePoints().size() == 4) {
+                    Point2D middle = new Point2D(lm.getIntermediatePoints().get(1)[0], 0);
+                    link.updateSelectedLink(middle);
                 }
             }
         }

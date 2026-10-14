@@ -10,7 +10,7 @@ import tk.tahri.grafino.Handle;
 import java.util.ArrayList;
 import java.util.List;
 
-public sealed abstract class StepAndTransitionCommonBehavior extends Component  permits Step,Transition{
+public sealed abstract class StepAndTransitionCommonBehavior extends Component permits Step, Transition {
     protected List<Link> linksFromParents = new ArrayList<>();
     protected List<Link> linksToChildren = new ArrayList<>();
     protected Point2D position;
@@ -25,51 +25,59 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component  
     }
 
     public double getX() {
-        return position.getX();
+        return position != null ? position.getX() : 0;
     }
 
     public double getY() {
-        return position.getY();
+        return position != null ? position.getY() : 0;
     }
 
     public void drawHandle() {
+        if (!isSelected() && handle == Handle.NONE) {
+            return;
+        }
         ctx.setFill(SELECTION_COLOR);
         ctx.setStroke(LINE_COLOR);
         ctx.setLineWidth(LINE_WIDTH);
-        switch (handle) {
-            case TOP -> drawTopHandle();
-            case BOTTOM -> drawBottomHandle();
-            case BOTH -> {
-                if (this.linksFromParents.isEmpty()) drawTopHandle();
-                if (this.linksToChildren.isEmpty()) drawBottomHandle();
-            }
+
+        if (handle == Handle.TOP) {
+            drawTopHandle();
+        } else if (handle == Handle.BOTTOM) {
+            drawBottomHandle();
+        } else {
+            drawTopHandle();
+            drawBottomHandle();
         }
     }
 
     private void drawTopHandle() {
-        ctx.fillOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY(), radius, radius);
-        ctx.strokeOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY(), radius, radius);
+        ctx.fillOval(getX() + UNIT_WIDTH / 2 - radius / 2, getY() - radius / 2, radius, radius);
+        ctx.strokeOval(getX() + UNIT_WIDTH / 2 - radius / 2, getY() - radius / 2, radius, radius);
     }
 
     private void drawBottomHandle() {
-        ctx.fillOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT - radius, radius, radius);
-        ctx.strokeOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT - radius, radius, radius);
+        ctx.fillOval(getX() + UNIT_WIDTH / 2 - radius / 2, getY() + UNIT_HEIGHT - radius / 2, radius, radius);
+        ctx.strokeOval(getX() + UNIT_WIDTH / 2 - radius / 2, getY() + UNIT_HEIGHT - radius / 2, radius, radius);
     }
 
     @Override
     public boolean isPointOnTheComponent(Point2D point) {
-        var topPoint = new Point2D(this.getX(), this.getY());
-        var bottomPoint = new Point2D(this.getX() + UNIT_WIDTH, this.getY() + UNIT_HEIGHT);
-        return point.getX() >= topPoint.getX() && point.getX() <= bottomPoint.getX() &&
-                point.getY() >= topPoint.getY() && point.getY() <= bottomPoint.getY();
+        return isPointNearOrOn(point, 0);
     }
 
+    public boolean isPointNearOrOn(Point2D point, double tolerance) {
+        return point.getX() >= (this.getX() - tolerance) &&
+               point.getX() <= (this.getX() + UNIT_WIDTH + tolerance) &&
+               point.getY() >= (this.getY() - tolerance) &&
+               point.getY() <= (this.getY() + UNIT_HEIGHT + tolerance);
+    }
 
     public boolean isBottomHandlePressed(Point2D point) {
-        var topPoint = new Point2D(this.getX() + UNIT_WIDTH / 2 - radius / 2, this.getY() + UNIT_HEIGHT - radius);
-        var bottomPoint = new Point2D(this.getX() + UNIT_WIDTH / 2 + radius / 2, this.getY() + UNIT_HEIGHT);
-        return point.getX() >= topPoint.getX() && point.getX() <= bottomPoint.getX() &&
-                point.getY() >= topPoint.getY() && point.getY() <= bottomPoint.getY();
+        double centerX = this.getX() + UNIT_WIDTH / 2;
+        double bottomY = this.getY() + UNIT_HEIGHT;
+        // Zone de clic élargie et centrée pour faciliter la saisie à la souris
+        return Math.abs(point.getX() - centerX) <= 30.0 &&
+               point.getY() >= (bottomY - 25.0) && point.getY() <= (bottomY + 25.0);
     }
 
     public void updatePositionAndLinks(Point2D position) {
@@ -94,7 +102,7 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component  
         return linksToChildren;
     }
 
-    protected void drawNumber(String number,Point2D position) {
+    protected void drawNumber(String number, Point2D position) {
         ctx.setFill(Color.DARKORANGE);
         ctx.setFont(Font.font("", FontWeight.BOLD, 18));
         ctx.setTextBaseline(VPos.CENTER);
