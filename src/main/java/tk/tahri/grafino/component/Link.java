@@ -32,27 +32,41 @@ public class Link extends Component {
                                StepAndTransitionCommonBehavior childComponent) {
 
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
+
         if (childComponent.position != null) {
             var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
-            var middle = new Point2D(begin.getX(), end.getY());
-            var path = List.of(begin, middle, end);
-            return new Link(ctx, parentComponent, childComponent, path);
+            List<Point2D> pList;
+            if (Math.abs(begin.getX() - end.getX()) < 1.0) {
+                pList = List.of(begin, end);
+            } else {
+                var middle = new Point2D(begin.getX(), end.getY());
+                pList = List.of(begin, middle, end);
+            }
+            return new Link(ctx, parentComponent, childComponent, pList);
         }
 
+        // Positionnement automatique vertical avec espacement normalisé
+        double targetY = parentComponent.getY() + UNIT_HEIGHT + VERTICAL_GAP;
         if (parentComponent.getLinksToChildren().isEmpty()) {
-            childComponent.position = new Point2D(parentComponent.getX(), parentComponent.getY() + UNIT_HEIGHT);
+            childComponent.position = new Point2D(parentComponent.getX(), targetY);
         } else {
-            var component = parentComponent.getLinksToChildren().stream()
+            var lastChild = parentComponent.getLinksToChildren().stream()
                     .map(Link::getChildComponent)
                     .sorted(Comparator.comparing(StepAndTransitionCommonBehavior::getX))
                     .toList()
                     .getLast();
-            childComponent.position = new Point2D(component.getX() + 3 * UNIT_WIDTH, parentComponent.getY() + UNIT_HEIGHT);
+            childComponent.position = new Point2D(lastChild.getX() + 2 * UNIT_WIDTH, targetY);
         }
+
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
-        var middle = new Point2D(end.getX(), begin.getY());
-        var path = List.of(begin, middle, end);
-        return new Link(ctx, parentComponent, childComponent, path);
+        List<Point2D> pList;
+        if (Math.abs(begin.getX() - end.getX()) < 1.0) {
+            pList = List.of(begin, end);
+        } else {
+            var middle = new Point2D(end.getX(), begin.getY());
+            pList = List.of(begin, middle, end);
+        }
+        return new Link(ctx, parentComponent, childComponent, pList);
     }
 
     public static Link between(GraphicsContext ctx, StepAndTransitionCommonBehavior parentComponent,
@@ -60,8 +74,8 @@ public class Link extends Component {
 
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
-        var middleBottom = new Point2D(middle.getX(), begin.getY());
-        var middleTop = new Point2D(middle.getX(), end.getY());
+        var middleBottom = new Point2D(middle.getX(), begin.getY() + 15);
+        var middleTop = new Point2D(middle.getX(), end.getY() - 15);
         var path = List.of(begin, middleBottom, middleTop, end);
         return new Link(ctx, parentComponent, childComponent, path);
     }
@@ -111,11 +125,20 @@ public class Link extends Component {
     }
 
     private void drawArrow() {
-        if (path.size() >= 4) {
-            double length = 14;
-            var center = path.get(1).midpoint(path.get(2)).subtract(0, length / 2);
-            ctx.strokeLine(center.getX(), center.getY(), center.getX() - 6, center.getY() + length);
-            ctx.strokeLine(center.getX(), center.getY(), center.getX() + 6, center.getY() + length);
+        // La flèche d'orientation CEI 60848 est requise EXCLUSIVEMENT pour les liaisons de retour vers le haut
+        if (childComponent.getY() < parentComponent.getY()) {
+            for (int i = 0; i < path.size() - 1; ++i) {
+                var from = path.get(i);
+                var to = path.get(i + 1);
+                // Trouver le segment vertical qui remonte
+                if (Math.abs(from.getX() - to.getX()) < 1.0 && to.getY() < from.getY()) {
+                    double length = 12;
+                    var center = from.midpoint(to);
+                    ctx.strokeLine(center.getX(), center.getY() - length / 2, center.getX() - 5, center.getY() + length / 2);
+                    ctx.strokeLine(center.getX(), center.getY() - length / 2, center.getX() + 5, center.getY() + length / 2);
+                    break;
+                }
+            }
         }
     }
 
@@ -147,16 +170,24 @@ public class Link extends Component {
         var begin = new Point2D(parentComponent.getX() + UNIT_WIDTH / 2, parentComponent.getY() + UNIT_HEIGHT);
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
 
-        if (parentComponent.getY() + UNIT_HEIGHT <= childComponent.getY()) {
-            var middle = childComponent.getLinksFromParents().size() == 1 ?
-                    new Point2D(end.getX(), begin.getY()) :
-                    new Point2D(begin.getX(), end.getY());
+        // Si l'enfant est en dessous du parent (flux descendant normal)
+        if (childComponent.getY() >= parentComponent.getY() + UNIT_HEIGHT - 5) {
             path.clear();
-            path.addAll(List.of(begin, middle, end));
+            if (Math.abs(begin.getX() - end.getX()) < 1.0) {
+                // Liaison verticale directe pure
+                path.addAll(List.of(begin, end));
+            } else {
+                // Liaison orthogonale (décalage horizontal)
+                Point2D middle = (childComponent.getLinksFromParents().size() == 1) ?
+                        new Point2D(end.getX(), begin.getY()) :
+                        new Point2D(begin.getX(), end.getY());
+                path.addAll(List.of(begin, middle, end));
+            }
         } else {
-            double midX = (path.size() >= 4) ? path.get(1).getX() : (parentComponent.getX() - 60);
-            var middleBottom = new Point2D(midX, begin.getY());
-            var middleTop = new Point2D(midX, end.getY());
+            // Remontée vers le haut (boucle de reprise / retour)
+            double midX = (path.size() >= 4) ? path.get(1).getX() : (Math.min(parentComponent.getX(), childComponent.getX()) - 60);
+            var middleBottom = new Point2D(midX, begin.getY() + 15);
+            var middleTop = new Point2D(midX, end.getY() - 15);
             path.clear();
             path.addAll(List.of(begin, middleBottom, middleTop, end));
         }

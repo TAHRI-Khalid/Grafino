@@ -11,8 +11,9 @@ public abstract class Component {
     public static final double LINE_WIDTH = 2.5;
     public static final double SELECTION_CONTOUR_WIDTH = 3;
     public static final double UNIT_WIDTH = 80;
-    public static final double UNIT_HEIGHT = 64;
-    public static final double GAP = 10;
+    public static final double UNIT_HEIGHT = 60;
+    public static final double VERTICAL_GAP = 40;
+    public static final double GAP = 8;
 
     protected final GraphicsContext ctx;
     protected boolean selected = false;
