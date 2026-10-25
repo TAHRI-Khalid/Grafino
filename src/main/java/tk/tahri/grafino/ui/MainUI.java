@@ -63,19 +63,19 @@ public class MainUI extends BorderPane {
     private void setupCenterSplitPane() {
         splitPane.setOrientation(Orientation.VERTICAL);
 
-        // En-tête rétractable de la table des variables
+        // En-tête rétractable de la table des variables au style Arduino IDE
         var header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(4, 8, 4, 8));
-        header.setStyle("-fx-background-color: #E2E8F0; -fx-border-color: #CBD5E1; -fx-border-width: 1 0 1 0;");
+        header.setPadding(new Insets(5, 12, 5, 12));
+        header.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-border-color: " + AppTheme.BORDER_COLOR + "; -fx-border-width: 1 0 1 0;");
 
-        tableTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #1E293B;");
-        tableSummaryLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748B;");
+        tableTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        toggleTableBtn.setStyle("-fx-font-size: 11px; -fx-background-radius: 4; -fx-padding: 2 8 2 8;");
+        toggleTableBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
         toggleTableBtn.setOnAction(e -> toggleVariableTable());
 
         header.getChildren().addAll(tableTitleLabel, tableSummaryLabel, spacer, toggleTableBtn);
@@ -90,8 +90,8 @@ public class MainUI extends BorderPane {
     private ToolBar createStatusBar() {
         statusLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
         var statusBar = new ToolBar(statusLabel);
-        statusBar.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
-        statusBar.setPadding(new Insets(6, 12, 6, 12));
+        statusBar.setStyle("-fx-background-color: " + AppTheme.PRIMARY_TEAL + ";");
+        statusBar.setPadding(new Insets(5, 12, 5, 12));
         return statusBar;
     }
 
@@ -233,7 +233,7 @@ public class MainUI extends BorderPane {
     }
 
     private void setStatusError(String errorMessage) {
-        statusLabel.setText(errorMessage);
-        statusLabel.setStyle("-fx-text-fill: #FCA5A5; -fx-font-weight: bold; -fx-font-size: 12px;");
+        statusLabel.setText("⚠ " + errorMessage);
+        statusLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 12px; -fx-background-color: " + AppTheme.RED_DANGER + "; -fx-padding: 2 6 2 6; -fx-background-radius: 4;");
     }
 }

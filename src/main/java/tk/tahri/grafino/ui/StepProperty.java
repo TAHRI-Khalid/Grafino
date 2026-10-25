@@ -13,8 +13,7 @@ import java.util.List;
 
 /**
  * Panneau latéral droit d'édition d'une étape SFC (CEI 61131-3 / CEI 60848).
- * Permet de basculer le statut étape initiale et d'associer des actions avec qualificateurs (N, S, R, L, D, P)
- * et durées temporisées.
+ * Harmonisé avec la charte graphique de l'éditeur Arduino.
  */
 public class StepProperty extends VBox {
 
@@ -35,77 +34,90 @@ public class StepProperty extends VBox {
         this.setMinWidth(320);
         this.setSpacing(12);
         this.setPadding(new Insets(14));
-        this.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: #CBD5E1; -fx-border-width: 0 0 0 1;");
+        this.setStyle(AppTheme.SIDEBAR_STYLE);
 
-        // 1. En-tête avec badge et bouton fermer
-        var header = new HBox(10);
+        // 1. En-tête avec titre, badge et bouton fermer
+        var header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
 
+        var titleBox = new VBox(2);
+        var subTitle = new Label("PROPRIÉTÉS DE L'ÉTAPE");
+        subTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+
         var badge = new Label("Étape S" + step.getNumber());
-        badge.setStyle("-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 4 10 4 10; -fx-background-radius: 6;");
+        badge.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
+                "; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13px;");
+        titleBox.getChildren().addAll(subTitle, badge);
 
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        header.getChildren().addAll(badge, spacer);
+        header.getChildren().addAll(titleBox, spacer);
 
         if (onClose != null) {
-            var closeBtn = new Button("✖");
+            var closeBtn = new Button("✕");
             closeBtn.setTooltip(new Tooltip("Fermer le panneau latéral"));
-            closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #94A3B8; -fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand;");
+            closeBtn.setStyle(AppTheme.CLOSE_BUTTON_STYLE);
             closeBtn.setOnAction(e -> onClose.run());
             header.getChildren().add(closeBtn);
         }
 
-        this.getChildren().addAll(header, new Separator());
+        this.getChildren().add(header);
 
-        // 2. Propriétés de l'étape (Statut Initiale)
+        // 2. Carte : Statut Étape Initiale
+        var initCard = new VBox(6);
+        initCard.setStyle(AppTheme.CARD_STYLE);
+
         var initCheckBox = new CheckBox("Étape Initiale (Double cadre CEI 60848)");
-        initCheckBox.setStyle("-fx-font-weight: bold; -fx-text-fill: #1E293B; -fx-font-size: 12px;");
+        initCheckBox.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 12px; -fx-cursor: hand;");
         initCheckBox.setSelected(step.isInitial());
         initCheckBox.setOnAction(e -> {
             step.setInitial(initCheckBox.isSelected());
             notifyRedraw();
         });
+        initCard.getChildren().add(initCheckBox);
+        this.getChildren().add(initCard);
 
-        this.getChildren().addAll(initCheckBox, new Separator());
+        // 3. Carte : Ajout d'une nouvelle action normalisée
+        var addActionCard = new VBox(8);
+        addActionCard.setStyle(AppTheme.CARD_STYLE);
 
-        // 3. Section d'ajout d'une nouvelle action
-        var addActionBox = new VBox(8);
-        var actionTitle = new Label("Ajouter une action normalisée :");
-        actionTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #1E293B; -fx-font-size: 12px;");
+        var actionTitle = new Label("Nouvelle action CEI 61131-3 :");
+        actionTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
 
         // Sélecteur de qualificateur
-        var qualLabel = new Label("Qualificateur CEI 61131-3 :");
-        qualLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
+        var qualLabel = new Label("Qualificateur :");
+        qualLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
         var qualifierCombo = new ComboBox<String>();
         qualifierCombo.getItems().addAll(
                 "N (Continu / Non-stored)",
                 "S (Set / Mémorisé)",
-                "R (Reset)",
+                "R (Reset / Remise à 0)",
                 "L (Time Limited / Limité)",
                 "D (Time Delayed / Retardé)",
                 "P (Pulse / Impulsion)"
         );
         qualifierCombo.getSelectionModel().select(0);
         qualifierCombo.setMaxWidth(Double.MAX_VALUE);
+        qualifierCombo.setStyle("-fx-font-size: 11px;");
 
         // Champ de durée pour qualificateurs temporisés (L et D)
         var durationBox = new HBox(6);
         durationBox.setAlignment(Pos.CENTER_LEFT);
         var durationLabel = new Label("Durée :");
-        durationLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
+        durationLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
         var durationField = new TextField("5");
         durationField.setPrefWidth(60);
+        durationField.setStyle(AppTheme.TEXT_FIELD_STYLE);
         var unitCombo = new ComboBox<String>();
         unitCombo.getItems().addAll("s", "ms", "min");
         unitCombo.getSelectionModel().select(0);
+        unitCombo.setStyle("-fx-font-size: 11px;");
         durationBox.getChildren().addAll(durationLabel, durationField, unitCombo);
         durationBox.setVisible(false);
         durationBox.setManaged(false);
 
-        // Affichage dynamique du champ de durée
         qualifierCombo.setOnAction(e -> {
             String selected = qualifierCombo.getSelectionModel().getSelectedItem();
             boolean isTimed = selected != null && (selected.startsWith("L") || selected.startsWith("D"));
@@ -115,10 +127,11 @@ public class StepProperty extends VBox {
 
         // Sélecteur de variable de sortie (%Q)
         var varLabel = new Label("Variable cible (%Q) :");
-        varLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
+        varLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
         var varCombo = new ComboBox<Variable>();
         varCombo.setMaxWidth(Double.MAX_VALUE);
+        varCombo.setStyle("-fx-font-size: 11px;");
         if (outputVariables != null) {
             varCombo.getItems().addAll(outputVariables);
         }
@@ -136,10 +149,10 @@ public class StepProperty extends VBox {
             varCombo.getSelectionModel().select(0);
         }
 
-        // Bouton d'ajout d'action
-        var addBtn = new Button("➕ Associer l'action à l'étape");
+        // Bouton d'association d'action (Style Arduino Teal)
+        var addBtn = new Button("＋ Associer l'action");
         addBtn.setMaxWidth(Double.MAX_VALUE);
-        addBtn.setStyle("-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-background-radius: 6;");
+        addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
         addBtn.setOnAction(e -> {
             Variable selectedVar = varCombo.getSelectionModel().getSelectedItem();
             if (selectedVar == null) {
@@ -160,18 +173,18 @@ public class StepProperty extends VBox {
             notifyRedraw();
         });
 
-        addActionBox.getChildren().addAll(actionTitle, qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
-        this.getChildren().addAll(addActionBox, new Separator());
+        addActionCard.getChildren().addAll(actionTitle, qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
+        this.getChildren().add(addActionCard);
 
         // 4. Liste des actions associées
-        var listTitle = new Label("Actions associées à l'étape :");
-        listTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #1E293B; -fx-font-size: 12px;");
+        var listTitle = new Label("Actions associées :");
+        listTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
 
         refreshActionsList(step);
 
         var scrollPane = new ScrollPane(listOfActions);
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-width: 0;");
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
         this.getChildren().addAll(listTitle, scrollPane);
@@ -181,8 +194,8 @@ public class StepProperty extends VBox {
         listOfActions.getChildren().clear();
 
         if (step.getActions().isEmpty()) {
-            var emptyLabel = new Label("Aucune action associée.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #94A3B8; -fx-font-style: italic;");
+            var emptyLabel = new Label("Aucune action associée à cette étape.");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 8;");
             listOfActions.getChildren().add(emptyLabel);
             return;
         }
@@ -190,41 +203,44 @@ public class StepProperty extends VBox {
         for (Action action : step.getActions()) {
             var card = new HBox(8);
             card.setAlignment(Pos.CENTER_LEFT);
-            card.setPadding(new Insets(6, 8, 6, 8));
-            card.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-radius: 6;");
+            card.setPadding(new Insets(6, 10, 6, 10));
+            card.setStyle("-fx-background-color: " + AppTheme.CARD_BG + ";" +
+                    "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
+                    "-fx-border-radius: 6px;" +
+                    "-fx-background-radius: 6px;");
 
-            // Pastille du qualificateur
-            String qualText = action.qualifier() != null ? action.qualifier().trim() : "N";
+            // Pastille du qualificateur avec style unifié
+            String qual = action.qualifier() != null ? action.qualifier().trim() : "N";
+            String qualText = qual;
             if (action.hasParameter()) {
                 qualText += " (" + action.parameter() + ")";
             }
             var qualBadge = new Label(qualText);
-            String qualColor = switch (action.qualifier() != null ? action.qualifier().toUpperCase() : "N") {
-                case "S" -> "#EF4444"; // Rouge Set
-                case "R" -> "#DC2626"; // Rouge foncé Reset
-                case "L", "D" -> "#F59E0B"; // Ambre temporisé
-                default -> "#0284C7"; // Bleu standard
-            };
-            qualBadge.setStyle("-fx-background-color: " + qualColor + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 10px; -fx-padding: 2 6 2 6; -fx-background-radius: 4;");
+            qualBadge.setStyle(AppTheme.qualifierBadgeStyle(qual));
 
-            // Nom de la variable
-            var varLabel = new Label(action.variable() != null ? action.variable().getName() : "");
-            varLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #1E293B; -fx-font-size: 12px;");
+            // Nom de la variable et adresse
+            var varInfoBox = new VBox(1);
+            var varName = new Label(action.variable() != null ? action.variable().getName() : "");
+            varName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 12px;");
+
+            var varAddr = new Label(action.variable() != null ? action.variable().getAddress() : "");
+            varAddr.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-family: 'JetBrains Mono', monospace;");
+            varInfoBox.getChildren().addAll(varName, varAddr);
 
             var spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            // Bouton de suppression
+            // Bouton de suppression discret
             var delBtn = new Button("🗑");
             delBtn.setTooltip(new Tooltip("Supprimer cette action"));
-            delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #EF4444; -fx-font-size: 12px; -fx-cursor: hand;");
+            delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-cursor: hand;");
             delBtn.setOnAction(e -> {
                 step.getActions().remove(action);
                 refreshActionsList(step);
                 notifyRedraw();
             });
 
-            card.getChildren().addAll(qualBadge, varLabel, spacer, delBtn);
+            card.getChildren().addAll(qualBadge, varInfoBox, spacer, delBtn);
             listOfActions.getChildren().add(card);
         }
     }

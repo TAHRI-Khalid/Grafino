@@ -57,9 +57,9 @@ public class VariableTable extends VBox {
     private final TextField searchField = new TextField();
     private final ToggleGroup filterGroup = new ToggleGroup();
     private final ToggleButton allBtn = new ToggleButton("Toutes (0)");
-    private final ToggleButton inputsBtn = new ToggleButton("🟢 Entrées %I (0)");
-    private final ToggleButton outputsBtn = new ToggleButton("🔵 Sorties %Q (0)");
-    private final ToggleButton internalBtn = new ToggleButton("🟣 Internes %M (0)");
+    private final ToggleButton inputsBtn = new ToggleButton("Entrées %I (0)");
+    private final ToggleButton outputsBtn = new ToggleButton("Sorties %Q (0)");
+    private final ToggleButton internalBtn = new ToggleButton("Mémoires %M (0)");
 
     private Runnable onVariablesChanged;
     private java.util.function.Consumer<String> onValidationError;
@@ -67,7 +67,7 @@ public class VariableTable extends VBox {
     public VariableTable() {
         this.setSpacing(6);
         this.setPadding(new Insets(8));
-        this.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #CBD5E1; -fx-border-width: 1 0 0 0;");
+        this.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-border-color: " + AppTheme.BORDER_COLOR + "; -fx-border-width: 1 0 0 0;");
 
         // 1. Barre d'outils supérieure (Filtres, Recherche, Actions rapides)
         var toolBar = createHeaderToolbar();
@@ -91,17 +91,15 @@ public class VariableTable extends VBox {
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(2, 4, 6, 4));
 
-        // Groupement des boutons de filtres (Onglets visuels)
+        // Groupement des boutons de filtres (Onglets visuels Arduino)
         allBtn.setToggleGroup(filterGroup);
         inputsBtn.setToggleGroup(filterGroup);
         outputsBtn.setToggleGroup(filterGroup);
         internalBtn.setToggleGroup(filterGroup);
         allBtn.setSelected(true);
 
-        applyTabStyle(allBtn);
-        applyTabStyle(inputsBtn);
-        applyTabStyle(outputsBtn);
-        applyTabStyle(internalBtn);
+        updateAllTabsStyle();
+        filterGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> updateAllTabsStyle());
 
         allBtn.setOnAction(e -> { currentCategory = FilterCategory.ALL; applyFilter(); });
         inputsBtn.setOnAction(e -> { currentCategory = FilterCategory.INPUTS; applyFilter(); });
@@ -114,28 +112,28 @@ public class VariableTable extends VBox {
         // Champ de recherche instantané
         searchField.setPromptText("🔍 Rechercher une variable...");
         searchField.setPrefWidth(220);
-        searchField.setStyle("-fx-background-radius: 15; -fx-padding: 4 10 4 10; -fx-border-color: #CBD5E1; -fx-border-radius: 15;");
+        searchField.setStyle(AppTheme.TEXT_FIELD_STYLE + "; -fx-background-radius: 14px; -fx-border-radius: 14px; -fx-padding: 4 10 4 10;");
         searchField.textProperty().addListener((obs, oldV, newV) -> applyFilter());
 
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         // Boutons d'ajout rapide avec auto-incrémentation des adresses
-        var addInputBtn = new Button("➕ Entrée (%I)");
-        addInputBtn.setStyle("-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        var addInputBtn = new Button("＋ Entrée (%I)");
+        addInputBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE + "; -fx-font-size: 11px; -fx-padding: 5 10 5 10;");
         addInputBtn.setOnAction(e -> addQuickInput());
 
-        var addOutputBtn = new Button("➕ Sortie (%Q)");
-        addOutputBtn.setStyle("-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        var addOutputBtn = new Button("＋ Sortie (%Q)");
+        addOutputBtn.setStyle("-fx-background-color: " + AppTheme.ACCENT_TEAL + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 10 5 10; -fx-background-radius: 6; -fx-cursor: hand;");
         addOutputBtn.setOnAction(e -> addQuickOutput());
 
-        var addInternalBtn = new Button("➕ Mémoire (%M)");
-        addInternalBtn.setStyle("-fx-background-color: #8B5CF6; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        var addInternalBtn = new Button("＋ Mémoire (%M)");
+        addInternalBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE + "; -fx-font-size: 11px; -fx-padding: 5 10 5 10; -fx-font-weight: bold;");
         addInternalBtn.setOnAction(e -> addQuickInternal());
 
         var deleteBtn = new Button("🗑");
         deleteBtn.setTooltip(new Tooltip("Supprimer la variable sélectionnée"));
-        deleteBtn.setStyle("-fx-background-color: #EF4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        deleteBtn.setStyle("-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 8 4 8; -fx-background-radius: 6; -fx-cursor: hand;");
         deleteBtn.setOnAction(e -> removeSelectedVariable());
 
         bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, deleteBtn);
@@ -143,7 +141,33 @@ public class VariableTable extends VBox {
     }
 
     private void applyTabStyle(ToggleButton btn) {
-        btn.setStyle("-fx-background-radius: 6; -fx-padding: 4 10 4 10; -fx-font-size: 12px; -fx-font-weight: bold;");
+        boolean selected = btn.isSelected();
+        if (selected) {
+            btn.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
+                    "-fx-border-color: " + AppTheme.PRIMARY_TEAL + ";" +
+                    "-fx-border-width: 0 0 2px 0;" +
+                    "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-padding: 5 12 5 12;" +
+                    "-fx-font-size: 11px;" +
+                    "-fx-background-radius: 4 4 0 0;" +
+                    "-fx-cursor: hand;");
+        } else {
+            btn.setStyle("-fx-background-color: transparent;" +
+                    "-fx-border-color: transparent;" +
+                    "-fx-text-fill: " + AppTheme.TEXT_MUTED + ";" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-padding: 5 12 5 12;" +
+                    "-fx-font-size: 11px;" +
+                    "-fx-cursor: hand;");
+        }
+    }
+
+    private void updateAllTabsStyle() {
+        applyTabStyle(allBtn);
+        applyTabStyle(inputsBtn);
+        applyTabStyle(outputsBtn);
+        applyTabStyle(internalBtn);
     }
 
     @SuppressWarnings({"unchecked", "deprecation"})
@@ -434,9 +458,10 @@ public class VariableTable extends VBox {
         long intCount = masterData.stream().filter(Variable::isInternal).count();
 
         allBtn.setText("Toutes (" + masterData.size() + ")");
-        inputsBtn.setText("🟢 Entrées %I (" + inCount + ")");
-        outputsBtn.setText("🔵 Sorties %Q (" + outCount + ")");
-        internalBtn.setText("🟣 Internes %M (" + intCount + ")");
+        inputsBtn.setText("Entrées %I (" + inCount + ")");
+        outputsBtn.setText("Sorties %Q (" + outCount + ")");
+        internalBtn.setText("Mémoires %M (" + intCount + ")");
+        updateAllTabsStyle();
     }
 
     // ---------------- Accesseurs & Écouteurs ----------------

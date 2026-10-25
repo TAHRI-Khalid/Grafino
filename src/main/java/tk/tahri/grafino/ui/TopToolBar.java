@@ -5,6 +5,7 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
@@ -56,8 +57,13 @@ public class TopToolBar extends ToolBar {
         removeVariableImg.setFitHeight(30);
         removeVariableBtn.setGraphic(removeVariableImg);
 
-        this.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
-        this.setPadding(new Insets(10));
+        stepBtn.setTooltip(new Tooltip("Créer une Étape (S)"));
+        transitionBtn.setTooltip(new Tooltip("Créer une Transition (T)"));
+        orBranchBtn.setTooltip(new Tooltip("Divergence en OU (Sélection de séquence)"));
+        andBranchBtn.setTooltip(new Tooltip("Divergence en ET (Parallélisme / Synchronisation)"));
+
+        this.setStyle("-fx-background-color: " + AppTheme.PRIMARY_TEAL + ";");
+        this.setPadding(new Insets(6, 12, 6, 12));
 
         this.getItems().addAll(stepBtn, transitionBtn, orBranchBtn, andBranchBtn);
     }

@@ -1,9 +1,8 @@
 * {
-    -fx-main-color: #006D70;
-    -fx-accent-color: #17A1A5;
+    -fx-main-color: #008184;
+    -fx-accent-color: #00979D;
     -fx-selection-color: #FFCC00;
-    -fx-accent-selection-color: #d35400;
-
+    -fx-accent-selection-color: #D35400;
 }
 
 .toolBarButton {

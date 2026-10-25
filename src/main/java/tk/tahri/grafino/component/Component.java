@@ -5,9 +5,9 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 public abstract class Component {
-    public static final Color MAIN_COLOR = Color.rgb(0, 109, 112);
-    public static final Color LINE_COLOR = Color.rgb(23, 161, 165);
-    public static final Color SELECTION_COLOR = Color.rgb(255, 204, 0);
+    public static final Color MAIN_COLOR = Color.rgb(0, 129, 132); // #008184 Arduino Teal
+    public static final Color LINE_COLOR = Color.rgb(0, 129, 132);
+    public static final Color SELECTION_COLOR = Color.rgb(255, 204, 0); // #FFCC00 Jaune de sélection historique
     public static final double LINE_WIDTH = 2.5;
     public static final double SELECTION_CONTOUR_WIDTH = 3;
     public static final double UNIT_WIDTH = 80;

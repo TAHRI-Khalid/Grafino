@@ -11,9 +11,9 @@ Le nom **Grafino** symbolise la passerelle entre :
 * L'exécution concrète sur automates programmables industriels (**API / PLC** Siemens, Schneider, Codesys) et cibles embarquées (**Arduino / microcontrôleurs**).
 
 ### Objectif global du cycle de développement :
-1. **Édition graphique** ergonomique conforme aux règles internationales.
+1. **Édition graphique** ergonomique conforme aux règles internationales et adaptative en plein écran.
 2. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I` et observation des préactionneurs de sortie `%Q`).
-3. **Validation sémantique formelle** (détection des violations d'alternance, blocages ou conflits).
+3. **Validation sémantique formelle** (détection des violations d'alternance, adresses IEC invalides, blocages ou conflits).
 4. **Exportation documentaire** (PNG haute résolution pour rapports de TP et dossiers techniques).
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
@@ -40,15 +40,17 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 5. **Structures de divergence et convergence** :
    * **Sélection de séquence (OU)** : traits simples alternatifs avec priorités d'évaluation.
    * **Parallélisme / Synchronisation (ET)** : double barre horizontale simultanée.
-6. **Typage des variables (CEI 61131-3)** :
+6. **Typage et Adressage des variables (CEI 61131-3)** :
    * Types de données : `BOOL`, `BYTE`, `WORD`, `INT`, `DINT`, `REAL`, `TIME` (`T#2s`), `STRING`.
    * Portées : `VAR_INPUT` (%I), `VAR_OUTPUT` (%Q), `VAR` (%M local), `VAR_GLOBAL` (%G).
+   * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`).
+   * Couplage bidirectionnel strict entre la portée et l'adresse avec résolution automatique des collisions.
 
 ---
 
 ## 3. Architecture Technique & Bonnes Pratiques Java 25+
 
-Le projet utilise **Java 25** avec **JavaFX 27** et **Gradle 9.5.1**. Il applique une séparation stricte des responsabilités (Clean Architecture / Modèle Découplé) :
+Le projet utilise **Java 25** avec **JavaFX 27** et **Gradle**. Il applique une séparation stricte des responsabilités (Clean Architecture / Modèle Découplé) :
 
 ```
 tk.tahri.grafino/
@@ -68,36 +70,57 @@ tk.tahri.grafino/
 │   ├── SfcProgram.java        # Conteneur POU racine (Program Organization Unit) avec validation formelle
 │   └── SfcValidationMessage.java # Diagnostics d'analyse sémantique et erreurs de règles
 │
+├── storage/                   # Persistance JSON indépendante (zéro dépendance externe)
+│   ├── JsonValue.java         # Sealed interface du modèle AST JSON (records JsonObject, JsonArray...)
+│   ├── JsonParser.java        # Parseur et formateur JSON natif
+│   └── SfcStorage.java        # Sauvegarde/chargement .sfc et rétrocompatibilité .tk
+│
 ├── component/                 # Composants visuels pour le Canvas JavaFX
-│   ├── Component.java         # Classe de base des éléments graphiques
+│   ├── Component.java         # Classe de base des éléments graphiques (couleur primaire #008184)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions (poignées, sélection, déplacement)
-│   ├── Step.java              # Rendu de l'étape et des compartiments d'actions
-│   ├── Transition.java        # Rendu du trait de transition et de la réceptivité
+│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et actions
+│   ├── Transition.java        # Rendu de la transition et condition ST
 │   ├── Link.java              # Tracé orthogonal Manhattan, flèches et double barre
-│   ├── Action.java            # Association graphique d'action
-│   └── Variable.java          # Modèle de variable observable pour les tables JavaFX
+│   ├── Action.java            # Association graphique d'action (qualificateur, variable, paramètre)
+│   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
-├── storage/                   # Persistance et sérialisation (.sfc / .tk)
-│   └── (Moteur de lecture/écriture JSON et conformité d'exportation)
-│
-└── ui/                        # Interface Utilisateur JavaFX 27
-    ├── MainUI.java            # Fenêtre principale, menus et barre d'état
-    ├── Grafcet.java           # Canvas interactif : zoom centré, panoramique, magnétisme grille
-    ├── TopToolBar.java        # Barre d'outils graphique
-    ├── StepProperty.java      # Panneau d'édition des étapes et des blocs d'actions
-    ├── TransitionProperty.java# Panneau d'édition des réceptivités et conditions ST
-    └── VariableTable.java     # Table éditable des entrées/sorties et adresses API
+└── ui/                        # Interface Utilisateur JavaFX 27 inspirée d'Arduino IDE
+    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces)
+    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable et barre d'état
+    ├── Grafcet.java           # Canvas fluide pleine surface (ResizableCanvas)
+    ├── TopToolBar.java        # Barre d'outils graphique avec infobulles descriptives
+    ├── StepProperty.java      # Sidebar d'édition d'étape (étape initiale, qualificateurs, cartes d'action)
+    ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, puces %I, opérateurs)
+    └── VariableTable.java     # Table des variables (onglets %I/%Q/%M, recherche, auto-incrémentation)
 ```
 
 ### Principes Java 25+ appliqués :
 * **`records`** : Modélisation immuable des données de domaine (`SfcStep`, `SfcTransition`, `SfcActionBlock`, `IecVariable`, `SfcProgram`).
-* **`sealed interface`** : `SfcElement permits SfcStep, SfcTransition, SfcBranch` garantissant au compilateur l'exhaustivité totale lors des expressions `switch` avec pattern matching.
-* **Compact Constructors** : Validation stricte des invariants dès l'instanciation (interdiction de noms vides, durée obligatoire si qualificateur temporisé, collections rendues immuables par `List.copyOf`).
+* **`sealed interface`** : `SfcElement permits SfcStep, SfcTransition, SfcBranch` garantissant l'exhaustivité totale lors des expressions `switch` avec pattern matching.
+* **Compact Constructors** : Validation stricte des invariants dès l'instanciation (noms non vides, durées obligatoires pour temporisations).
 * **Indépendance UI** : Le paquet `tk.tahri.grafino.model` n'importe aucune classe JavaFX, permettant l'exécution de simulations et de tests unitaires ultra-rapides en mode headless.
 
 ---
 
-## 4. Spécification du Format de Fichier JSON (`.sfc` / `.tk`)
+## 4. Charte Graphique & Design System (Inspiration Arduino IDE)
+
+L'interface adopte les codes visuels emblématiques de **l'IDE Arduino (Arduino IDE 2.x)** :
+
+| Rôle | Teinte | Hex | Usage |
+| :--- | :--- | :--- | :--- |
+| **Arduino Teal (Primaire)** | Teal classique | `#008184` | Accent principal, barre d'outils, boutons d'action majeurs, barre d'état |
+| **Teal Vibrant (Accent)** | Teal clair | `#00979D` | Survol, boutons de sortie `%Q`, éléments sélectionnés |
+| **Teal Light (Surfaces & Puces)**| Fond cyan doux | `#E5F5F5` | Fond des puces capteurs `%I`, badges actifs, surlignage |
+| **Arduino Orange** | Orange d'alerte | `#E67E22` | Badge Transition `T<n>`, qualificateurs temporisés `L`/`D` |
+| **Arduino Red** | Rouge brique | `#D9381E` | Actions Reset `R`, suppression 🗑, alertes de syntaxe d'adresse |
+| **Surfaces Principales** | Blanc pur | `#FFFFFF` | Surface du Canvas Grafcet, fond des cartes d'édition |
+| **Surfaces Secondaires** | Gris très doux | `#F7F9FA` | Fond des panneaux latéraux (`Sidebar`), fond de la table |
+| **Bordures & Séparateurs** | Gris neutre | `#E1E4E8` | Séparateurs, contours de champs de texte et de cartes |
+| **Typographie Code** | Monospace | `'JetBrains Mono', Consolas` | Adresses API (`%I0.0`), expressions ST, qualificateurs |
+
+---
+
+## 5. Spécification du Format de Fichier JSON (`.sfc` / `.tk`)
 
 Exemple de structure d'un programme POU SFC standard :
 ```json
@@ -172,7 +195,7 @@ Exemple de structure d'un programme POU SFC standard :
 
 ---
 
-## 5. Feuille de Route (Roadmap d'Amélioration)
+## 6. Feuille de Route (Roadmap d'Amélioration)
 
 ```mermaid
 flowchart TD
@@ -182,20 +205,21 @@ flowchart TD
         A3 --> A4[Validation formelle et Tests JUnit 5]
     end
 
-    subgraph Etape2 ["Étape 2 : Persistance & Intégration UI (En cours)"]
-        B1[Couche de stockage JSON .sfc] --> B2[Pont Modèle pur <-> Composants JavaFX]
-        B2 --> B3[Panneau d'édition des actions IEC avec durées]
-        B3 --> B4[Export vectoriel PNG Haute Définition]
+    subgraph Etape2 ["Étape 2 : Persistance & Intégration UI (Terminée)"]
+        B1[Couche de stockage JSON .sfc et .tk] --> B2[Table des variables rétractable SplitPane]
+        B2 --> B3[Validation adresses IEC et couplage Scope/Adresse]
+        B3 --> B4[Sidebar d'édition Step / Transition style Arduino]
+        B4 --> B5[Canvas adaptatif plein écran ResizableCanvas]
     end
 
-    subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone"]
+    subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Prochaine étape)"]
         C1[Calcul cyclique du marquage Step.X] --> C2[Gestion temporelle Step.T et qualificateurs L/D]
         C2 --> C3[Pupitre virtuel : Forçage des entrées %I]
-        C3 --> C4[Modes Pas-à-pas et Continu]
+        C3 --> C4[Modes Pas-à-pas et Temps Réel continu]
     end
 
     subgraph Etape4 ["Étape 4 : Génération de Code Cible"]
-        D1[Exportateur Structured Text ST IEC 61131-3] --> D2[Exportateur Arduino C++ .ino]
+        D1[Exportateur Structured Text ST IEC 61131-3] --> D2[Exportateur croquis Arduino C++ .ino]
         D2 --> D3[Exportateur standard PLCopen XML]
     end
 
@@ -206,20 +230,20 @@ flowchart TD
 
 ---
 
-## 6. Commandes de Compilation & Exécution
+## 7. Commandes de Compilation & Exécution
 
 ### Prérequis
 * **Java 25** (ou JDK 21+ compatible)
-* **Gradle 9.5.1** (via wrapper fourni)
+* **Gradle 9.5.1** (ou gradle système)
 
 ### Commandes usuelles :
 ```bash
 # Lancer l'application Grafino
-./gradlew run
+gradle run
 
 # Exécuter l'ensemble des tests unitaires automatisés
-./gradlew test
+gradle test
 
 # Nettoyer les artefacts de build
-./gradlew clean
+gradle clean
 ```
