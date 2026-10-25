@@ -13,13 +13,13 @@ repositories {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(27)
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 21
+    options.release = 27
 }
 
 application {
@@ -31,7 +31,7 @@ application {
 def osName = System.getProperty("os.name").toLowerCase()
 def osClassifier = osName.contains("win") ? "win" : (osName.contains("mac") ? "mac" : "linux")
 
-def javafxVersion = project.findProperty('javafx.version') ?: '21.0.6'
+def javafxVersion = project.findProperty('javafx.version') ?: '27'
 def junitVersion = '5.13.4'
 def junitPlatformVersion = '1.13.4'
 

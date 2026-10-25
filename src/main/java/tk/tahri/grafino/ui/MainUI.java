@@ -39,9 +39,9 @@ public class MainUI extends BorderPane {
     private final VBox tableContainer = new VBox();
     private final Label tableTitleLabel = new Label("📋 Table des Variables d'Automatismes (CEI 61131-3)");
     private final Label tableSummaryLabel = new Label("0 Entrée(s) | 0 Sortie(s) | 0 Mémoire(s)");
-    private final Button toggleTableBtn = new Button("▼ Réduire");
+    private final Button toggleTableBtn = new Button("▲ Agrandir");
 
-    private boolean isTableCollapsed = false;
+    private boolean isTableCollapsed = true;
     private double lastDividerPosition = 0.68;
     private SimulationPanel activeSimulationPanel = null;
     private DiagnosticsPanel diagnosticsPanel = null;
@@ -97,7 +97,7 @@ public class MainUI extends BorderPane {
         var header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(5, 12, 5, 12));
-        header.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-border-color: " + AppTheme.BORDER_COLOR + "; -fx-border-width: 1 0 1 0;");
+        header.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-border-color: " + AppTheme.BORDER_COLOR + "; -fx-border-width: 1 0 1 0; -fx-cursor: hand;");
 
         tableTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
@@ -106,43 +106,42 @@ public class MainUI extends BorderPane {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         toggleTableBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
-        toggleTableBtn.setOnAction(e -> toggleVariableTable());
+        toggleTableBtn.setOnAction(e -> {
+            toggleVariableTable();
+            e.consume();
+        });
+
+        header.setOnMouseClicked(e -> {
+            if (e.getTarget() != toggleTableBtn) {
+                toggleVariableTable();
+            }
+        });
 
         header.getChildren().addAll(tableTitleLabel, tableSummaryLabel, spacer, toggleTableBtn);
 
         tableContainer.getChildren().addAll(header, variableTable);
         VBox.setVgrow(variableTable, Priority.ALWAYS);
 
+        // Fermé par défaut au démarrage : restreindre strictement la hauteur maximale de tableContainer
+        // à sa taille préférée (hauteur de l'en-tête seul) et empêcher le redimensionnement automatique avec le parent
+        variableTable.setVisible(false);
+        variableTable.setManaged(false);
+        tableContainer.setMaxHeight(Region.USE_PREF_SIZE);
+        SplitPane.setResizableWithParent(tableContainer, false);
+
         splitPane.getItems().addAll(grafcet, tableContainer);
-        splitPane.setDividerPositions(lastDividerPosition);
+        splitPane.setDividerPositions(1.0);
+
+        javafx.application.Platform.runLater(() -> {
+            if (isTableCollapsed) {
+                tableContainer.setMaxHeight(Region.USE_PREF_SIZE);
+                SplitPane.setResizableWithParent(tableContainer, false);
+                splitPane.setDividerPositions(1.0);
+            }
+        });
     }
 
     private void setupToolBarEvents(TopToolBar toolBar) {
-        toolBar.setOnStepBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Transition transition) {
-                grafcet.createStep(transition);
-            }
-        }));
-
-        toolBar.setOnTransitionBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Step step) {
-                grafcet.createTransition(step);
-            }
-        }));
-
-        toolBar.setOnOrBranchBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Step step) {
-                grafcet.createOrBranch(step);
-            }
-        }));
-
-        toolBar.setOnAndBranchBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Transition transition) {
-                grafcet.createAndBranch(transition);
-            }
-        }));
-
-        toolBar.setOnDeleteBtnClick(event -> grafcet.deleteSelected());
         toolBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
         toolBar.setOnDiagnosticsClick(event -> toggleDiagnosticsPanel());
         toolBar.setOnSimulationBtnClick(event -> toggleSimulation());
@@ -330,9 +329,11 @@ public class MainUI extends BorderPane {
 
     private void showVariableTable() {
         if (isTableCollapsed) {
+            tableContainer.setMaxHeight(Double.MAX_VALUE);
+            SplitPane.setResizableWithParent(tableContainer, true);
             variableTable.setVisible(true);
             variableTable.setManaged(true);
-            splitPane.setDividerPositions(lastDividerPosition > 0.1 && lastDividerPosition < 0.9 ? lastDividerPosition : 0.68);
+            splitPane.setDividerPositions(lastDividerPosition > 0.1 && lastDividerPosition < 0.95 ? lastDividerPosition : 0.68);
             toggleTableBtn.setText("▼ Réduire");
             isTableCollapsed = false;
         }
@@ -341,12 +342,14 @@ public class MainUI extends BorderPane {
     private void collapseVariableTable() {
         if (!isTableCollapsed) {
             double[] pos = splitPane.getDividerPositions();
-            if (pos.length > 0) {
+            if (pos.length > 0 && pos[0] > 0.1 && pos[0] < 0.95) {
                 lastDividerPosition = pos[0];
             }
             variableTable.setVisible(false);
             variableTable.setManaged(false);
-            splitPane.setDividerPositions(0.96);
+            tableContainer.setMaxHeight(Region.USE_PREF_SIZE);
+            SplitPane.setResizableWithParent(tableContainer, false);
+            splitPane.setDividerPositions(1.0);
             toggleTableBtn.setText("▲ Agrandir");
             isTableCollapsed = true;
         }
@@ -552,9 +555,11 @@ public class MainUI extends BorderPane {
         // 1. Enregistrement des variables IEC déclarées dans la table
         for (Variable v : variableTable.getInputVariables()) {
             simulator.getState().setBooleanVariable(v.getName(), false);
+            simulator.registerInputVariable(v.getName());
         }
         for (Variable v : variableTable.getOutputVariables()) {
             simulator.getState().setBooleanVariable(v.getName(), false);
+            simulator.registerOutputVariable(v.getName());
         }
         for (Variable v : variableTable.getCounterVariables()) {
             simulator.getState().setCounterValue(v.getName(), 0);

@@ -168,6 +168,18 @@ public class GrafcetSimulator {
         }
     }
 
+    public void registerInputVariable(String name) {
+        if (name != null && !name.isBlank()) {
+            knownInputVariables.add(SimulationState.normalizeKey(name));
+        }
+    }
+
+    public void registerOutputVariable(String name) {
+        if (name != null && !name.isBlank()) {
+            knownOutputVariables.add(SimulationState.normalizeKey(name));
+        }
+    }
+
     public void registerTransition(String id, String name, int number, String conditionST,
                                    Set<String> upstreamStepIds, Set<String> downstreamStepIds) {
         transitions.put(id, new TransitionNode(

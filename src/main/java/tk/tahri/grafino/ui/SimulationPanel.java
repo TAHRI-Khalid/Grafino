@@ -13,6 +13,7 @@ import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import tk.tahri.grafino.component.Variable;
 import tk.tahri.grafino.simulation.GrafcetSimulator;
+import tk.tahri.grafino.simulation.SimulationState;
 
 import java.util.*;
 
@@ -156,6 +157,8 @@ public class SimulationPanel extends VBox {
             // Réinitialiser les boutons d'entrée à 0
             for (var tb : toggleButtons.values()) {
                 tb.setSelected(false);
+                tb.setStyle("-fx-background-color: #F1F5F9; -fx-text-fill: #475569; -fx-font-size: 11px; " +
+                        "-fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px; -fx-border-color: #CBD5E1; -fx-border-radius: 4px;");
             }
             refreshVisuals();
         });
@@ -203,35 +206,41 @@ public class SimulationPanel extends VBox {
     private CollapsibleSection createInputsSection() {
         VBox box = new VBox(8);
 
-        // Déterminer la liste des entrées : déclarées dans la table ou répertoriées par le simulateur
-        Set<String> inputNames = new LinkedHashSet<>();
+        // Déterminer la liste unique des entrées : déclarées dans la table ou répertoriées par le simulateur
+        // Utilisation d'un dictionnaire indexé par la clé normalisée pour éviter toute duplication
+        Map<String, String> uniqueInputs = new LinkedHashMap<>(); // normalizedKey -> originalDisplayName
         Map<String, Variable> varMap = new HashMap<>();
+
         for (Variable v : inputVariables) {
             String name = v.getName();
-            inputNames.add(name);
-            varMap.put(name.toUpperCase(Locale.ROOT), v);
+            String norm = SimulationState.normalizeKey(name);
+            uniqueInputs.putIfAbsent(norm, name);
+            varMap.putIfAbsent(norm, v);
         }
         for (String simIn : simulator.getKnownInputVariables()) {
-            inputNames.add(simIn);
+            String norm = SimulationState.normalizeKey(simIn);
+            uniqueInputs.putIfAbsent(norm, simIn);
         }
 
-        if (inputNames.isEmpty()) {
+        if (uniqueInputs.isEmpty()) {
             Label emptyLbl = new Label("Aucune entrée %I déclarée. Les transitions réceptives peuvent également être testées.");
             emptyLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-wrap-text: true;");
             box.getChildren().add(emptyLbl);
         } else {
-            for (String inputName : inputNames) {
-                Variable v = varMap.get(inputName.toUpperCase(Locale.ROOT));
+            for (Map.Entry<String, String> entry : uniqueInputs.entrySet()) {
+                String norm = entry.getKey();
+                String displayName = entry.getValue();
+                Variable v = varMap.get(norm);
                 String address = (v != null && v.getAddress() != null && !v.getAddress().isBlank())
                         ? v.getAddress() : "%I?";
-                box.getChildren().add(createInputCard(inputName, address));
+                box.getChildren().add(createInputCard(norm, displayName, address));
             }
         }
 
-        return new CollapsibleSection("🟢", "Entrées Capteurs (%I)", inputNames.size() + " entrée(s)", box, true);
+        return new CollapsibleSection("🟢", "Entrées Capteurs (%I)", uniqueInputs.size() + " entrée(s)", box, true);
     }
 
-    private Node createInputCard(String name, String address) {
+    private Node createInputCard(String normKey, String displayName, String address) {
         VBox card = new VBox(6);
         card.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + AppTheme.BORDER_COLOR +
                 "; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 8px;");
@@ -240,7 +249,7 @@ public class SimulationPanel extends VBox {
         HBox top = new HBox(8);
         top.setAlignment(Pos.CENTER_LEFT);
 
-        Label nameLbl = new Label(name);
+        Label nameLbl = new Label(displayName);
         nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
 
         Label addrBadge = new Label(address);
@@ -252,7 +261,7 @@ public class SimulationPanel extends VBox {
         // Témoin LED d'état de l'entrée
         Label ledIndicator = new Label("0");
         ledIndicator.setStyle(getLedStyle(false));
-        inputLedIndicators.put(name.toUpperCase(Locale.ROOT), ledIndicator);
+        inputLedIndicators.put(normKey, ledIndicator);
 
         top.getChildren().addAll(nameLbl, addrBadge, spacer, ledIndicator);
 
@@ -265,7 +274,7 @@ public class SimulationPanel extends VBox {
         pushBtn.setStyle("-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-weight: bold; " +
                 "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px;");
         pushBtn.setOnMousePressed(e -> {
-            simulator.setInput(name, true);
+            simulator.setInput(normKey, true);
             pushBtn.setStyle("-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
                     "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px;");
             simulator.step();
@@ -273,9 +282,9 @@ public class SimulationPanel extends VBox {
         });
         pushBtn.setOnMouseReleased(e -> {
             // Ne repasser à false que si le bouton bascule n'est pas actif
-            ToggleButton tb = toggleButtons.get(name.toUpperCase(Locale.ROOT));
+            ToggleButton tb = toggleButtons.get(normKey);
             if (tb == null || !tb.isSelected()) {
-                simulator.setInput(name, false);
+                simulator.setInput(normKey, false);
             }
             pushBtn.setStyle("-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-weight: bold; " +
                     "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px;");
@@ -289,7 +298,7 @@ public class SimulationPanel extends VBox {
                 "-fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px; -fx-border-color: #CBD5E1; -fx-border-radius: 4px;");
         toggleBtn.setOnAction(e -> {
             boolean active = toggleBtn.isSelected();
-            simulator.setInput(name, active);
+            simulator.setInput(normKey, active);
             if (active) {
                 toggleBtn.setStyle("-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
                         "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px;");
@@ -300,7 +309,7 @@ public class SimulationPanel extends VBox {
             simulator.step();
             refreshVisuals();
         });
-        toggleButtons.put(name.toUpperCase(Locale.ROOT), toggleBtn);
+        toggleButtons.put(normKey, toggleBtn);
 
         actions.getChildren().addAll(pushBtn, toggleBtn);
         card.getChildren().addAll(top, actions);
@@ -310,34 +319,41 @@ public class SimulationPanel extends VBox {
     private CollapsibleSection createOutputsSection() {
         VBox box = new VBox(8);
 
-        Set<String> outputNames = new LinkedHashSet<>();
+        // Déterminer la liste unique des sorties : déclarées dans la table ou répertoriées par le simulateur
+        // Utilisation d'un dictionnaire indexé par la clé normalisée pour éviter toute duplication
+        Map<String, String> uniqueOutputs = new LinkedHashMap<>(); // normalizedKey -> originalDisplayName
         Map<String, Variable> varMap = new HashMap<>();
+
         for (Variable v : outputVariables) {
             String name = v.getName();
-            outputNames.add(name);
-            varMap.put(name.toUpperCase(Locale.ROOT), v);
+            String norm = SimulationState.normalizeKey(name);
+            uniqueOutputs.putIfAbsent(norm, name);
+            varMap.putIfAbsent(norm, v);
         }
         for (String simOut : simulator.getKnownOutputVariables()) {
-            outputNames.add(simOut);
+            String norm = SimulationState.normalizeKey(simOut);
+            uniqueOutputs.putIfAbsent(norm, simOut);
         }
 
-        if (outputNames.isEmpty()) {
+        if (uniqueOutputs.isEmpty()) {
             Label emptyLbl = new Label("Aucune sortie %Q déclarée.");
             emptyLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
             box.getChildren().add(emptyLbl);
         } else {
-            for (String outName : outputNames) {
-                Variable v = varMap.get(outName.toUpperCase(Locale.ROOT));
+            for (Map.Entry<String, String> entry : uniqueOutputs.entrySet()) {
+                String norm = entry.getKey();
+                String displayName = entry.getValue();
+                Variable v = varMap.get(norm);
                 String address = (v != null && v.getAddress() != null && !v.getAddress().isBlank())
                         ? v.getAddress() : "%Q?";
-                box.getChildren().add(createOutputCard(outName, address));
+                box.getChildren().add(createOutputCard(norm, displayName, address));
             }
         }
 
-        return new CollapsibleSection("💡", "Sorties Actionneurs (%Q)", outputNames.size() + " lampe(s)", box, true);
+        return new CollapsibleSection("💡", "Sorties Actionneurs (%Q)", uniqueOutputs.size() + " lampe(s)", box, true);
     }
 
-    private Node createOutputCard(String name, String address) {
+    private Node createOutputCard(String normKey, String displayName, String address) {
         HBox card = new HBox(12);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + AppTheme.BORDER_COLOR +
@@ -348,10 +364,10 @@ public class SimulationPanel extends VBox {
         lamp.setFill(Color.rgb(100, 116, 139)); // Éteinte par défaut (gris ardoise)
         lamp.setStroke(Color.rgb(71, 85, 105));
         lamp.setStrokeWidth(1.5);
-        outputLamps.put(name.toUpperCase(Locale.ROOT), lamp);
+        outputLamps.put(normKey, lamp);
 
         VBox info = new VBox(2);
-        Label nameLbl = new Label(name);
+        Label nameLbl = new Label(displayName);
         nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
 
         Label addrBadge = new Label(address);
@@ -364,7 +380,7 @@ public class SimulationPanel extends VBox {
         // État de la lampe : ALLUMÉE ou ÉTEINTE
         Label stateLbl = new Label("ÉTEINTE");
         stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
-        outputStateLabels.put(name.toUpperCase(Locale.ROOT), stateLbl);
+        outputStateLabels.put(normKey, stateLbl);
 
         card.getChildren().addAll(lamp, info, spacer, stateLbl);
         return card;
@@ -373,21 +389,28 @@ public class SimulationPanel extends VBox {
     private CollapsibleSection createCountersSection() {
         VBox box = new VBox(6);
 
-        Set<String> counterNames = new LinkedHashSet<>();
+        Map<String, String> uniqueCounters = new LinkedHashMap<>();
+
         for (Variable v : counterVariables) {
-            counterNames.add(v.getName());
+            String name = v.getName();
+            String norm = SimulationState.normalizeKey(name);
+            uniqueCounters.putIfAbsent(norm, name);
         }
         for (String cName : simulator.getState().getCounterVariables().keySet()) {
-            counterNames.add(cName);
+            String norm = SimulationState.normalizeKey(cName);
+            uniqueCounters.putIfAbsent(norm, cName);
         }
 
-        for (String cName : counterNames) {
+        for (Map.Entry<String, String> entry : uniqueCounters.entrySet()) {
+            String norm = entry.getKey();
+            String displayName = entry.getValue();
+
             HBox row = new HBox(10);
             row.setAlignment(Pos.CENTER_LEFT);
             row.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + AppTheme.BORDER_COLOR +
                     "; -fx-border-radius: 4px; -fx-padding: 6px 10px;");
 
-            Label name = new Label(cName);
+            Label name = new Label(displayName);
             name.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
 
             var spacer = new Region();
@@ -395,13 +418,13 @@ public class SimulationPanel extends VBox {
 
             Label valLbl = new Label("Valeur : 0");
             valLbl.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #7C3AED;");
-            counterValueLabels.put(cName.toUpperCase(Locale.ROOT), valLbl);
+            counterValueLabels.put(norm, valLbl);
 
             row.getChildren().addAll(name, spacer, valLbl);
             box.getChildren().add(row);
         }
 
-        return new CollapsibleSection("🔢", "Compteurs Industriels", counterNames.size() + " actif(s)", box, true);
+        return new CollapsibleSection("🔢", "Compteurs Industriels", uniqueCounters.size() + " actif(s)", box, true);
     }
 
     private void runSimulationTick() {

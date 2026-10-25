@@ -303,4 +303,24 @@ class GrafcetSimulatorTest {
         // Expression combinée avec parenthèses : (a + b) . /b . c
         assertTrue(ReceptivityEvaluator.evaluate("(a + b) . /b . c", state, 0, null));
     }
+
+    @Test
+    @DisplayName("Variables : Déduplication et insensibilité à la casse des entrées et sorties")
+    void testVariableCaseInsensitivityAndRegistration() {
+        var simulator = new GrafcetSimulator();
+        simulator.registerInputVariable("e_0");
+        simulator.registerInputVariable("E_0");
+        simulator.registerOutputVariable("s_0");
+        simulator.registerOutputVariable("S_0");
+
+        assertEquals(1, simulator.getKnownInputVariables().size());
+        assertTrue(simulator.getKnownInputVariables().contains("E_0"));
+
+        assertEquals(1, simulator.getKnownOutputVariables().size());
+        assertTrue(simulator.getKnownOutputVariables().contains("S_0"));
+
+        simulator.setInput("e_0", true);
+        assertTrue(simulator.getInput("E_0"));
+        assertTrue(simulator.getInput("e_0"));
+    }
 }

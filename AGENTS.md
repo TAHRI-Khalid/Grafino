@@ -12,7 +12,8 @@ Le nom **Grafino** symbolise la passerelle entre :
 
 ### Objectif global du cycle de développement :
 1. **Édition graphique fluide & assistée (style Siemens TIA Portal S7-GRAPH)** :
-   * Insertion contextuelle intelligente en un clic (*Smart Quick-Add Handles*).
+   * Insertion contextuelle intelligente en un clic (*Smart Quick-Add Handles* [＋], [⑂], [✕] directement sur le Canvas).
+   * Raccourcis clavier universels rapides (`T`/`Entrée` transition, `S`/`Entrée` étape, `B` branche, `Suppr` suppression) permettant d'épurer la barre d'outils supérieure des boutons redondants.
    * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / bouton `📐 Aligner`).
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`).
@@ -23,6 +24,7 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Raccourcis clavier universels (`Ctrl + N`, `Ctrl + O`, `Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + E`).
    * Exportation documentaire PNG haute résolution (échelle x2 avec titre et cartouche pour rapports de TP).
    * Synchronisation dynamique du titre de la fenêtre avec le fichier ouvert et indicateur de modification.
+   * **Table des variables d'automatismes rétractable** : fermée par défaut au démarrage et ancrée en bas sans zone résiduelle (`SplitPane.setResizableWithParent(tableContainer, false)` et `maxHeight` contrainte à l'en-tête), dépliable en un clic sur l'en-tête ou le bouton `▲ Agrandir`.
 3. **Pédagogie & Compréhension Visuelle en Simulation** :
    * **Visualisation tripartite de franchissabilité** selon la Règle 2 CEI 60848 :
      - *Non validée* (trait sombre `#4B5563`, étapes amont inactives).
@@ -32,7 +34,7 @@ Le nom **Grafino** symbolise la passerelle entre :
      - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`).
      - Détection continue des non-conformités (absence d'étape initiale, non-alternance, temporisations orphelines, compteurs sans qualificateur impulsionnel `P`).
      - Bouton `[🔍 Localiser]` pour centrer et surligner instantanément l'élément fautif sur le Canvas.
-4. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` et des compteurs INT).
+4. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` avec lampes témoins industrielles et compteurs INT, déduplication insensible à la casse des variables pour éviter les artefacts d'affichage).
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
 ---
@@ -78,7 +80,7 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 
 ---
 
-## 3. Architecture Technique & Bonnes Pratiques Java 21+ / 25+
+## 3. Architecture Technique & Bonnes Pratiques Java 27+
 
 Le projet applique une séparation stricte des responsabilités (Clean Architecture / Modèle Découplé) :
 
@@ -126,10 +128,10 @@ tk.tahri.grafino/
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
-    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur et gestion de projet
+    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, table des variables fermée par défaut et gestion de projet
     ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG haute résolution, sélection d'élément)
-    ├── TopToolBar.java        # Barre d'outils graphique (menu Fichier, création, suppression 🗑, diagnostic, auto-layout 📐, zoom, simulation)
-    ├── SimulationPanel.java   # Pupitre virtuel droit (boutons poussoirs/bascules %I, lampes LED %Q, compteurs, contrôles synchrone)
+    ├── TopToolBar.java        # Barre d'outils graphique épurée (menu Fichier, auto-layout 📐, diagnostic, simulation, zoom)
+    ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
     ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
     ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
@@ -312,8 +314,8 @@ flowchart TD
 ## 8. Commandes de Compilation & Exécution
 
 ### Prérequis
-* **JDK 21+ ou Java 25**
-* **Gradle 9.4+ / 9.5+** (ou script `./gradlew`)
+* **JDK 27+** (avec JavaFX 27)
+* **Gradle 9.8+** (ou script `./gradlew`)
 
 ### Commandes usuelles :
 ```bash
