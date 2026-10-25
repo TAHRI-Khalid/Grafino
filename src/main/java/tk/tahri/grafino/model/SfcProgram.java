@@ -123,6 +123,40 @@ public record SfcProgram(
             });
         }
 
+        // Règle 5 : Validation des compteurs (Initialisation, Incrémentation/Décrémentation et Tests de réceptivité)
+        for (SfcStep step : steps) {
+            for (SfcActionBlock action : step.actionBlocks()) {
+                SfcCounterOperation.extractAssignedVariable(action.variableName()).ifPresent(varName -> {
+                    boolean varExists = variables.stream().anyMatch(v -> v.name().equalsIgnoreCase(varName));
+                    if (!varExists && !variables.isEmpty()) {
+                        messages.add(SfcValidationMessage.warning(step.id(),
+                                "L'action de comptage dans l'étape " + step.name() + " assigne une variable non déclarée : '" + varName + "'."));
+                    }
+                    // Avertissement pédagogique : qualificateur continu N sur une incrémentation/décrémentation
+                    boolean isEvolution = action.variableName().contains("+") || action.variableName().contains("-");
+                    if (isEvolution && action.qualifier() == SfcQualifier.N) {
+                        messages.add(SfcValidationMessage.warning(step.id(),
+                                "Règle CEI 61131-3 : l'évolution de compteur '" + action.variableName()
+                                        + "' dans l'étape " + step.name() + " utilise le qualificateur continu 'N'. Le qualificateur 'P' (Pulse) est recommandé."));
+                    }
+                });
+            }
+        }
+
+        for (SfcTransition transition : transitions) {
+            for (SfcCounterOperation.Comparison comp : SfcCounterOperation.findComparisons(transition.conditionST())) {
+                var variableOpt = findVariableByName(comp.counterName());
+                if (variableOpt.isEmpty() && !variables.isEmpty()) {
+                    messages.add(SfcValidationMessage.warning(transition.id(),
+                            "La transition " + transition.name() + " compare une variable de comptage non déclarée : '" + comp.counterName() + "'."));
+                } else if (variableOpt.isPresent() && variableOpt.get().type() == IecDataType.BOOL) {
+                    messages.add(SfcValidationMessage.warning(transition.id(),
+                            "La variable '" + comp.counterName() + "' testée numériquement dans la transition " + transition.name()
+                                    + " est déclarée en BOOL au lieu d'un type entier (INT)."));
+                }
+            }
+        }
+
         return List.copyOf(messages);
     }
 }

@@ -55,6 +55,11 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
    * **Format Grafcet standard CEI 60848 (format par défaut de Grafino)** : $t_n / X_i / d$ (générique $t / X_i / d$, ex : `t/X1/5s`, `t1/X2/500ms`). La réceptivité devient vraie dès que l'étape associée $X_i$ (par défaut l'étape amont directe) a été active de manière continue pendant la durée $d$.
    * **Format Structured Text CEI 61131-3** : $X_i.t \ge T\#d$ ou $Step_i.t \ge T\#d$ (ex : `X1.t >= T#5s`).
    * Assistant interactif dans la barre latérale avec détection automatique de l'étape amont, calcul d'aperçu dynamique et injection contextuelle.
+9. **Compteurs industriels (CEI 60848 & CEI 61131-3 Structured Text)** :
+   * **Initialisation** : action d'étape avec assignation `C1 := 0` (ou valeur initiale personnalisée).
+   * **Évolution (Incrémentation / Décrémentation)** : `C1 := C1 + 1` ou `C1 := C1 - 1`.
+   * **Règle Pédagogique Qualificateur P** : l'évolution de compteur doit impérativement utiliser le qualificateur impulsionnel `P` (Pulse) pour ne s'exécuter qu'une seule fois par passage dans l'étape (et non à chaque cycle automate continu `N`).
+   * **Tests de réceptivité** : expressions comparatives en Structured Text (`C1 < 5` pour boucle de reprise, `C1 >= 5` pour fin de lot, `=`, `<>`, `>`, `<=`).
 
 ---
 
@@ -69,6 +74,7 @@ tk.tahri.grafino/
 │   ├── SfcStep.java           # Record d'étape (id, name, number, isInitial, actionBlocks)
 │   ├── SfcTransition.java     # Record de transition (id, name, number, conditionST en Structured Text)
 │   ├── SfcTimerCondition.java # Record de temporisateur normalisé (parsing regex, formats t/Xi/d et ST)
+│   ├── SfcCounterOperation.java# Record et utilitaires de compteurs (init C:=0, inc C:=C+1, tests C<5)
 │   ├── SfcBranch.java         # Record de synchronisation et aiguillage
 │   ├── SfcBranchType.java     # Enum : DIVERGENCE_OR, CONVERGENCE_OR, DIVERGENCE_AND, CONVERGENCE_AND
 │   ├── SfcLink.java           # Record d'arc orienté avec points de routage Manhattan
@@ -89,10 +95,10 @@ tk.tahri.grafino/
 ├── component/                 # Composants visuels pour le Canvas JavaFX
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
-│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions
+│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions ST
 │   ├── Transition.java        # Rendu de la transition (trait transversal unique) et détection étape amont
 │   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante
-│   ├── Action.java            # Association graphique d'action (qualificateur, variable, paramètre)
+│   ├── Action.java            # Association graphique d'action (qualificateur, variable ou expression ST)
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
 └── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
@@ -100,9 +106,9 @@ tk.tahri.grafino/
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
     ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place)
     ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－)
-    ├── StepProperty.java      # Sidebar d'édition d'étape (étape initiale, qualificateurs, cartes d'action)
-    ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, temporisateurs t/Xi/d, puces %I, opérateurs)
-    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M)
+    ├── StepProperty.java      # Sidebar d'étape (init C:=0, inc C:=C+1, qualificateurs, cartes d'action)
+    ├── TransitionProperty.java# Sidebar de transition (condition ST, tests C<5, temporisateurs t/Xi/d, puces %I)
+    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
 ```
 
 ### Principes appliqués :

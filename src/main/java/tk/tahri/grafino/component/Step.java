@@ -84,7 +84,7 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
 
         for (Action action : actions) {
             String qual = action.qualifier() != null ? action.qualifier().trim() : "N";
-            String varName = action.variable() != null ? action.variable().getName().toUpperCase() : "";
+            String varName = action.getDisplayText();
             if (action.hasParameter()) {
                 qual += " " + action.parameter();
             }

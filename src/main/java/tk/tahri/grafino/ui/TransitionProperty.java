@@ -7,6 +7,7 @@ import javafx.scene.layout.*;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Transition;
 import tk.tahri.grafino.component.Variable;
+import tk.tahri.grafino.model.SfcCounterOperation;
 import tk.tahri.grafino.model.SfcTimerCondition;
 
 import java.util.ArrayList;
@@ -16,24 +17,30 @@ import java.util.Optional;
 /**
  * Panneau latéral droit d'édition d'une transition SFC (CEI 61131-3 / CEI 60848).
  * Intègre un configurateur intuitif de temporisateur normalisé (format générique par défaut t/X1/5s),
- * l'insertion d'opérateurs logiques rapides et la liaison avec les variables d'entrée %I.
+ * un générateur de tests de compteurs (C < 5, C >= 10...), l'insertion d'opérateurs logiques/comparateurs
+ * et la liaison avec les variables d'entrée %I.
  */
 public class TransitionProperty extends VBox {
 
     public TransitionProperty(Transition transition) {
-        this(transition, List.of(), List.of(), null, null);
+        this(transition, List.of(), List.of(), List.of(), null, null);
     }
 
     public TransitionProperty(Transition transition, List<Variable> inputVariables, Runnable onModified) {
-        this(transition, inputVariables, List.of(), onModified, null);
+        this(transition, inputVariables, List.of(), List.of(), onModified, null);
     }
 
     public TransitionProperty(Transition transition, List<Variable> inputVariables, Runnable onModified, Runnable onClose) {
-        this(transition, inputVariables, List.of(), onModified, onClose);
+        this(transition, inputVariables, List.of(), List.of(), onModified, onClose);
     }
 
     public TransitionProperty(Transition transition, List<Variable> inputVariables, List<Step> availableSteps,
                               Runnable onModified, Runnable onClose) {
+        this(transition, inputVariables, availableSteps, List.of(), onModified, onClose);
+    }
+
+    public TransitionProperty(Transition transition, List<Variable> inputVariables, List<Step> availableSteps,
+                              List<Variable> counterVariables, Runnable onModified, Runnable onClose) {
         this.setPrefWidth(360);
         this.setMinWidth(330);
         this.setSpacing(12);
@@ -77,7 +84,7 @@ public class TransitionProperty extends VBox {
 
         var receptivityField = new TextField(transition.getReceptivity());
         receptivityField.setStyle(AppTheme.MONO_FIELD_STYLE);
-        receptivityField.setPromptText("ex: t/X1/5s, dcy AND NOT arret, 1");
+        receptivityField.setPromptText("ex: t/X1/5s, C1 < 5, dcy AND NOT arret");
 
         // Mise à jour instantanée du tracé graphique sur le Canvas
         receptivityField.textProperty().addListener((obs, oldV, newV) -> {
@@ -90,15 +97,19 @@ public class TransitionProperty extends VBox {
         recCard.getChildren().addAll(recLabel, receptivityField);
         this.getChildren().add(recCard);
 
-        // 3. Carte : Temporisateur normalisé (CEI 60848 / CEI 61131-3)
+        // 3. Carte : Test de Compteur (CEI 61131-3)
+        var counterCard = createCounterConditionCard(counterVariables, receptivityField);
+        this.getChildren().add(counterCard);
+
+        // 4. Carte : Temporisateur normalisé (CEI 60848 / CEI 61131-3)
         var timerCard = createTimerCard(transition, availableSteps, receptivityField);
         this.getChildren().add(timerCard);
 
-        // 4. Carte : Opérateurs logiques rapides
+        // 5. Carte : Opérateurs logiques et de comparaison rapides
         var opCard = new VBox(8);
         opCard.setStyle(AppTheme.CARD_STYLE);
 
-        var opLabel = new Label("Opérateurs logiques rapides :");
+        var opLabel = new Label("Opérateurs logiques & comparateurs :");
         opLabel.setStyle(AppTheme.SECTION_HEADER_STYLE);
 
         var opButtons = new FlowPane(6, 6);
@@ -109,12 +120,18 @@ public class TransitionProperty extends VBox {
         addOperatorBtn(opButtons, receptivityField, "Front ↑", "↑");
         addOperatorBtn(opButtons, receptivityField, "Front ↓", "↓");
         addOperatorBtn(opButtons, receptivityField, "( )", "()");
+        addOperatorBtn(opButtons, receptivityField, "<", " < ");
+        addOperatorBtn(opButtons, receptivityField, ">=", " >= ");
+        addOperatorBtn(opButtons, receptivityField, "<=", " <= ");
+        addOperatorBtn(opButtons, receptivityField, ">", " > ");
+        addOperatorBtn(opButtons, receptivityField, "=", " = ");
+        addOperatorBtn(opButtons, receptivityField, "<>", " <> ");
         addOperatorBtn(opButtons, receptivityField, "⏱ t/X/d", "t/X1/5s");
 
         opCard.getChildren().addAll(opLabel, opButtons);
         this.getChildren().add(opCard);
 
-        // 5. Carte : Puces des capteurs d'entrée (%I)
+        // 6. Carte : Puces des capteurs d'entrée (%I)
         var inputsCard = new VBox(8);
         inputsCard.setStyle(AppTheme.CARD_STYLE);
 
@@ -139,6 +156,109 @@ public class TransitionProperty extends VBox {
         }
 
         this.getChildren().add(inputsCard);
+    }
+
+    /**
+     * Crée la carte interactive de configuration du test de compteur (C < 5, C >= 10...).
+     */
+    private VBox createCounterConditionCard(List<Variable> counterVariables, TextField targetField) {
+        var card = new VBox(8);
+        card.setStyle(AppTheme.CARD_STYLE);
+
+        var header = new HBox(6);
+        header.setAlignment(Pos.CENTER_LEFT);
+        var icon = new Label("🔢");
+        icon.setStyle("-fx-font-size: 13px;");
+        var title = new Label("Test de Compteur (CEI 61131-3) :");
+        title.setStyle(AppTheme.SECTION_HEADER_STYLE);
+        header.getChildren().addAll(icon, title);
+        card.getChildren().add(header);
+
+        // Ligne 1 : Choix du compteur
+        var row = new HBox(8);
+        row.setAlignment(Pos.CENTER_LEFT);
+        var cLbl = new Label("Compteur :");
+        cLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        cLbl.setPrefWidth(70);
+
+        var counterCombo = new ComboBox<String>();
+        counterCombo.setEditable(true);
+        counterCombo.setPrefWidth(90);
+        if (counterVariables != null && !counterVariables.isEmpty()) {
+            for (Variable v : counterVariables) {
+                counterCombo.getItems().add(v.getName());
+            }
+        }
+        if (counterCombo.getItems().isEmpty()) {
+            counterCombo.getItems().addAll("C1", "C2");
+        }
+        counterCombo.setValue(counterCombo.getItems().getFirst());
+
+        // Ligne 2 : Opérateur
+        var opCombo = new ComboBox<String>();
+        opCombo.getItems().addAll(
+                "< (Boucle reprise)",
+                ">= (Fin de lot)",
+                "<= (Inférieur ou égal)",
+                "> (Strictement supérieur)",
+                "= (Égalité)",
+                "<> (Différent)"
+        );
+        opCombo.setValue("< (Boucle reprise)");
+        opCombo.setPrefWidth(130);
+        HBox.setHgrow(opCombo, Priority.ALWAYS);
+
+        // Ligne 3 : Seuil
+        var valField = new TextField("5");
+        valField.setStyle(AppTheme.TEXT_FIELD_STYLE);
+        valField.setPrefWidth(55);
+
+        row.getChildren().addAll(cLbl, counterCombo, opCombo, valField);
+        card.getChildren().add(row);
+
+        // Aperçu dynamique
+        var previewBox = new HBox(6);
+        previewBox.setAlignment(Pos.CENTER_LEFT);
+        previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
+
+        var prevTitle = new Label("Aperçu :");
+        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        var prevValue = new Label();
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        previewBox.getChildren().addAll(prevTitle, prevValue);
+        card.getChildren().add(previewBox);
+
+        Runnable updatePreview = () -> {
+            String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
+                    ? counterCombo.getValue().trim() : "C1";
+            String opRaw = opCombo.getValue() != null ? opCombo.getValue().split(" ")[0] : "<";
+            int val = 5;
+            try {
+                val = Integer.parseInt(valField.getText().trim());
+            } catch (Exception ignored) {}
+
+            String condition = SfcCounterOperation.formatComparison(cName, opRaw, val);
+            prevValue.setText(condition);
+        };
+
+        counterCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        opCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        valField.textProperty().addListener((obs, o, n) -> updatePreview.run());
+        updatePreview.run();
+
+        // Bouton d'insertion
+        var insertBtn = new Button("➕ Insérer le test de comptage");
+        insertBtn.setMaxWidth(Double.MAX_VALUE);
+        insertBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        insertBtn.setOnAction(e -> {
+            updatePreview.run();
+            insertTextAtCursor(targetField, prevValue.getText());
+        });
+        card.getChildren().add(insertBtn);
+
+        return card;
     }
 
     /**

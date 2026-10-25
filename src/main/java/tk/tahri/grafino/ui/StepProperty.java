@@ -8,12 +8,16 @@ import javafx.util.StringConverter;
 import tk.tahri.grafino.component.Action;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Variable;
+import tk.tahri.grafino.model.SfcCounterOperation;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Panneau latéral droit d'édition d'une étape SFC (CEI 61131-3 / CEI 60848).
- * Harmonisé avec la charte graphique de l'éditeur Arduino.
+ * Comprend la gestion des actions classiques (%Q), des opérations sur compteurs industriels
+ * (Initialisation, Incrémentation, Décrémentation avec qualificateur impulsionnel 'P')
+ * et l'état d'étape initiale.
  */
 public class StepProperty extends VBox {
 
@@ -21,17 +25,22 @@ public class StepProperty extends VBox {
     private final Runnable onModified;
 
     public StepProperty(Step step, List<Variable> outputVariables) {
-        this(step, outputVariables, null, null);
+        this(step, outputVariables, List.of(), null, null);
     }
 
     public StepProperty(Step step, List<Variable> outputVariables, Runnable onModified) {
-        this(step, outputVariables, onModified, null);
+        this(step, outputVariables, List.of(), onModified, null);
     }
 
     public StepProperty(Step step, List<Variable> outputVariables, Runnable onModified, Runnable onClose) {
+        this(step, outputVariables, List.of(), onModified, onClose);
+    }
+
+    public StepProperty(Step step, List<Variable> outputVariables, List<Variable> counterVariables,
+                        Runnable onModified, Runnable onClose) {
         this.onModified = onModified;
-        this.setPrefWidth(350);
-        this.setMinWidth(320);
+        this.setPrefWidth(360);
+        this.setMinWidth(330);
         this.setSpacing(12);
         this.setPadding(new Insets(14));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -78,11 +87,15 @@ public class StepProperty extends VBox {
         initCard.getChildren().add(initCheckBox);
         this.getChildren().add(initCard);
 
-        // 3. Carte : Ajout d'une nouvelle action normalisée
+        // 3. Carte : Opérations sur Compteur (CEI 61131-3)
+        var counterCard = createCounterActionCard(step, counterVariables);
+        this.getChildren().add(counterCard);
+
+        // 4. Carte : Ajout d'une action de commande classique (%Q)
         var addActionCard = new VBox(8);
         addActionCard.setStyle(AppTheme.CARD_STYLE);
 
-        var actionTitle = new Label("Nouvelle action CEI 61131-3 :");
+        var actionTitle = new Label("Action de sortie classique (%Q) :");
         actionTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
 
         // Sélecteur de qualificateur
@@ -150,9 +163,9 @@ public class StepProperty extends VBox {
         }
 
         // Bouton d'association d'action (Style Arduino Teal)
-        var addBtn = new Button("＋ Associer l'action");
+        var addBtn = new Button("＋ Associer l'action %Q");
         addBtn.setMaxWidth(Double.MAX_VALUE);
-        addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        addBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
         addBtn.setOnAction(e -> {
             Variable selectedVar = varCombo.getSelectionModel().getSelectedItem();
             if (selectedVar == null) {
@@ -176,8 +189,8 @@ public class StepProperty extends VBox {
         addActionCard.getChildren().addAll(actionTitle, qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
         this.getChildren().add(addActionCard);
 
-        // 4. Liste des actions associées
-        var listTitle = new Label("Actions associées :");
+        // 5. Liste des actions associées
+        var listTitle = new Label("Actions associées à l'étape :");
         listTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
 
         refreshActionsList(step);
@@ -188,6 +201,179 @@ public class StepProperty extends VBox {
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
         this.getChildren().addAll(listTitle, scrollPane);
+    }
+
+    /**
+     * Crée la carte interactive pour les actions sur compteurs (C := 0, C := C + 1, C := C - 1).
+     */
+    private VBox createCounterActionCard(Step step, List<Variable> counterVariables) {
+        var card = new VBox(8);
+        card.setStyle(AppTheme.CARD_STYLE);
+
+        var header = new HBox(6);
+        header.setAlignment(Pos.CENTER_LEFT);
+        var icon = new Label("🔢");
+        icon.setStyle("-fx-font-size: 13px;");
+        var title = new Label("Opération sur Compteur (CEI 61131-3) :");
+        title.setStyle(AppTheme.SECTION_HEADER_STYLE);
+        header.getChildren().addAll(icon, title);
+        card.getChildren().add(header);
+
+        // Ligne 1 : Choix du compteur
+        var counterRow = new HBox(8);
+        counterRow.setAlignment(Pos.CENTER_LEFT);
+        var cLbl = new Label("Compteur :");
+        cLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        cLbl.setPrefWidth(85);
+
+        var counterCombo = new ComboBox<String>();
+        counterCombo.setEditable(true);
+        counterCombo.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(counterCombo, Priority.ALWAYS);
+
+        if (counterVariables != null && !counterVariables.isEmpty()) {
+            for (Variable v : counterVariables) {
+                counterCombo.getItems().add(v.getName());
+            }
+        }
+        if (counterCombo.getItems().isEmpty()) {
+            counterCombo.getItems().addAll("C1", "C2");
+        }
+        counterCombo.setValue(counterCombo.getItems().getFirst());
+        counterRow.getChildren().addAll(cLbl, counterCombo);
+        card.getChildren().add(counterRow);
+
+        // Ligne 2 : Type d'opération
+        var opGroup = new ToggleGroup();
+        var rbInc = new RadioButton("Incrémenter (C := C + 1)");
+        rbInc.setToggleGroup(opGroup);
+        rbInc.setSelected(true);
+        rbInc.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+
+        var rbInit = new RadioButton("Initialiser (C := 0)");
+        rbInit.setToggleGroup(opGroup);
+        rbInit.setStyle("-fx-font-size: 11px;");
+
+        var rbDec = new RadioButton("Décrémenter (C := C - 1)");
+        rbDec.setToggleGroup(opGroup);
+        rbDec.setStyle("-fx-font-size: 11px;");
+
+        var opBox = new VBox(4, rbInc, rbInit, rbDec);
+        card.getChildren().add(opBox);
+
+        // Ligne 3 : Valeur / Pas
+        var valRow = new HBox(8);
+        valRow.setAlignment(Pos.CENTER_LEFT);
+        var valLbl = new Label("Valeur / Pas :");
+        valLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        valLbl.setPrefWidth(85);
+
+        var valField = new TextField("1");
+        valField.setStyle(AppTheme.TEXT_FIELD_STYLE);
+        valField.setPrefWidth(70);
+
+        valRow.getChildren().addAll(valLbl, valField);
+        card.getChildren().add(valRow);
+
+        // Ligne 4 : Qualificateur (P par défaut avec note pédagogique)
+        var qualRow = new HBox(8);
+        qualRow.setAlignment(Pos.CENTER_LEFT);
+        var qLbl = new Label("Qualificateur :");
+        qLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        qLbl.setPrefWidth(85);
+
+        var qualCombo = new ComboBox<String>();
+        qualCombo.getItems().addAll("P (Pulse / Impulsion - Recommandé)", "N (Continu)");
+        qualCombo.setValue("P (Pulse / Impulsion - Recommandé)");
+        qualCombo.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+        HBox.setHgrow(qualCombo, Priority.ALWAYS);
+
+        qualRow.getChildren().addAll(qLbl, qualCombo);
+        card.getChildren().add(qualRow);
+
+        // Ligne 5 : Aperçu dynamique
+        var previewBox = new HBox(6);
+        previewBox.setAlignment(Pos.CENTER_LEFT);
+        previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
+
+        var prevTitle = new Label("Aperçu :");
+        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        var prevValue = new Label();
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        previewBox.getChildren().addAll(prevTitle, prevValue);
+        card.getChildren().add(previewBox);
+
+        Runnable updatePreview = () -> {
+            String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
+                    ? counterCombo.getValue().trim() : "C1";
+            int val = 1;
+            try {
+                val = Integer.parseInt(valField.getText().trim());
+            } catch (Exception ignored) {}
+
+            String qual = qualCombo.getValue() != null && qualCombo.getValue().startsWith("P") ? "P" : "N";
+            String actionText;
+            if (rbInit.isSelected()) {
+                actionText = SfcCounterOperation.formatInit(cName, val);
+            } else if (rbDec.isSelected()) {
+                actionText = SfcCounterOperation.formatDecrement(cName, val);
+            } else {
+                actionText = SfcCounterOperation.formatIncrement(cName, val);
+            }
+
+            prevValue.setText("[" + qual + "] " + actionText);
+        };
+
+        // Écouteurs de mise à jour
+        counterCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        valField.textProperty().addListener((obs, o, n) -> updatePreview.run());
+        qualCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        rbInc.selectedProperty().addListener((obs, o, n) -> {
+            if (rbInc.isSelected()) valField.setText("1");
+            updatePreview.run();
+        });
+        rbInit.selectedProperty().addListener((obs, o, n) -> {
+            if (rbInit.isSelected()) valField.setText("0");
+            updatePreview.run();
+        });
+        rbDec.selectedProperty().addListener((obs, o, n) -> {
+            if (rbDec.isSelected()) valField.setText("1");
+            updatePreview.run();
+        });
+        updatePreview.run();
+
+        // Ligne 6 : Bouton d'ajout d'action de comptage
+        var addCounterBtn = new Button("➕ Associer l'action de comptage");
+        addCounterBtn.setMaxWidth(Double.MAX_VALUE);
+        addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        addCounterBtn.setOnAction(e -> {
+            String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
+                    ? counterCombo.getValue().trim() : "C1";
+            int val = 1;
+            try {
+                val = Integer.parseInt(valField.getText().trim());
+            } catch (Exception ignored) {}
+
+            String qual = qualCombo.getValue() != null && qualCombo.getValue().startsWith("P") ? "P" : "N";
+            String actionText;
+            if (rbInit.isSelected()) {
+                actionText = SfcCounterOperation.formatInit(cName, val);
+            } else if (rbDec.isSelected()) {
+                actionText = SfcCounterOperation.formatDecrement(cName, val);
+            } else {
+                actionText = SfcCounterOperation.formatIncrement(cName, val);
+            }
+
+            Action newAction = new Action(qual, actionText);
+            step.getActions().add(newAction);
+            refreshActionsList(step);
+            notifyRedraw();
+        });
+        card.getChildren().add(addCounterBtn);
+
+        return card;
     }
 
     private void refreshActionsList(Step step) {
@@ -218,12 +404,14 @@ public class StepProperty extends VBox {
             var qualBadge = new Label(qualText);
             qualBadge.setStyle(AppTheme.qualifierBadgeStyle(qual));
 
-            // Nom de la variable et adresse
+            // Libellé de l'action / variable
             var varInfoBox = new VBox(1);
-            var varName = new Label(action.variable() != null ? action.variable().getName() : "");
+            String displayName = action.getDisplayText();
+            var varName = new Label(displayName);
             varName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 12px;");
 
-            var varAddr = new Label(action.variable() != null ? action.variable().getAddress() : "");
+            String subtitle = (action.variable() != null) ? action.variable().getAddress() : "Action Structured Text";
+            var varAddr = new Label(subtitle);
             varAddr.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-family: 'JetBrains Mono', monospace;");
             varInfoBox.getChildren().addAll(varName, varAddr);
 

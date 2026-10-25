@@ -136,6 +136,7 @@ public class MainUI extends BorderPane {
                 switch (selectedComponent.get()) {
                     case Step step -> {
                         var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
+                                variableTable.getCounterVariables(),
                                 () -> grafcet.redraw(), () -> this.setRight(null));
                         this.setRight(sideProperty);
                         setStatus("Étape S" + step.getNumber() + " sélectionnée");
@@ -146,6 +147,7 @@ public class MainUI extends BorderPane {
                                 .map(Step.class::cast)
                                 .toList();
                         var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
+                                variableTable.getCounterVariables(),
                                 () -> grafcet.redraw(), () -> this.setRight(null));
                         this.setRight(sideProperty);
                         setStatus("Transition T" + transition.getNumber() + " sélectionnée");
@@ -182,6 +184,7 @@ public class MainUI extends BorderPane {
         grafcet.getSelectedComponent().ifPresent(component -> {
             if (component instanceof Step step) {
                 var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
+                        variableTable.getCounterVariables(),
                         () -> grafcet.redraw(), () -> this.setRight(null));
                 this.setRight(sideProperty);
             } else if (component instanceof Transition transition) {
@@ -190,6 +193,7 @@ public class MainUI extends BorderPane {
                         .map(Step.class::cast)
                         .toList();
                 var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
+                        variableTable.getCounterVariables(),
                         () -> grafcet.redraw(), () -> this.setRight(null));
                 this.setRight(sideProperty);
             }

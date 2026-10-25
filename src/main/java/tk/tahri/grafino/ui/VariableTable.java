@@ -143,12 +143,20 @@ public class VariableTable extends VBox {
         addInternalBtn.setOnMouseExited(e -> addInternalBtn.setStyle(internalStyle));
         addInternalBtn.setOnAction(e -> addQuickInternal());
 
+        var addCounterBtn = new Button("＋ Compteur (INT)");
+        String counterStyle = "-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String counterHover = "-fx-background-color: #D35400; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        addCounterBtn.setStyle(counterStyle);
+        addCounterBtn.setOnMouseEntered(e -> addCounterBtn.setStyle(counterHover));
+        addCounterBtn.setOnMouseExited(e -> addCounterBtn.setStyle(counterStyle));
+        addCounterBtn.setOnAction(e -> addQuickCounter());
+
         var deleteBtn = new Button("🗑");
         deleteBtn.setTooltip(new Tooltip("Supprimer la variable sélectionnée"));
         deleteBtn.setStyle("-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 8 4 8; -fx-background-radius: 6; -fx-cursor: hand;");
         deleteBtn.setOnAction(e -> removeSelectedVariable());
 
-        bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, deleteBtn);
+        bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, addCounterBtn, deleteBtn);
         return bar;
     }
 
@@ -397,6 +405,29 @@ public class VariableTable extends VBox {
         addAndFocus(v);
     }
 
+    public void addQuickCounter() {
+        int nextNum = getNextCounterNumber();
+        String varName = "C" + nextNum;
+        int wordOffset = (nextNum - 1) * 2;
+        String address = "%MW" + wordOffset;
+        Variable v = new Variable(varName, IecDataType.INT, IecVariableScope.VAR, address, "0", "Compteur cycle");
+        addAndFocus(v);
+    }
+
+    private int getNextCounterNumber() {
+        int max = 0;
+        Pattern pattern = Pattern.compile("(?i)^C(\\d+)$");
+        for (Variable v : masterData) {
+            Matcher m = pattern.matcher(v.getName());
+            if (m.find()) {
+                try {
+                    max = Math.max(max, Integer.parseInt(m.group(1)));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return max + 1;
+    }
+
     public void addVariable() {
         addQuickInput();
     }
@@ -510,6 +541,14 @@ public class VariableTable extends VBox {
 
     public List<Variable> getOutputVariables() {
         return masterData.stream().filter(Variable::isOutput).toList();
+    }
+
+    public List<Variable> getCounterVariables() {
+        return masterData.stream()
+                .filter(v -> v.getType() == IecDataType.INT || v.getType() == IecDataType.DINT
+                        || v.getType() == IecDataType.BYTE || v.getType() == IecDataType.WORD
+                        || v.getName().matches("(?i)^C\\d*$"))
+                .toList();
     }
 
     // Alias rétrocompatible avec l'ancienne signature

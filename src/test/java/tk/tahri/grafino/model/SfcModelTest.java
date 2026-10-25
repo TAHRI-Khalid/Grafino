@@ -206,4 +206,67 @@ class SfcModelTest {
         assertFalse(msgs.isEmpty());
         assertTrue(msgs.stream().anyMatch(m -> m.message().contains("référence une étape inexistante dans sa temporisation : 'X99'")));
     }
+
+    @Test
+    @DisplayName("Modélisation des opérations et conditions de compteur (CEI 61131-3)")
+    void testCounterOperations() {
+        // Initialisation
+        assertEquals("C1 := 0", SfcCounterOperation.formatInit("C1", 0));
+        assertEquals("C2 := 10", SfcCounterOperation.formatInit("C2", 10));
+
+        // Incrémentation et Décrémentation
+        assertEquals("C1 := C1 + 1", SfcCounterOperation.formatIncrement("C1", 1));
+        assertEquals("C1 := C1 + 2", SfcCounterOperation.formatIncrement("C1", 2));
+        assertEquals("C1 := C1 - 1", SfcCounterOperation.formatDecrement("C1", 1));
+
+        // Test de condition dans les réceptivités
+        assertEquals("C1 < 5", SfcCounterOperation.formatComparison("C1", "<", 5));
+        assertEquals("C1 >= 5", SfcCounterOperation.formatComparison("C1", ">=", 5));
+
+        // Détection d'assignation
+        assertTrue(SfcCounterOperation.isAssignment("C1 := 0"));
+        assertTrue(SfcCounterOperation.isAssignment("C1 := C1 + 1"));
+        assertFalse(SfcCounterOperation.isAssignment("MOTEUR_AVANT"));
+
+        assertEquals("C1", SfcCounterOperation.extractAssignedVariable("C1 := C1 + 1").orElse(""));
+
+        // Détection de comparaisons multiples
+        var comps = SfcCounterOperation.findComparisons("dcy AND (C1 < 5) OR C2 >= 10");
+        assertEquals(2, comps.size());
+        assertEquals("C1", comps.get(0).counterName());
+        assertEquals("<", comps.get(0).operator());
+        assertEquals(5, comps.get(0).threshold());
+        assertEquals("C2", comps.get(1).counterName());
+        assertEquals(">=", comps.get(1).operator());
+        assertEquals(10, comps.get(1).threshold());
+    }
+
+    @Test
+    @DisplayName("Validation formelle des compteurs et avertissements pédagogiques (qualificateur N vs P)")
+    void testCounterValidationInProgram() {
+        var vC1 = new IecVariable("C1", IecDataType.INT, IecVariableScope.VAR, "%MW0", "0", "Compteur cycle");
+        var vBool = new IecVariable("FLAG", IecDataType.BOOL, IecVariableScope.VAR, "%M0.0", "FALSE", "Drapeau");
+
+        // Étape 1 avec incrémentation sous qualificateur continu 'N' (faute classique d'automatisme)
+        var actionBad = new SfcActionBlock(SfcQualifier.N, "C1 := C1 + 1");
+        var s0 = new SfcStep("s0", "Init", 0, true, 400.0, 60.0, List.of(actionBad));
+
+        // Transition avec test de variable booléenne avec comparateur numérique
+        var t1 = new SfcTransition("t1", "T1", 1, "FLAG < 5", 400.0, 140.0);
+        var s1 = new SfcStep("s1", "Step1", 1, false, 400.0, 220.0);
+        var l1 = new SfcLink("l1", "s0", "t1");
+        var l2 = new SfcLink("l2", "t1", "s1");
+
+        var prog = new SfcProgram("ProgCounter", List.of(vC1, vBool), List.of(s0, s1), List.of(t1), List.of(), List.of(l1, l2));
+        var msgs = prog.validate();
+
+        assertFalse(msgs.isEmpty());
+
+        // Avertissement pédagogique qualificateur 'P'
+        assertTrue(msgs.stream().anyMatch(m -> m.message().contains("qualificateur continu 'N'")
+                && m.message().contains("qualificateur 'P' (Pulse) est recommandé")));
+
+        // Avertissement comparaison sur type BOOL
+        assertTrue(msgs.stream().anyMatch(m -> m.message().contains("est déclarée en BOOL au lieu d'un type entier")));
+    }
 }
