@@ -130,7 +130,8 @@ tk.tahri.grafino/
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, table des variables fermée par défaut et gestion de projet
     ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG haute résolution, sélection d'élément)
-    ├── TopToolBar.java        # Barre d'outils graphique épurée (menu Fichier, auto-layout 📐, diagnostic, simulation, zoom)
+    ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, badge linting, simulation)
+    ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
     ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
     ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
     ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)

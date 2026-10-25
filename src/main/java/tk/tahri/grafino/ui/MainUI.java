@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
  */
 public class MainUI extends BorderPane {
 
-    private final TopToolBar toolBar = new TopToolBar();
+    private final AppMenuBar menuBar = new AppMenuBar();
     private final Grafcet grafcet = new Grafcet();
     private final VariableTable variableTable = new VariableTable();
 
@@ -51,8 +51,8 @@ public class MainUI extends BorderPane {
     private String currentProjectName = "Nouveau_Projet";
 
     public MainUI() {
-        // 1. Barre d'outils supérieure
-        this.setTop(toolBar);
+        // 1. Barre de menus principale
+        this.setTop(menuBar);
 
         // 2. Initialisation du Grafcet
         grafcet.createInitialStep();
@@ -62,8 +62,8 @@ public class MainUI extends BorderPane {
         setupCenterSplitPane();
         this.setCenter(splitPane);
 
-        // 4. Handlers de la barre d'outils graphique
-        setupToolBarEvents(toolBar);
+        // 4. Handlers de la barre de menus
+        setupMenuBarEvents(menuBar);
 
         // 5. Synchronisation de la sélection d'éléments
         setupSelectionListener();
@@ -141,34 +141,28 @@ public class MainUI extends BorderPane {
         });
     }
 
-    private void setupToolBarEvents(TopToolBar toolBar) {
-        toolBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
-        toolBar.setOnDiagnosticsClick(event -> toggleDiagnosticsPanel());
-        toolBar.setOnSimulationBtnClick(event -> toggleSimulation());
-        toolBar.setOnZoomInClick(event -> grafcet.zoomIn());
-        toolBar.setOnZoomOutClick(event -> grafcet.zoomOut());
-        toolBar.setOnResetZoomClick(event -> grafcet.resetZoom());
+    private void setupMenuBarEvents(AppMenuBar menuBar) {
+        menuBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
+        menuBar.setOnDeleteClick(event -> grafcet.deleteSelected());
+        menuBar.setOnDeselectClick(event -> {
+            grafcet.getComponents().forEach(c -> c.setSelected(false));
+            grafcet.fireSelectionChange(Optional.empty());
+        });
+        menuBar.setOnToggleVariableTable(event -> toggleVariableTable());
+        menuBar.setOnDiagnosticsClick(event -> toggleDiagnosticsPanel());
+        menuBar.setOnSimulationBtnClick(event -> toggleSimulation());
+        menuBar.setOnZoomInClick(event -> grafcet.zoomIn());
+        menuBar.setOnZoomOutClick(event -> grafcet.zoomOut());
+        menuBar.setOnResetZoomClick(event -> grafcet.resetZoom());
 
         // Handlers du menu Fichier & Persistance (Axe 1)
-        toolBar.setOnNewProject(event -> onNewProject());
-        toolBar.setOnOpenProject(event -> onOpenProject());
-        toolBar.setOnSaveProject(event -> onSaveProject());
-        toolBar.setOnSaveAsProject(event -> onSaveAsProject());
-        toolBar.setOnExportPng(event -> onExportPng());
+        menuBar.setOnNewProject(event -> onNewProject());
+        menuBar.setOnOpenProject(event -> onOpenProject());
+        menuBar.setOnSaveProject(event -> onSaveProject());
+        menuBar.setOnSaveAsProject(event -> onSaveAsProject());
+        menuBar.setOnExportPng(event -> onExportPng());
 
         grafcet.setStatusMessageConsumer(this::setStatus);
-
-        // Ajout & suppression rapide de variables
-        toolBar.setOnAddVariableBtnClick(event -> {
-            showVariableTable();
-            variableTable.addVariable();
-            setStatus("Nouvelle variable ajoutée");
-        });
-
-        toolBar.setOnRemoveSelectedVariable(event -> {
-            variableTable.removeSelectedVariable();
-            setStatus("Variable supprimée");
-        });
     }
 
     private void setupSelectionListener() {
@@ -625,7 +619,7 @@ public class MainUI extends BorderPane {
         );
 
         this.setRight(activeSimulationPanel);
-        toolBar.setSimulationActive(true);
+        menuBar.setSimulationActive(true);
         setStatus("Simulation synchrone démarrée");
     }
 
@@ -640,7 +634,7 @@ public class MainUI extends BorderPane {
         } else {
             this.setRight(null);
         }
-        toolBar.setSimulationActive(false);
+        menuBar.setSimulationActive(false);
         grafcet.clearSimulationVisuals();
         refreshDiagnostics();
         setStatus("Simulation arrêtée");
@@ -675,7 +669,7 @@ public class MainUI extends BorderPane {
             List<SfcValidationMessage> messages = program.validate();
             long errorCount = messages.stream().filter(SfcValidationMessage::isError).count();
             long warningCount = messages.stream().filter(SfcValidationMessage::isWarning).count();
-            toolBar.setDiagnosticsStatus(errorCount, warningCount);
+            menuBar.setDiagnosticsStatus(errorCount, warningCount);
             if (diagnosticsPanel != null) {
                 diagnosticsPanel.setMessages(messages);
             }

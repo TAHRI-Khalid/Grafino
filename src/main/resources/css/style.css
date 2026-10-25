@@ -137,3 +137,68 @@
 .check-box .text {
     -fx-fill: #232527;
 }
+
+/* ============================================================ */
+/* Barre de Menus Principale (AppMenuBar)                       */
+/* ============================================================ */
+
+.top-menu-bar {
+    -fx-background-color: #008184;
+}
+
+.top-menu-bar .menu-bar {
+    -fx-background-color: transparent;
+    -fx-padding: 1px 2px;
+}
+
+.top-menu-bar .menu-bar .menu {
+    -fx-background-color: transparent;
+    -fx-padding: 4px 10px;
+    -fx-background-radius: 4px;
+}
+
+.top-menu-bar .menu-bar .menu:hover,
+.top-menu-bar .menu-bar .menu:showing {
+    -fx-background-color: rgba(255, 255, 255, 0.20);
+}
+
+.top-menu-bar .menu-bar .menu > .label {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.top-menu-bar .context-menu {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E1E4E8;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 4px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.15), 8, 0, 0, 3);
+}
+
+.top-menu-bar .menu-item {
+    -fx-padding: 6px 14px;
+    -fx-background-radius: 4px;
+}
+
+.top-menu-bar .menu-item:focused,
+.top-menu-bar .menu-item:hover {
+    -fx-background-color: #E5F5F5;
+}
+
+.top-menu-bar .menu-item .label {
+    -fx-text-fill: #232527;
+    -fx-font-size: 12px;
+}
+
+.top-menu-bar .menu-item:focused .label,
+.top-menu-bar .menu-item:hover .label {
+    -fx-text-fill: #008184;
+    -fx-font-weight: bold;
+}
+
+.top-menu-bar .menu-item .accelerator-text {
+    -fx-text-fill: #8C9095;
+    -fx-font-size: 11px;
+}
