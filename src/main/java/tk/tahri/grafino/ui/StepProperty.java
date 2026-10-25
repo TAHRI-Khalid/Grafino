@@ -2,6 +2,7 @@ package tk.tahri.grafino.ui;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.util.StringConverter;
@@ -10,19 +11,21 @@ import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Variable;
 import tk.tahri.grafino.model.SfcCounterOperation;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Panneau latéral droit d'édition d'une étape SFC (CEI 61131-3 / CEI 60848).
- * Comprend la gestion des actions classiques (%Q), des opérations sur compteurs industriels
- * (Initialisation, Incrémentation, Décrémentation avec qualificateur impulsionnel 'P')
- * et l'état d'étape initiale.
+ * Organisé en accordéons ergonomiques repliables :
+ *  - Statut Étape Initiale (fixe en haut)
+ *  - Accordéon 1 : Action de sortie classique %Q (déplié par défaut)
+ *  - Accordéon 2 : Opération sur Compteur CEI 61131-3 (replié par défaut)
+ *  - Accordéon 3 : Liste des actions associées avec badge du total (déplié par défaut)
  */
 public class StepProperty extends VBox {
 
     private final VBox listOfActions = new VBox(6);
     private final Runnable onModified;
+    private CollapsibleSection actionsSection;
 
     public StepProperty(Step step, List<Variable> outputVariables) {
         this(step, outputVariables, List.of(), null, null);
@@ -41,11 +44,11 @@ public class StepProperty extends VBox {
         this.onModified = onModified;
         this.setPrefWidth(360);
         this.setMinWidth(330);
-        this.setSpacing(12);
-        this.setPadding(new Insets(14));
+        this.setSpacing(10);
+        this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
 
-        // 1. En-tête avec titre, badge et bouton fermer
+        // 1. En-tête fixe avec titre, badge et bouton fermer
         var header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
 
@@ -73,7 +76,7 @@ public class StepProperty extends VBox {
 
         this.getChildren().add(header);
 
-        // 2. Carte : Statut Étape Initiale
+        // 2. Carte fixe : Statut Étape Initiale
         var initCard = new VBox(6);
         initCard.setStyle(AppTheme.CARD_STYLE);
 
@@ -87,18 +90,62 @@ public class StepProperty extends VBox {
         initCard.getChildren().add(initCheckBox);
         this.getChildren().add(initCard);
 
-        // 3. Carte : Opérations sur Compteur (CEI 61131-3)
-        var counterCard = createCounterActionCard(step, counterVariables);
-        this.getChildren().add(counterCard);
+        // 3. Conteneur déroulant (ScrollPane) pour les accordéons
+        var accordionBox = new VBox(10);
 
-        // 4. Carte : Ajout d'une action de commande classique (%Q)
-        var addActionCard = new VBox(8);
-        addActionCard.setStyle(AppTheme.CARD_STYLE);
+        // --- Accordéon 1 : Action de sortie classique (%Q) ---
+        var classicActionNode = createClassicActionContent(step, outputVariables);
+        String outBadgeText = (outputVariables != null && !outputVariables.isEmpty())
+                ? outputVariables.size() + " %Q"
+                : null;
+        var classicActionSection = new CollapsibleSection(
+                "⚡",
+                "Action de sortie (%Q)",
+                outBadgeText,
+                classicActionNode,
+                true // Déplié par défaut
+        );
+        accordionBox.getChildren().add(classicActionSection);
 
-        var actionTitle = new Label("Action de sortie classique (%Q) :");
-        actionTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
+        // --- Accordéon 2 : Opération sur Compteur CEI 61131-3 ---
+        var counterNode = createCounterActionContent(step, counterVariables);
+        var counterSection = new CollapsibleSection(
+                "🔢",
+                "Opération sur Compteur",
+                "CEI 61131-3",
+                counterNode,
+                false // Replié par défaut pour économiser l'espace vertical
+        );
+        accordionBox.getChildren().add(counterSection);
 
-        // Sélecteur de qualificateur
+        // --- Accordéon 3 : Liste des actions associées ---
+        actionsSection = new CollapsibleSection(
+                "📋",
+                "Actions associées",
+                step.getActions().size() + " action(s)",
+                listOfActions,
+                true // Déplié par défaut pour voir l'effet immédiat des ajouts
+        );
+        refreshActionsList(step);
+        accordionBox.getChildren().add(actionsSection);
+
+        // ScrollPane pour garantir la navigation sur petits écrans
+        var scrollPane = new ScrollPane(accordionBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-width: 0;");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        this.getChildren().add(scrollPane);
+    }
+
+    /**
+     * Crée le formulaire d'association d'action classique de commande (%Q).
+     */
+    private Node createClassicActionContent(Step step, List<Variable> outputVariables) {
+        var box = new VBox(8);
+
+        // Qualificateur
         var qualLabel = new Label("Qualificateur :");
         qualLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
@@ -138,7 +185,7 @@ public class StepProperty extends VBox {
             durationBox.setManaged(isTimed);
         });
 
-        // Sélecteur de variable de sortie (%Q)
+        // Variable cible (%Q)
         var varLabel = new Label("Variable cible (%Q) :");
         varLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
@@ -162,10 +209,10 @@ public class StepProperty extends VBox {
             varCombo.getSelectionModel().select(0);
         }
 
-        // Bouton d'association d'action (Style Arduino Teal)
+        // Bouton d'ajout
         var addBtn = new Button("＋ Associer l'action %Q");
         addBtn.setMaxWidth(Double.MAX_VALUE);
-        addBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
+        addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
         addBtn.setOnAction(e -> {
             Variable selectedVar = varCombo.getSelectionModel().getSelectedItem();
             if (selectedVar == null) {
@@ -186,38 +233,15 @@ public class StepProperty extends VBox {
             notifyRedraw();
         });
 
-        addActionCard.getChildren().addAll(actionTitle, qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
-        this.getChildren().add(addActionCard);
-
-        // 5. Liste des actions associées
-        var listTitle = new Label("Actions associées à l'étape :");
-        listTitle.setStyle(AppTheme.SECTION_HEADER_STYLE);
-
-        refreshActionsList(step);
-
-        var scrollPane = new ScrollPane(listOfActions);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-width: 0;");
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);
-
-        this.getChildren().addAll(listTitle, scrollPane);
+        box.getChildren().addAll(qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
+        return box;
     }
 
     /**
-     * Crée la carte interactive pour les actions sur compteurs (C := 0, C := C + 1, C := C - 1).
+     * Crée le formulaire interactif pour les opérations de compteur (C := 0, C := C + 1, C := C - 1).
      */
-    private VBox createCounterActionCard(Step step, List<Variable> counterVariables) {
-        var card = new VBox(8);
-        card.setStyle(AppTheme.CARD_STYLE);
-
-        var header = new HBox(6);
-        header.setAlignment(Pos.CENTER_LEFT);
-        var icon = new Label("🔢");
-        icon.setStyle("-fx-font-size: 13px;");
-        var title = new Label("Opération sur Compteur (CEI 61131-3) :");
-        title.setStyle(AppTheme.SECTION_HEADER_STYLE);
-        header.getChildren().addAll(icon, title);
-        card.getChildren().add(header);
+    private Node createCounterActionContent(Step step, List<Variable> counterVariables) {
+        var box = new VBox(8);
 
         // Ligne 1 : Choix du compteur
         var counterRow = new HBox(8);
@@ -241,25 +265,25 @@ public class StepProperty extends VBox {
         }
         counterCombo.setValue(counterCombo.getItems().getFirst());
         counterRow.getChildren().addAll(cLbl, counterCombo);
-        card.getChildren().add(counterRow);
+        box.getChildren().add(counterRow);
 
         // Ligne 2 : Type d'opération
         var opGroup = new ToggleGroup();
         var rbInc = new RadioButton("Incrémenter (C := C + 1)");
         rbInc.setToggleGroup(opGroup);
         rbInc.setSelected(true);
-        rbInc.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+        rbInc.setStyle(AppTheme.RADIO_BUTTON_BOLD_STYLE);
 
         var rbInit = new RadioButton("Initialiser (C := 0)");
         rbInit.setToggleGroup(opGroup);
-        rbInit.setStyle("-fx-font-size: 11px;");
+        rbInit.setStyle(AppTheme.RADIO_BUTTON_STYLE);
 
         var rbDec = new RadioButton("Décrémenter (C := C - 1)");
         rbDec.setToggleGroup(opGroup);
-        rbDec.setStyle("-fx-font-size: 11px;");
+        rbDec.setStyle(AppTheme.RADIO_BUTTON_STYLE);
 
         var opBox = new VBox(4, rbInc, rbInit, rbDec);
-        card.getChildren().add(opBox);
+        box.getChildren().add(opBox);
 
         // Ligne 3 : Valeur / Pas
         var valRow = new HBox(8);
@@ -273,9 +297,9 @@ public class StepProperty extends VBox {
         valField.setPrefWidth(70);
 
         valRow.getChildren().addAll(valLbl, valField);
-        card.getChildren().add(valRow);
+        box.getChildren().add(valRow);
 
-        // Ligne 4 : Qualificateur (P par défaut avec note pédagogique)
+        // Ligne 4 : Qualificateur (P par défaut avec recommandation pédagogique)
         var qualRow = new HBox(8);
         qualRow.setAlignment(Pos.CENTER_LEFT);
         var qLbl = new Label("Qualificateur :");
@@ -289,7 +313,7 @@ public class StepProperty extends VBox {
         HBox.setHgrow(qualCombo, Priority.ALWAYS);
 
         qualRow.getChildren().addAll(qLbl, qualCombo);
-        card.getChildren().add(qualRow);
+        box.getChildren().add(qualRow);
 
         // Ligne 5 : Aperçu dynamique
         var previewBox = new HBox(6);
@@ -303,7 +327,7 @@ public class StepProperty extends VBox {
         prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         previewBox.getChildren().addAll(prevTitle, prevValue);
-        card.getChildren().add(previewBox);
+        box.getChildren().add(previewBox);
 
         Runnable updatePreview = () -> {
             String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
@@ -326,7 +350,6 @@ public class StepProperty extends VBox {
             prevValue.setText("[" + qual + "] " + actionText);
         };
 
-        // Écouteurs de mise à jour
         counterCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
         valField.textProperty().addListener((obs, o, n) -> updatePreview.run());
         qualCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
@@ -344,7 +367,7 @@ public class StepProperty extends VBox {
         });
         updatePreview.run();
 
-        // Ligne 6 : Bouton d'ajout d'action de comptage
+        // Ligne 6 : Bouton d'ajout
         var addCounterBtn = new Button("➕ Associer l'action de comptage");
         addCounterBtn.setMaxWidth(Double.MAX_VALUE);
         addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
@@ -371,17 +394,21 @@ public class StepProperty extends VBox {
             refreshActionsList(step);
             notifyRedraw();
         });
-        card.getChildren().add(addCounterBtn);
+        box.getChildren().add(addCounterBtn);
 
-        return card;
+        return box;
     }
 
     private void refreshActionsList(Step step) {
         listOfActions.getChildren().clear();
 
+        if (actionsSection != null) {
+            actionsSection.setBadge(step.getActions().size() + " action(s)");
+        }
+
         if (step.getActions().isEmpty()) {
             var emptyLabel = new Label("Aucune action associée à cette étape.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 8;");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 4;");
             listOfActions.getChildren().add(emptyLabel);
             return;
         }
@@ -395,7 +422,6 @@ public class StepProperty extends VBox {
                     "-fx-border-radius: 6px;" +
                     "-fx-background-radius: 6px;");
 
-            // Pastille du qualificateur avec style unifié
             String qual = action.qualifier() != null ? action.qualifier().trim() : "N";
             String qualText = qual;
             if (action.hasParameter()) {
@@ -404,7 +430,6 @@ public class StepProperty extends VBox {
             var qualBadge = new Label(qualText);
             qualBadge.setStyle(AppTheme.qualifierBadgeStyle(qual));
 
-            // Libellé de l'action / variable
             var varInfoBox = new VBox(1);
             String displayName = action.getDisplayText();
             var varName = new Label(displayName);
@@ -418,7 +443,6 @@ public class StepProperty extends VBox {
             var spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            // Bouton de suppression discret
             var delBtn = new Button("🗑");
             delBtn.setTooltip(new Tooltip("Supprimer cette action"));
             delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-cursor: hand;");

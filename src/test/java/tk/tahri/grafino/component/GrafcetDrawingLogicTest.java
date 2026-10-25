@@ -239,4 +239,17 @@ class GrafcetDrawingLogicTest {
         assertEquals(s0.getX(), t1.getX(), "Une chaîne simple doit être alignée sur le même axe X");
         assertEquals(t1.getX(), s1.getX(), "L'étape suivante doit être alignée sur le même axe X");
     }
+
+    @Test
+    @DisplayName("InitStep doit avoir le statut isInitial() à true dès sa création")
+    void testInitStepIsInitialFlag() {
+        var initStep = new InitStep(null, new Point2D(400, 80));
+        assertTrue(initStep.isInitial(), "Une instance d'InitStep doit avoir isInitial() == true");
+
+        // Vérification de la bascule d'état (cochage/décochage)
+        initStep.setInitial(false);
+        assertFalse(initStep.isInitial());
+        initStep.setInitial(true);
+        assertTrue(initStep.isInitial());
+    }
 }

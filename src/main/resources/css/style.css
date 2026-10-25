@@ -121,3 +121,19 @@
     -fx-text-fill: -fx-selection-color;
     -fx-background-color: -fx-accent-selection-color;
 }
+
+.radio-button {
+    -fx-text-fill: #232527;
+}
+
+.radio-button .text {
+    -fx-fill: #232527;
+}
+
+.check-box {
+    -fx-text-fill: #232527;
+}
+
+.check-box .text {
+    -fx-fill: #232527;
+}

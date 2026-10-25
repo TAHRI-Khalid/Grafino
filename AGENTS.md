@@ -17,6 +17,7 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / bouton `📐 Aligner`).
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
+   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
 2. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I` et observation des préactionneurs de sortie `%Q`).
 3. **Validation sémantique formelle** (détection des violations d'alternance, adresses IEC invalides, blocages ou conflits).
 4. **Exportation documentaire** (PNG haute résolution pour rapports de TP et dossiers techniques).
@@ -105,11 +106,12 @@ tk.tahri.grafino/
 │
 └── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
+    ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
     ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place)
     ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－)
-    ├── StepProperty.java      # Sidebar d'étape (init C:=0, inc C:=C+1, qualificateurs, cartes d'action)
-    ├── TransitionProperty.java# Sidebar de transition (condition ST, tests C<5, temporisateurs t/Xi/d, puces %I)
+    ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
+    ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
 ```
 

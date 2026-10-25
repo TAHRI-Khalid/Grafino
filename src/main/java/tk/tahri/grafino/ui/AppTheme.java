@@ -130,6 +130,17 @@ public final class AppTheme {
             "-fx-padding: 2px 6px;" +
             "-fx-cursor: hand;";
 
+    public static final String RADIO_BUTTON_STYLE =
+            "-fx-font-size: 11px;" +
+            "-fx-text-fill: " + TEXT_MAIN + ";" +
+            "-fx-cursor: hand;";
+
+    public static final String RADIO_BUTTON_BOLD_STYLE =
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-text-fill: " + TEXT_MAIN + ";" +
+            "-fx-cursor: hand;";
+
     public static String pillBadgeStyle(String bgHex, String textHex) {
         return "-fx-background-color: " + bgHex + ";" +
                "-fx-text-fill: " + textHex + ";" +

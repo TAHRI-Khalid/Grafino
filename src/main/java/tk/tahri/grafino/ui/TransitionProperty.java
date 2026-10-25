@@ -2,6 +2,7 @@ package tk.tahri.grafino.ui;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import tk.tahri.grafino.component.Step;
@@ -16,9 +17,11 @@ import java.util.Optional;
 
 /**
  * Panneau latéral droit d'édition d'une transition SFC (CEI 61131-3 / CEI 60848).
- * Intègre un configurateur intuitif de temporisateur normalisé (format générique par défaut t/X1/5s),
- * un générateur de tests de compteurs (C < 5, C >= 10...), l'insertion d'opérateurs logiques/comparateurs
- * et la liaison avec les variables d'entrée %I.
+ * Organisé en accordéons ergonomiques repliables :
+ *  - Réceptivité directe (toujours visible)
+ *  - Accordéon 1 : Capteurs d'entrée (%I) & Opérateurs logiques rapides (déplié par défaut)
+ *  - Accordéon 2 : Configurateur de Temporisateur normalisé t/Xi/d (replié par défaut)
+ *  - Accordéon 3 : Générateur de Test de Compteur CEI 61131-3 (replié par défaut)
  */
 public class TransitionProperty extends VBox {
 
@@ -43,11 +46,11 @@ public class TransitionProperty extends VBox {
                               List<Variable> counterVariables, Runnable onModified, Runnable onClose) {
         this.setPrefWidth(360);
         this.setMinWidth(330);
-        this.setSpacing(12);
-        this.setPadding(new Insets(14));
+        this.setSpacing(10);
+        this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
 
-        // 1. En-tête avec titre, badge et bouton fermer
+        // 1. En-tête fixe avec titre, badge et bouton fermer
         var header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
 
@@ -75,7 +78,7 @@ public class TransitionProperty extends VBox {
 
         this.getChildren().add(header);
 
-        // 2. Carte : Saisie de la réceptivité Structured Text (ST) / Grafcet
+        // 2. Carte fixe : Saisie directe de la réceptivité ST / Grafcet
         var recCard = new VBox(6);
         recCard.setStyle(AppTheme.CARD_STYLE);
 
@@ -84,9 +87,9 @@ public class TransitionProperty extends VBox {
 
         var receptivityField = new TextField(transition.getReceptivity());
         receptivityField.setStyle(AppTheme.MONO_FIELD_STYLE);
-        receptivityField.setPromptText("ex: t/X1/5s, C1 < 5, dcy AND NOT arret");
+        receptivityField.setPromptText("ex: t/X1/5s, C1 < 5, dcy . /arret");
 
-        // Mise à jour instantanée du tracé graphique sur le Canvas
+        // Synchronisation immédiate avec le modèle graphique Canvas
         receptivityField.textProperty().addListener((obs, oldV, newV) -> {
             transition.setReceptivity(newV);
             if (onModified != null) {
@@ -97,196 +100,121 @@ public class TransitionProperty extends VBox {
         recCard.getChildren().addAll(recLabel, receptivityField);
         this.getChildren().add(recCard);
 
-        // 3. Carte : Test de Compteur (CEI 61131-3)
-        var counterCard = createCounterConditionCard(counterVariables, receptivityField);
-        this.getChildren().add(counterCard);
+        // 3. Conteneur déroulant (ScrollPane) pour les sections en accordéon
+        var accordionBox = new VBox(10);
 
-        // 4. Carte : Temporisateur normalisé (CEI 60848 / CEI 61131-3)
-        var timerCard = createTimerCard(transition, availableSteps, receptivityField);
-        this.getChildren().add(timerCard);
+        // --- Accordéon 1 : Capteurs %I & Opérateurs logiques (Ouvert par défaut) ---
+        String inputBadgeText = (inputVariables != null && !inputVariables.isEmpty())
+                ? inputVariables.size() + " %I"
+                : null;
+        var inputsAndOpsNode = createInputsAndOperatorsContent(inputVariables, receptivityField);
+        var inputsSection = new CollapsibleSection(
+                "⚡",
+                "Entrées (%I) & Opérateurs",
+                inputBadgeText,
+                inputsAndOpsNode,
+                true // Déplié par défaut car très fréquemment utilisé
+        );
+        accordionBox.getChildren().add(inputsSection);
 
-        // 5. Carte : Opérateurs logiques et de comparaison rapides
-        var opCard = new VBox(8);
-        opCard.setStyle(AppTheme.CARD_STYLE);
+        // --- Accordéon 2 : Temporisateur normalisé t/Xi/d (Replié par défaut) ---
+        var timerNode = createTimerContent(transition, availableSteps, receptivityField);
+        var timerSection = new CollapsibleSection(
+                "⏱",
+                "Temporisateur (t/Xi/d)",
+                "CEI 60848",
+                timerNode,
+                false // Replié par défaut pour alléger l'espace visuel
+        );
+        accordionBox.getChildren().add(timerSection);
 
-        var opLabel = new Label("Opérateurs logiques & comparateurs :");
-        opLabel.setStyle(AppTheme.SECTION_HEADER_STYLE);
+        // --- Accordéon 3 : Test de Compteur CEI 61131-3 (Replié par défaut) ---
+        var counterNode = createCounterContent(counterVariables, receptivityField);
+        var counterSection = new CollapsibleSection(
+                "🔢",
+                "Test de Compteur",
+                "CEI 61131-3",
+                counterNode,
+                false // Replié par défaut
+        );
+        accordionBox.getChildren().add(counterSection);
 
-        var opButtons = new FlowPane(6, 6);
-        addOperatorBtn(opButtons, receptivityField, "ET ( . )", " . ");
-        addOperatorBtn(opButtons, receptivityField, "OU ( + )", " + ");
-        addOperatorBtn(opButtons, receptivityField, "NON ( / )", "/");
-        addOperatorBtn(opButtons, receptivityField, "= 1 (Vrai)", "1");
-        addOperatorBtn(opButtons, receptivityField, "Front ↑", "↑");
-        addOperatorBtn(opButtons, receptivityField, "Front ↓", "↓");
-        addOperatorBtn(opButtons, receptivityField, "( )", "()");
-        addOperatorBtn(opButtons, receptivityField, "<", " < ");
-        addOperatorBtn(opButtons, receptivityField, ">=", " >= ");
-        addOperatorBtn(opButtons, receptivityField, "<=", " <= ");
-        addOperatorBtn(opButtons, receptivityField, ">", " > ");
-        addOperatorBtn(opButtons, receptivityField, "=", " = ");
-        addOperatorBtn(opButtons, receptivityField, "<>", " <> ");
-        addOperatorBtn(opButtons, receptivityField, "⏱ t/X/d", "t/X1/5s");
+        // ScrollPane pour garantir la fluidité sur tous les écrans
+        var scrollPane = new ScrollPane(accordionBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-width: 0;");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        opCard.getChildren().addAll(opLabel, opButtons);
-        this.getChildren().add(opCard);
+        this.getChildren().add(scrollPane);
+    }
 
-        // 6. Carte : Puces des capteurs d'entrée (%I)
-        var inputsCard = new VBox(8);
-        inputsCard.setStyle(AppTheme.CARD_STYLE);
+    /**
+     * Crée le contenu combiné des capteurs d'entrée (%I) et des opérateurs logiques rapides.
+     */
+    private Node createInputsAndOperatorsContent(List<Variable> inputVariables, TextField targetField) {
+        var box = new VBox(10);
 
-        var inputsLabel = new Label("Entrées capteurs disponibles (%I) :");
-        inputsLabel.setStyle(AppTheme.SECTION_HEADER_STYLE);
-        inputsCard.getChildren().add(inputsLabel);
+        // Sous-section A : Entrées disponibles (%I)
+        var inLabel = new Label("Entrées capteurs disponibles (%I) :");
+        inLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        box.getChildren().add(inLabel);
 
         if (inputVariables == null || inputVariables.isEmpty()) {
-            var emptyLabel = new Label("Aucune entrée %I définie dans la table des variables.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 4;");
-            inputsCard.getChildren().add(emptyLabel);
+            var emptyLabel = new Label("Aucune entrée %I définie dans la table.");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            box.getChildren().add(emptyLabel);
         } else {
-            var chipsPane = new FlowPane(6, 6);
+            var chipsPane = new FlowPane(5, 5);
             for (Variable varInput : inputVariables) {
                 var chip = new Button("+ " + varInput.getName());
                 chip.setTooltip(new Tooltip(varInput.getAddress() + (varInput.getComment().isEmpty() ? "" : " : " + varInput.getComment())));
                 chip.setStyle(AppTheme.CHIP_INPUT_STYLE);
-                chip.setOnAction(e -> insertTextAtCursor(receptivityField, varInput.getName()));
+                chip.setOnAction(e -> insertTextAtCursor(targetField, varInput.getName()));
                 chipsPane.getChildren().add(chip);
             }
-            inputsCard.getChildren().add(chipsPane);
+            box.getChildren().add(chipsPane);
         }
 
-        this.getChildren().add(inputsCard);
+        // Sous-section B : Opérateurs logiques et comparateurs
+        var opLabel = new Label("Opérateurs logiques & comparateurs :");
+        opLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        box.getChildren().add(opLabel);
+
+        var opButtons = new FlowPane(5, 5);
+        addOperatorBtn(opButtons, targetField, "ET ( . )", " . ");
+        addOperatorBtn(opButtons, targetField, "OU ( + )", " + ");
+        addOperatorBtn(opButtons, targetField, "NON ( / )", "/");
+        addOperatorBtn(opButtons, targetField, "= 1 (Vrai)", "1");
+        addOperatorBtn(opButtons, targetField, "Front ↑", "↑");
+        addOperatorBtn(opButtons, targetField, "Front ↓", "↓");
+        addOperatorBtn(opButtons, targetField, "( )", "()");
+        addOperatorBtn(opButtons, targetField, "<", " < ");
+        addOperatorBtn(opButtons, targetField, ">=", " >= ");
+        addOperatorBtn(opButtons, targetField, "<=", " <= ");
+        addOperatorBtn(opButtons, targetField, ">", " > ");
+        addOperatorBtn(opButtons, targetField, "=", " = ");
+        addOperatorBtn(opButtons, targetField, "<>", " <> ");
+        addOperatorBtn(opButtons, targetField, "⏱ t/X/d", "t/X1/5s");
+
+        box.getChildren().add(opButtons);
+
+        return box;
     }
 
     /**
-     * Crée la carte interactive de configuration du test de compteur (C < 5, C >= 10...).
+     * Crée le contenu de configuration de temporisateur normalisé (t/Xi/d ou SFC CEI 61131-3).
      */
-    private VBox createCounterConditionCard(List<Variable> counterVariables, TextField targetField) {
-        var card = new VBox(8);
-        card.setStyle(AppTheme.CARD_STYLE);
-
-        var header = new HBox(6);
-        header.setAlignment(Pos.CENTER_LEFT);
-        var icon = new Label("🔢");
-        icon.setStyle("-fx-font-size: 13px;");
-        var title = new Label("Test de Compteur (CEI 61131-3) :");
-        title.setStyle(AppTheme.SECTION_HEADER_STYLE);
-        header.getChildren().addAll(icon, title);
-        card.getChildren().add(header);
-
-        // Ligne 1 : Choix du compteur
-        var row = new HBox(8);
-        row.setAlignment(Pos.CENTER_LEFT);
-        var cLbl = new Label("Compteur :");
-        cLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
-        cLbl.setPrefWidth(70);
-
-        var counterCombo = new ComboBox<String>();
-        counterCombo.setEditable(true);
-        counterCombo.setPrefWidth(90);
-        if (counterVariables != null && !counterVariables.isEmpty()) {
-            for (Variable v : counterVariables) {
-                counterCombo.getItems().add(v.getName());
-            }
-        }
-        if (counterCombo.getItems().isEmpty()) {
-            counterCombo.getItems().addAll("C1", "C2");
-        }
-        counterCombo.setValue(counterCombo.getItems().getFirst());
-
-        // Ligne 2 : Opérateur
-        var opCombo = new ComboBox<String>();
-        opCombo.getItems().addAll(
-                "< (Boucle reprise)",
-                ">= (Fin de lot)",
-                "<= (Inférieur ou égal)",
-                "> (Strictement supérieur)",
-                "= (Égalité)",
-                "<> (Différent)"
-        );
-        opCombo.setValue("< (Boucle reprise)");
-        opCombo.setPrefWidth(130);
-        HBox.setHgrow(opCombo, Priority.ALWAYS);
-
-        // Ligne 3 : Seuil
-        var valField = new TextField("5");
-        valField.setStyle(AppTheme.TEXT_FIELD_STYLE);
-        valField.setPrefWidth(55);
-
-        row.getChildren().addAll(cLbl, counterCombo, opCombo, valField);
-        card.getChildren().add(row);
-
-        // Aperçu dynamique
-        var previewBox = new HBox(6);
-        previewBox.setAlignment(Pos.CENTER_LEFT);
-        previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
-
-        var prevTitle = new Label("Aperçu :");
-        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
-
-        var prevValue = new Label();
-        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
-
-        previewBox.getChildren().addAll(prevTitle, prevValue);
-        card.getChildren().add(previewBox);
-
-        Runnable updatePreview = () -> {
-            String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
-                    ? counterCombo.getValue().trim() : "C1";
-            String opRaw = opCombo.getValue() != null ? opCombo.getValue().split(" ")[0] : "<";
-            int val = 5;
-            try {
-                val = Integer.parseInt(valField.getText().trim());
-            } catch (Exception ignored) {}
-
-            String condition = SfcCounterOperation.formatComparison(cName, opRaw, val);
-            prevValue.setText(condition);
-        };
-
-        counterCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
-        opCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
-        valField.textProperty().addListener((obs, o, n) -> updatePreview.run());
-        updatePreview.run();
-
-        // Bouton d'insertion
-        var insertBtn = new Button("➕ Insérer le test de comptage");
-        insertBtn.setMaxWidth(Double.MAX_VALUE);
-        insertBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
-        insertBtn.setOnAction(e -> {
-            updatePreview.run();
-            insertTextAtCursor(targetField, prevValue.getText());
-        });
-        card.getChildren().add(insertBtn);
-
-        return card;
-    }
-
-    /**
-     * Crée la carte interactive de configuration du temporisateur normalisé.
-     */
-    private VBox createTimerCard(Transition transition, List<Step> availableSteps, TextField targetField) {
-        var card = new VBox(8);
-        card.setStyle(AppTheme.CARD_STYLE);
-
-        var cardHeader = new HBox(6);
-        cardHeader.setAlignment(Pos.CENTER_LEFT);
-        var icon = new Label("⏱");
-        icon.setStyle("-fx-font-size: 13px;");
-        var title = new Label("Temporisateur (CEI 60848 / 61131-3) :");
-        title.setStyle(AppTheme.SECTION_HEADER_STYLE);
-        cardHeader.getChildren().addAll(icon, title);
-        card.getChildren().add(cardHeader);
+    private Node createTimerContent(Transition transition, List<Step> availableSteps, TextField targetField) {
+        var box = new VBox(8);
 
         // Détection de l'étape amont directe
         Optional<Step> primaryParent = transition.getPrimaryParentStep();
-        List<Step> parentSteps = transition.getParentSteps();
-
-        // Récupération de toutes les étapes candidates
         List<Step> candidateSteps = new ArrayList<>();
         if (availableSteps != null && !availableSteps.isEmpty()) {
             candidateSteps.addAll(availableSteps);
         } else {
-            candidateSteps.addAll(parentSteps);
+            candidateSteps.addAll(transition.getParentSteps());
         }
 
         // Ligne 1 : Étape associée (Xi)
@@ -316,7 +244,6 @@ public class TransitionProperty extends VBox {
             stepCombo.getItems().addAll("X1", "X2", "X0");
         }
 
-        // Présélection de l'étape amont
         String selectedItem = stepCombo.getItems().stream()
                 .filter(item -> item.startsWith(defaultStepSelection))
                 .findFirst()
@@ -324,7 +251,7 @@ public class TransitionProperty extends VBox {
         stepCombo.setValue(selectedItem);
 
         stepRow.getChildren().addAll(stepLbl, stepCombo);
-        card.getChildren().add(stepRow);
+        box.getChildren().add(stepRow);
 
         // Ligne 2 : Durée et unité
         var durationRow = new HBox(8);
@@ -344,7 +271,7 @@ public class TransitionProperty extends VBox {
         unitCombo.setPrefWidth(75);
 
         durationRow.getChildren().addAll(durLbl, durationField, unitCombo);
-        card.getChildren().add(durationRow);
+        box.getChildren().add(durationRow);
 
         // Ligne 3 : Repère du temporisateur (ex: t ou t1)
         var repRow = new HBox(8);
@@ -358,29 +285,29 @@ public class TransitionProperty extends VBox {
         timerNameField.setPrefWidth(70);
         timerNameField.setPromptText("t, t1...");
 
-        var repHint = new Label("(générique 't' par défaut)");
+        var repHint = new Label("(générique 't')");
         repHint.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
 
         repRow.getChildren().addAll(repLbl, timerNameField, repHint);
-        card.getChildren().add(repRow);
+        box.getChildren().add(repRow);
 
-        // Ligne 4 : Choix du format (Grafcet générique par défaut)
+        // Ligne 4 : Choix du format (Grafcet standard par défaut)
         var formatRow = new VBox(4);
         var toggleGroup = new ToggleGroup();
 
         var rbGrafcet = new RadioButton("Grafcet standard (t/Xi/d)");
         rbGrafcet.setToggleGroup(toggleGroup);
-        rbGrafcet.setSelected(true); // FORMAT PAR DÉFAUT
-        rbGrafcet.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+        rbGrafcet.setSelected(true);
+        rbGrafcet.setStyle(AppTheme.RADIO_BUTTON_BOLD_STYLE);
 
         var rbST = new RadioButton("SFC CEI 61131-3 (Xi.t >= T#d)");
         rbST.setToggleGroup(toggleGroup);
-        rbST.setStyle("-fx-font-size: 11px;");
+        rbST.setStyle(AppTheme.RADIO_BUTTON_STYLE);
 
         formatRow.getChildren().addAll(rbGrafcet, rbST);
-        card.getChildren().add(formatRow);
+        box.getChildren().add(formatRow);
 
-        // Ligne 5 : Aperçu dynamique de la condition
+        // Ligne 5 : Aperçu dynamique
         var previewBox = new HBox(6);
         previewBox.setAlignment(Pos.CENTER_LEFT);
         previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
@@ -392,9 +319,8 @@ public class TransitionProperty extends VBox {
         prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         previewBox.getChildren().addAll(prevTitle, prevValue);
-        card.getChildren().add(previewBox);
+        box.getChildren().add(previewBox);
 
-        // Fonction locale de calcul de l'expression
         Runnable updatePreview = () -> {
             String stepVal = stepCombo.getValue() != null ? stepCombo.getValue().split(" ")[0] : "X1";
             String durText = durationField.getText() != null ? durationField.getText().trim() : "5";
@@ -410,7 +336,6 @@ public class TransitionProperty extends VBox {
             prevValue.setText(generated);
         };
 
-        // Écouteurs de mise à jour de l'aperçu
         stepCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
         durationField.textProperty().addListener((obs, o, n) -> updatePreview.run());
         unitCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
@@ -419,7 +344,7 @@ public class TransitionProperty extends VBox {
         rbST.selectedProperty().addListener((obs, o, n) -> updatePreview.run());
         updatePreview.run();
 
-        // Ligne 6 : Bouton d'insertion stylisé
+        // Ligne 6 : Bouton d'insertion
         var insertBtn = new Button("➕ Insérer le temporisateur");
         insertBtn.setMaxWidth(Double.MAX_VALUE);
         insertBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
@@ -427,9 +352,102 @@ public class TransitionProperty extends VBox {
             updatePreview.run();
             insertTextAtCursor(targetField, prevValue.getText());
         });
-        card.getChildren().add(insertBtn);
+        box.getChildren().add(insertBtn);
 
-        return card;
+        return box;
+    }
+
+    /**
+     * Crée le contenu de configuration de test de compteur (C < 5, C >= 10...).
+     */
+    private Node createCounterContent(List<Variable> counterVariables, TextField targetField) {
+        var box = new VBox(8);
+
+        // Ligne 1 : Choix du compteur
+        var row = new HBox(8);
+        row.setAlignment(Pos.CENTER_LEFT);
+        var cLbl = new Label("Compteur :");
+        cLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+        cLbl.setPrefWidth(70);
+
+        var counterCombo = new ComboBox<String>();
+        counterCombo.setEditable(true);
+        counterCombo.setPrefWidth(90);
+        if (counterVariables != null && !counterVariables.isEmpty()) {
+            for (Variable v : counterVariables) {
+                counterCombo.getItems().add(v.getName());
+            }
+        }
+        if (counterCombo.getItems().isEmpty()) {
+            counterCombo.getItems().addAll("C1", "C2");
+        }
+        counterCombo.setValue(counterCombo.getItems().getFirst());
+
+        // Opérateur
+        var opCombo = new ComboBox<String>();
+        opCombo.getItems().addAll(
+                "< (Boucle reprise)",
+                ">= (Fin de lot)",
+                "<= (Inférieur ou égal)",
+                "> (Strictement supérieur)",
+                "= (Égalité)",
+                "<> (Différent)"
+        );
+        opCombo.setValue("< (Boucle reprise)");
+        opCombo.setPrefWidth(130);
+        HBox.setHgrow(opCombo, Priority.ALWAYS);
+
+        // Seuil
+        var valField = new TextField("5");
+        valField.setStyle(AppTheme.TEXT_FIELD_STYLE);
+        valField.setPrefWidth(55);
+
+        row.getChildren().addAll(cLbl, counterCombo, opCombo, valField);
+        box.getChildren().add(row);
+
+        // Aperçu dynamique
+        var previewBox = new HBox(6);
+        previewBox.setAlignment(Pos.CENTER_LEFT);
+        previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
+
+        var prevTitle = new Label("Aperçu :");
+        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        var prevValue = new Label();
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+
+        previewBox.getChildren().addAll(prevTitle, prevValue);
+        box.getChildren().add(previewBox);
+
+        Runnable updatePreview = () -> {
+            String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
+                    ? counterCombo.getValue().trim() : "C1";
+            String opRaw = opCombo.getValue() != null ? opCombo.getValue().split(" ")[0] : "<";
+            int val = 5;
+            try {
+                val = Integer.parseInt(valField.getText().trim());
+            } catch (Exception ignored) {}
+
+            String condition = SfcCounterOperation.formatComparison(cName, opRaw, val);
+            prevValue.setText(condition);
+        };
+
+        counterCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        opCombo.valueProperty().addListener((obs, o, n) -> updatePreview.run());
+        valField.textProperty().addListener((obs, o, n) -> updatePreview.run());
+        updatePreview.run();
+
+        // Bouton d'insertion
+        var insertBtn = new Button("➕ Insérer le test de comptage");
+        insertBtn.setMaxWidth(Double.MAX_VALUE);
+        insertBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        insertBtn.setOnAction(e -> {
+            updatePreview.run();
+            insertTextAtCursor(targetField, prevValue.getText());
+        });
+        box.getChildren().add(insertBtn);
+
+        return box;
     }
 
     private void addOperatorBtn(FlowPane pane, TextField field, String label, String insertValue) {
@@ -456,12 +474,10 @@ public class TransitionProperty extends VBox {
         String prefix = current.substring(0, pos);
         String suffix = current.substring(pos);
 
-        // Si le champ ne contenait que "1", on le remplace directement
         if ("1".equals(current.trim())) {
             field.setText(text);
             field.positionCaret(text.length());
         } else {
-            // Si on insère après un identifiant sans opérateur, ajouter un point ET logique " . "
             field.setText(prefix + text + suffix);
             field.positionCaret(pos + text.length());
         }
