@@ -245,13 +245,14 @@ flowchart TD
         A3 --> A4[Validation formelle et Tests JUnit 5]
     end
 
-    subgraph Etape2 ["Étape 2 : Édition Graphique TIA Portal & Persistance (Terminée)"]
+    subgraph Etape2 ["Étape 2 : Édition Graphique TIA Portal, Temporisateurs & Compteurs (Terminée)"]
         B1[Smart Snapping ±14px & Lignes guides] --> B2[Quick-Add Handles contextuels]
         B2 --> B3[Tracé canonique CEI 60848 ET/OU & Boucles]
         B3 --> B4[Auto-Layout hiérarchique Ctrl+L]
-        B4 --> B5[Pan & Zoom fluide + Grille technique]
-        B5 --> B6[Édition in-place réceptivités et étapes]
-        B6 --> B7[Persistance JSON .sfc et .tk]
+        B4 --> B5[Temporisateurs normalisés t/Xi/d & ST]
+        B5 --> B6[Compteurs industriels init, inc/dec, tests ST]
+        B6 --> B7[Édition in-place réceptivités et étapes]
+        B7 --> B8[Persistance JSON .sfc et .tk]
     end
 
     subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Prochaine étape)"]
@@ -283,7 +284,7 @@ flowchart TD
 # Lancer l'application Grafino
 ./gradlew run
 
-# Exécuter l'ensemble des 20 tests unitaires automatisés
+# Exécuter l'ensemble des tests unitaires automatisés (modèle, temporisateurs, compteurs, stockage, graphisme)
 ./gradlew test
 
 # Nettoyer les artefacts de build
