@@ -34,6 +34,12 @@ Le nom **Grafino** symbolise la passerelle entre :
      - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`).
      - Détection continue des non-conformités (absence d'étape initiale, non-alternance, temporisations orphelines, compteurs sans qualificateur impulsionnel `P`).
      - Bouton `[🔍 Localiser]` pour centrer et surligner instantanément l'élément fautif sur le Canvas.
+   * **Chronogramme d'Évolution Multi-voies interactif** (`TimingDiagramPanel`) :
+     - Échantillonnage cyclique temps réel sans fuite mémoire (`TimingRecorder` et `TimingSample`).
+     - Formes d'ondes digitales pour les étapes $X_n$, entrées $\%I$, sorties $\%Q$ avec remplissage translucide, et analogiques en escalier pour les compteurs $C_n$.
+     - Marqueurs ambrés de franchissement de transitions ($T_n$).
+     - Curseur d'inspection avec restauration d'état sur le Grafcet (*Time Travel* pédagogique).
+     - Curseur de mesure différentielle $\Delta t$ et exportation des relevés au format CSV pour les comptes-rendus de TP.
 4. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` avec lampes témoins industrielles et compteurs INT, déduplication insensible à la casse des variables pour éviter les artefacts d'affichage).
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
@@ -113,7 +119,9 @@ tk.tahri.grafino/
 │   ├── SimulationState.java   # Marquage instantané des étapes (Xn), horodatages Tn, entrées/sorties et compteurs
 │   ├── ReceptivityEvaluator.java # Évaluateur booléen (NOT, AND, OR), temporisateurs t/Xi/d et tests compteurs
 │   ├── SimulationStepResult.java # Rapport d'évolution cyclique (transitions franchies, étapes activées/désactivées)
-│   └── GrafcetSimulator.java  # Moteur d'évolution cyclique synchrone appliquant les 5 règles fondamentales CEI 60848
+│   ├── GrafcetSimulator.java  # Moteur d'évolution cyclique synchrone appliquant les 5 règles fondamentales CEI 60848
+│   ├── TimingSample.java      # Record d'instantané temporel des signaux Xn, %I, %Q, Cn et transitions franchies
+│   └── TimingRecorder.java    # Buffer circulaire d'échantillonnage temporel, recherche dichotomique et export CSV
 │
 ├── component/                 # Composants visuels pour le Canvas JavaFX
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
@@ -128,11 +136,12 @@ tk.tahri.grafino/
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
-    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, table des variables fermée par défaut et gestion de projet
+    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, onglets Variables / Chronogramme et gestion de projet
     ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG haute résolution, sélection d'élément)
     ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, badge linting, simulation)
     ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
     ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
+    ├── TimingDiagramPanel.java# Chronogramme interactif multi-voies (zoom temporel, curseurs Δt, time-travel, export CSV)
     ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
     ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
@@ -179,6 +188,7 @@ L'interface associe les codes visuels emblématiques de **l'IDE Arduino** et la 
 | **`Ctrl + S`** | **Enregistrer le projet actif** (`.sfc`) |
 | **`Ctrl + Shift + S`** | **Enregistrer sous un nouveau nom ou format** |
 | **`Ctrl + E`** | **Exporter en image PNG haute résolution** (pour rapports de TP) |
+| **`Ctrl + K`** | **Ouvrir / Basculer sur le Chronogramme d'Évolution Multi-voies** |
 | **`T`** ou **`Entrée`** | Insérer la Transition suivante après l'Étape sélectionnée |
 | **`S`** ou **`Entrée`** | Insérer l'Étape suivante après la Transition sélectionnée |
 | **`B`** | Ouvrir une branche (OU sur une étape, ET sur une transition) |
@@ -297,6 +307,8 @@ flowchart TD
         D1[Visualisation tripartite franchissabilité CEI 60848 Règle 2] --> D2[États Non validée / En attente ambre / Franchissable vert halo]
         D2 --> D3[Inspection normative & Linting temps réel DiagnosticsPanel]
         D3 --> D4[Badge toolbar d'alertes & Centrage-sélection Canvas en un clic]
+        D4 --> D5[Chronogramme interactif multi-voies TimingDiagramPanel & Time Travel]
+        D5 --> D6[Curseur de mesure delta-t & Exportation CSV pour TP]
     end
 
     subgraph Etape5 ["Axe 3 : Génération de Code Automate & Embarqué (Prochaine étape)"]

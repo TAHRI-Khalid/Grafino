@@ -36,6 +36,7 @@ public class AppMenuBar extends MenuBar {
 
     // Éléments du menu Affichage
     private final MenuItem toggleTableItem = new MenuItem("📋 Table des Variables d'Automatismes");
+    private final MenuItem toggleTimingItem = new MenuItem("📈 Chronogramme d'Évolution Multi-voies");
     private final MenuItem toggleDiagnosticsItem = new MenuItem("🔍 Inspection & Linting normatif");
     private final MenuItem zoomInItem = new MenuItem("＋ Zoom Avant");
     private final MenuItem zoomOutItem = new MenuItem("－ Zoom Arrière");
@@ -88,12 +89,14 @@ public class AppMenuBar extends MenuBar {
 
         // 3. Menu Affichage
         toggleTableItem.setAccelerator(new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN));
+        toggleTimingItem.setAccelerator(new KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN));
         zoomInItem.setAccelerator(new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN));
         zoomOutItem.setAccelerator(new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN));
         resetZoomItem.setAccelerator(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN));
 
         viewMenu.getItems().addAll(
                 toggleTableItem,
+                toggleTimingItem,
                 toggleDiagnosticsItem,
                 new SeparatorMenuItem(),
                 zoomInItem,
@@ -134,6 +137,10 @@ public class AppMenuBar extends MenuBar {
 
     public void setOnToggleVariableTable(EventHandler<ActionEvent> event) {
         this.toggleTableItem.setOnAction(event);
+    }
+
+    public void setOnToggleTimingDiagram(EventHandler<ActionEvent> event) {
+        this.toggleTimingItem.setOnAction(event);
     }
 
     public void setOnSimulationBtnClick(EventHandler<ActionEvent> event) {

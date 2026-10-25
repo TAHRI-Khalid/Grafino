@@ -15,11 +15,15 @@ import tk.tahri.grafino.model.SfcProgram;
 import tk.tahri.grafino.model.SfcQualifier;
 import tk.tahri.grafino.model.SfcValidationMessage;
 import tk.tahri.grafino.simulation.GrafcetSimulator;
+import tk.tahri.grafino.simulation.TimingRecorder;
+import tk.tahri.grafino.simulation.TimingSample;
 import tk.tahri.grafino.storage.SfcStorage;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,10 +38,17 @@ public class MainUI extends BorderPane {
     private final AppMenuBar menuBar = new AppMenuBar();
     private final Grafcet grafcet = new Grafcet();
     private final VariableTable variableTable = new VariableTable();
+    private final TimingRecorder timingRecorder = new TimingRecorder();
+    private final TimingDiagramPanel timingDiagramPanel;
+
+    private enum BottomViewMode { VARIABLES, TIMING }
+    private BottomViewMode currentBottomView = BottomViewMode.VARIABLES;
+    private final Button tabVariablesBtn = new Button("📋 Variables (CEI 61131-3)");
+    private final Button tabTimingBtn = new Button("📈 Chronogramme d'Évolution");
+    private final StackPane bottomContentArea = new StackPane();
 
     private final SplitPane splitPane = new SplitPane();
     private final VBox tableContainer = new VBox();
-    private final Label tableTitleLabel = new Label("📋 Table des Variables d'Automatismes (CEI 61131-3)");
     private final Label tableSummaryLabel = new Label("0 Entrée(s) | 0 Sortie(s) | 0 Mémoire(s)");
     private final Button toggleTableBtn = new Button("▲ Agrandir");
 
@@ -51,6 +62,8 @@ public class MainUI extends BorderPane {
     private String currentProjectName = "Nouveau_Projet";
 
     public MainUI() {
+        this.timingDiagramPanel = new TimingDiagramPanel(timingRecorder, this::onRestoreTimingState);
+
         // 1. Barre de menus principale
         this.setTop(menuBar);
 
@@ -93,13 +106,26 @@ public class MainUI extends BorderPane {
     private void setupCenterSplitPane() {
         splitPane.setOrientation(Orientation.VERTICAL);
 
-        // En-tête rétractable de la table des variables au style Arduino IDE
-        var header = new HBox(10);
+        // En-tête rétractable avec onglets (Variables vs Chronogramme)
+        var header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(5, 12, 5, 12));
+        header.setPadding(new Insets(4, 12, 4, 12));
         header.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-border-color: " + AppTheme.BORDER_COLOR + "; -fx-border-width: 1 0 1 0; -fx-cursor: hand;");
 
-        tableTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        tabVariablesBtn.setOnAction(e -> {
+            switchBottomView(BottomViewMode.VARIABLES);
+            e.consume();
+        });
+        tabTimingBtn.setOnAction(e -> {
+            switchBottomView(BottomViewMode.TIMING);
+            e.consume();
+        });
+        updateBottomTabStyles();
+
+        var tabsBox = new HBox(4);
+        tabsBox.setAlignment(Pos.CENTER_LEFT);
+        tabsBox.getChildren().addAll(tabVariablesBtn, tabTimingBtn);
+
         tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var spacer = new Region();
@@ -112,20 +138,26 @@ public class MainUI extends BorderPane {
         });
 
         header.setOnMouseClicked(e -> {
-            if (e.getTarget() != toggleTableBtn) {
+            if (e.getTarget() != toggleTableBtn && e.getTarget() != tabVariablesBtn && e.getTarget() != tabTimingBtn) {
                 toggleVariableTable();
             }
         });
 
-        header.getChildren().addAll(tableTitleLabel, tableSummaryLabel, spacer, toggleTableBtn);
+        header.getChildren().addAll(tabsBox, new Separator(Orientation.VERTICAL), tableSummaryLabel, spacer, toggleTableBtn);
 
-        tableContainer.getChildren().addAll(header, variableTable);
-        VBox.setVgrow(variableTable, Priority.ALWAYS);
+        // Zone de contenu inférieure : commutable entre VariableTable et TimingDiagramPanel
+        bottomContentArea.getChildren().addAll(variableTable, timingDiagramPanel);
+        VBox.setVgrow(bottomContentArea, Priority.ALWAYS);
+
+        timingDiagramPanel.setVisible(false);
+        timingDiagramPanel.setManaged(false);
+
+        tableContainer.getChildren().addAll(header, bottomContentArea);
 
         // Fermé par défaut au démarrage : restreindre strictement la hauteur maximale de tableContainer
         // à sa taille préférée (hauteur de l'en-tête seul) et empêcher le redimensionnement automatique avec le parent
-        variableTable.setVisible(false);
-        variableTable.setManaged(false);
+        bottomContentArea.setVisible(false);
+        bottomContentArea.setManaged(false);
         tableContainer.setMaxHeight(Region.USE_PREF_SIZE);
         SplitPane.setResizableWithParent(tableContainer, false);
 
@@ -141,6 +173,53 @@ public class MainUI extends BorderPane {
         });
     }
 
+    private void switchBottomView(BottomViewMode mode) {
+        currentBottomView = mode;
+        updateBottomTabStyles();
+
+        if (mode == BottomViewMode.VARIABLES) {
+            variableTable.setVisible(true);
+            variableTable.setManaged(true);
+            timingDiagramPanel.setVisible(false);
+            timingDiagramPanel.setManaged(false);
+            onVariablesUpdated();
+        } else {
+            variableTable.setVisible(false);
+            variableTable.setManaged(false);
+            timingDiagramPanel.setVisible(true);
+            timingDiagramPanel.setManaged(true);
+            timingDiagramPanel.redraw();
+            tableSummaryLabel.setText("📈 Chronogramme multi-voies : " + timingRecorder.getSampleCount() + " échantillons");
+            tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+        }
+
+        if (isTableCollapsed) {
+            showVariableTable();
+        }
+    }
+
+    private void updateBottomTabStyles() {
+        String activeStyle = "-fx-background-color: " + AppTheme.PRIMARY_TEAL + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 9 3 9; -fx-background-radius: 4px; -fx-cursor: hand;";
+        String inactiveStyle = "-fx-background-color: transparent; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-weight: normal; -fx-font-size: 11px; -fx-padding: 3 9 3 9; -fx-background-radius: 4px; -fx-cursor: hand;";
+
+        tabVariablesBtn.setStyle(currentBottomView == BottomViewMode.VARIABLES ? activeStyle : inactiveStyle);
+        tabTimingBtn.setStyle(currentBottomView == BottomViewMode.TIMING ? activeStyle : inactiveStyle);
+    }
+
+    private void onRestoreTimingState(TimingSample sample) {
+        if (sample == null) return;
+        Set<String> activeSteps = sample.stepStates().entrySet().stream()
+                .filter(Map.Entry::getValue)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+        Set<String> activeOuts = sample.outputStates().entrySet().stream()
+                .filter(Map.Entry::getValue)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+        grafcet.updateSimulationVisuals(activeSteps, activeOuts);
+        setStatus("État temporel restauré : t = " + String.format(Locale.US, "%.2fs", sample.timestampMs() / 1000.0));
+    }
+
     private void setupMenuBarEvents(AppMenuBar menuBar) {
         menuBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
         menuBar.setOnDeleteClick(event -> grafcet.deleteSelected());
@@ -148,7 +227,16 @@ public class MainUI extends BorderPane {
             grafcet.getComponents().forEach(c -> c.setSelected(false));
             grafcet.fireSelectionChange(Optional.empty());
         });
-        menuBar.setOnToggleVariableTable(event -> toggleVariableTable());
+        menuBar.setOnToggleVariableTable(event -> {
+            switchBottomView(BottomViewMode.VARIABLES);
+            toggleVariableTable();
+        });
+        menuBar.setOnToggleTimingDiagram(event -> {
+            switchBottomView(BottomViewMode.TIMING);
+            if (isTableCollapsed) {
+                showVariableTable();
+            }
+        });
         menuBar.setOnDiagnosticsClick(event -> toggleDiagnosticsPanel());
         menuBar.setOnSimulationBtnClick(event -> toggleSimulation());
         menuBar.setOnZoomInClick(event -> grafcet.zoomIn());
@@ -244,6 +332,13 @@ public class MainUI extends BorderPane {
                     onExportPng();
                     event.consume();
                     return;
+                } else if (event.getCode() == KeyCode.K) {
+                    switchBottomView(BottomViewMode.TIMING);
+                    if (isTableCollapsed) {
+                        showVariableTable();
+                    }
+                    event.consume();
+                    return;
                 }
             }
 
@@ -325,8 +420,8 @@ public class MainUI extends BorderPane {
         if (isTableCollapsed) {
             tableContainer.setMaxHeight(Double.MAX_VALUE);
             SplitPane.setResizableWithParent(tableContainer, true);
-            variableTable.setVisible(true);
-            variableTable.setManaged(true);
+            bottomContentArea.setVisible(true);
+            bottomContentArea.setManaged(true);
             splitPane.setDividerPositions(lastDividerPosition > 0.1 && lastDividerPosition < 0.95 ? lastDividerPosition : 0.68);
             toggleTableBtn.setText("▼ Réduire");
             isTableCollapsed = false;
@@ -339,8 +434,8 @@ public class MainUI extends BorderPane {
             if (pos.length > 0 && pos[0] > 0.1 && pos[0] < 0.95) {
                 lastDividerPosition = pos[0];
             }
-            variableTable.setVisible(false);
-            variableTable.setManaged(false);
+            bottomContentArea.setVisible(false);
+            bottomContentArea.setManaged(false);
             tableContainer.setMaxHeight(Region.USE_PREF_SIZE);
             SplitPane.setResizableWithParent(tableContainer, false);
             splitPane.setDividerPositions(1.0);
@@ -603,18 +698,21 @@ public class MainUI extends BorderPane {
 
         // Initialisation du simulateur à la situation initiale
         simulator.reset();
+        timingRecorder.resetStartTime();
 
         // Désélectionner tout élément graphique
         grafcet.getComponents().forEach(c -> c.setSelected(false));
         grafcet.fireSelectionChange(Optional.empty());
 
-        // Créer le pupitre de commande interactif
+        // Créer le pupitre de commande interactif avec liaison au chronogramme
         activeSimulationPanel = new SimulationPanel(
                 simulator,
                 grafcet,
                 variableTable.getInputVariables(),
                 variableTable.getOutputVariables(),
                 variableTable.getCounterVariables(),
+                timingRecorder,
+                timingDiagramPanel::redraw,
                 this::stopSimulation
         );
 

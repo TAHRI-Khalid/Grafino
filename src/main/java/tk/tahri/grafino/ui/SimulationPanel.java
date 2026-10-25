@@ -12,8 +12,11 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import tk.tahri.grafino.component.Variable;
+import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.simulation.GrafcetSimulator;
 import tk.tahri.grafino.simulation.SimulationState;
+import tk.tahri.grafino.simulation.SimulationStepResult;
+import tk.tahri.grafino.simulation.TimingRecorder;
 
 import java.util.*;
 
@@ -33,6 +36,8 @@ public class SimulationPanel extends VBox {
     private final List<Variable> inputVariables;
     private final List<Variable> outputVariables;
     private final List<Variable> counterVariables;
+    private final TimingRecorder timingRecorder;
+    private final Runnable onTimingTick;
     private final Runnable onClose;
 
     private final Timeline simulationTimer;
@@ -57,11 +62,24 @@ public class SimulationPanel extends VBox {
                            List<Variable> outputVariables,
                            List<Variable> counterVariables,
                            Runnable onClose) {
+        this(simulator, grafcet, inputVariables, outputVariables, counterVariables, null, null, onClose);
+    }
+
+    public SimulationPanel(GrafcetSimulator simulator,
+                           Grafcet grafcet,
+                           List<Variable> inputVariables,
+                           List<Variable> outputVariables,
+                           List<Variable> counterVariables,
+                           TimingRecorder timingRecorder,
+                           Runnable onTimingTick,
+                           Runnable onClose) {
         this.simulator = simulator;
         this.grafcet = grafcet;
         this.inputVariables = (inputVariables != null) ? inputVariables : List.of();
         this.outputVariables = (outputVariables != null) ? outputVariables : List.of();
         this.counterVariables = (counterVariables != null) ? counterVariables : List.of();
+        this.timingRecorder = timingRecorder;
+        this.onTimingTick = onTimingTick;
         this.onClose = onClose;
 
         this.setPrefWidth(380);
@@ -145,15 +163,15 @@ public class SimulationPanel extends VBox {
 
         Button stepBtn = new Button("⏭ Pas-à-pas");
         stepBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
-        stepBtn.setOnAction(e -> {
-            simulator.step();
-            refreshVisuals();
-        });
+        stepBtn.setOnAction(e -> executeStepAndRecord());
 
         Button resetBtn = new Button("🔄 Reset");
         resetBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
         resetBtn.setOnAction(e -> {
             simulator.reset();
+            if (timingRecorder != null) {
+                timingRecorder.resetStartTime();
+            }
             // Réinitialiser les boutons d'entrée à 0
             for (var tb : toggleButtons.values()) {
                 tb.setSelected(false);
@@ -429,8 +447,38 @@ public class SimulationPanel extends VBox {
 
     private void runSimulationTick() {
         if (!isRunning) return;
-        simulator.step();
+        executeStepAndRecord();
+    }
+
+    private void executeStepAndRecord() {
+        SimulationStepResult result = simulator.step();
         refreshVisuals();
+
+        if (timingRecorder != null) {
+            List<String> stepNames = new ArrayList<>();
+            for (var comp : grafcet.getComponents()) {
+                if (comp instanceof Step step) {
+                    stepNames.add("X" + step.getNumber());
+                }
+            }
+            List<String> inNames = inputVariables.stream().map(Variable::getName).toList();
+            List<String> outNames = outputVariables.stream().map(Variable::getName).toList();
+            List<String> countNames = counterVariables.stream().map(Variable::getName).toList();
+
+            timingRecorder.recordTick(
+                    System.currentTimeMillis(),
+                    simulator.getState(),
+                    result,
+                    stepNames,
+                    inNames,
+                    outNames,
+                    countNames
+            );
+
+            if (onTimingTick != null) {
+                onTimingTick.run();
+            }
+        }
     }
 
     public void refreshVisuals() {
