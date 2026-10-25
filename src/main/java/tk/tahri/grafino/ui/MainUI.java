@@ -84,32 +84,35 @@ public class MainUI extends BorderPane {
 
     private void setupToolBarEvents(TopToolBar toolBar) {
         toolBar.setOnStepBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Transition transition && transition.getLinksToChildren().isEmpty()) {
+            if (component instanceof Transition transition) {
                 grafcet.createStep(transition);
-                setStatus("Étape créée après la transition T" + transition.getNumber());
             }
         }));
 
         toolBar.setOnTransitionBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Step step && step.getLinksToChildren().isEmpty()) {
+            if (component instanceof Step step) {
                 grafcet.createTransition(step);
-                setStatus("Transition créée après l'étape " + step.getNumber());
             }
         }));
 
         toolBar.setOnOrBranchBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Step step && !step.getLinksToChildren().isEmpty()) {
-                grafcet.createTransition(step);
-                setStatus("Branche OU créée (Sélection de séquence)");
+            if (component instanceof Step step) {
+                grafcet.createOrBranch(step);
             }
         }));
 
         toolBar.setOnAndBranchBtnClick(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Transition transition && !transition.getLinksToChildren().isEmpty()) {
-                grafcet.createStep(transition);
-                setStatus("Branche ET créée (Synchronisation)");
+            if (component instanceof Transition transition) {
+                grafcet.createAndBranch(transition);
             }
         }));
+
+        toolBar.setOnDeleteBtnClick(event -> grafcet.deleteSelected());
+        toolBar.setOnZoomInClick(event -> grafcet.zoomIn());
+        toolBar.setOnZoomOutClick(event -> grafcet.zoomOut());
+        toolBar.setOnResetZoomClick(event -> grafcet.resetZoom());
+
+        grafcet.setStatusMessageConsumer(this::setStatus);
 
         // Ajout & suppression rapide de variables
         toolBar.setOnAddVariableBtnClick(event -> {

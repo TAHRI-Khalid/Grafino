@@ -43,15 +43,8 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
         // Trait vertical de passage
         ctx.strokeLine(midX, getY(), midX, getY() + UNIT_HEIGHT);
 
-        // Trait de transition (double trait si synchronisation ET)
-        boolean isSync = (linksFromParents.size() > 1) || (linksToChildren.size() > 1);
-        if (isSync) {
-            double gap = 4.0;
-            ctx.strokeLine(left - 5, midY - gap, right + 5, midY - gap);
-            ctx.strokeLine(left - 5, midY + gap, right + 5, midY + gap);
-        } else {
-            ctx.strokeLine(left, midY, right, midY);
-        }
+        // Trait transversal normalisé de transition (toujours un trait simple CEI 60848)
+        ctx.strokeLine(left, midY, right, midY);
 
         // Repère de transition à gauche (ex: T1)
         ctx.setTextAlign(TextAlignment.RIGHT);

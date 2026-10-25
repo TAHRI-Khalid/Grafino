@@ -76,7 +76,7 @@ tk.tahri.grafino/
 │   └── SfcStorage.java        # Sauvegarde/chargement .sfc et rétrocompatibilité .tk
 │
 ├── component/                 # Composants visuels pour le Canvas JavaFX
-│   ├── Component.java         # Classe de base des éléments graphiques (couleur primaire #008184)
+│   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions (poignées, sélection, déplacement)
 │   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et actions
 │   ├── Transition.java        # Rendu de la transition et condition ST
@@ -85,13 +85,13 @@ tk.tahri.grafino/
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
 └── ui/                        # Interface Utilisateur JavaFX 27 inspirée d'Arduino IDE
-    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces)
-    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable et barre d'état
+    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
+    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
     ├── Grafcet.java           # Canvas fluide pleine surface (ResizableCanvas)
     ├── TopToolBar.java        # Barre d'outils graphique avec infobulles descriptives
     ├── StepProperty.java      # Sidebar d'édition d'étape (étape initiale, qualificateurs, cartes d'action)
     ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, puces %I, opérateurs)
-    └── VariableTable.java     # Table des variables (onglets %I/%Q/%M, recherche, auto-incrémentation)
+    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M)
 ```
 
 ### Principes Java 25+ appliqués :
@@ -108,8 +108,12 @@ L'interface adopte les codes visuels emblématiques de **l'IDE Arduino (Arduino 
 
 | Rôle | Teinte | Hex | Usage |
 | :--- | :--- | :--- | :--- |
-| **Arduino Teal (Primaire)** | Teal classique | `#008184` | Accent principal, barre d'outils, boutons d'action majeurs, barre d'état |
+| **Arduino Teal (Primaire)** | Teal classique | `#008184` | Accent principal, barre d'outils, boutons d'action majeurs |
 | **Teal Vibrant (Accent)** | Teal clair | `#00979D` | Survol, boutons de sortie `%Q`, éléments sélectionnés |
+| **Sélection Canvas (Jaune)** | Jaune vif | `#FFCC00` | Contour de surbrillance de l'étape, transition ou liaison sélectionnée |
+| **Entrées Capteurs (%I)** | Vert Émeraude | `#10B981` | Bouton d'ajout rapide `＋ Entrée (%I)` et onglet actif |
+| **Sorties Préactionneurs (%Q)**| Bleu Cyan | `#0284C7` | Bouton d'ajout rapide `＋ Sortie (%Q)` et onglet actif |
+| **Mémoires Internes (%M)** | Violet / Pourpre | `#7C3AED` | Bouton d'ajout rapide `＋ Mémoire (%M)` et onglet actif |
 | **Teal Light (Surfaces & Puces)**| Fond cyan doux | `#E5F5F5` | Fond des puces capteurs `%I`, badges actifs, surlignage |
 | **Arduino Orange** | Orange d'alerte | `#E67E22` | Badge Transition `T<n>`, qualificateurs temporisés `L`/`D` |
 | **Arduino Red** | Rouge brique | `#D9381E` | Actions Reset `R`, suppression 🗑, alertes de syntaxe d'adresse |
