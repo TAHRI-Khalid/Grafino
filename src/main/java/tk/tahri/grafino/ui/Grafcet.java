@@ -585,7 +585,9 @@ public class Grafcet extends Pane {
         }
 
         if (mouse.getY() < begin.getY()) {
-            double gutterX = Math.min(begin.getX(), mouse.getX()) - Component.UNIT_WIDTH * 0.9;
+            double gutterX = (begin.getX() > mouse.getX() + 20)
+                    ? Math.max(begin.getX(), mouse.getX()) + Component.UNIT_WIDTH * 0.9
+                    : Math.min(begin.getX(), mouse.getX()) - Component.UNIT_WIDTH * 0.9;
             ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), begin.getY() + 15);
             ctx.strokeLine(begin.getX(), begin.getY() + 15, gutterX, begin.getY() + 15);
             ctx.strokeLine(gutterX, begin.getY() + 15, gutterX, mouse.getY());

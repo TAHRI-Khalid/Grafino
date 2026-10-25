@@ -39,19 +39,23 @@ public class Link extends Component {
             Link link;
             if (end.getY() < begin.getY()) {
                 // Boucle de reprise ascendante
-                double gutterX = Math.min(begin.getX(), end.getX()) - UNIT_WIDTH * 0.9;
+                double gutterX = (begin.getX() > end.getX() + 20)
+                        ? Math.max(begin.getX(), end.getX()) + UNIT_WIDTH * 0.9
+                        : Math.min(begin.getX(), end.getX()) - UNIT_WIDTH * 0.9;
                 var p1 = begin;
-                var p2 = new Point2D(gutterX, begin.getY() + 15);
-                var p3 = new Point2D(gutterX, end.getY() - 15);
-                var p4 = new Point2D(end.getX(), end.getY() - 15);
-                var p5 = end;
-                link = new Link(ctx, parentComponent, childComponent, List.of(p1, p2, p3, p4, p5));
+                var p2 = new Point2D(begin.getX(), begin.getY() + 15);
+                var p3 = new Point2D(gutterX, begin.getY() + 15);
+                var p4 = new Point2D(gutterX, end.getY() - 15);
+                var p5 = new Point2D(end.getX(), end.getY() - 15);
+                var p6 = end;
+                link = new Link(ctx, parentComponent, childComponent, List.of(p1, p2, p3, p4, p5, p6));
                 link.customGutterX = gutterX;
             } else {
                 var middle = new Point2D(end.getX(), (begin.getY() + end.getY()) / 2);
                 link = new Link(ctx, parentComponent, childComponent, List.of(begin, middle, end));
             }
-            link.update();
+            parentComponent.getLinksToChildren().forEach(Link::update);
+            childComponent.getLinksFromParents().forEach(Link::update);
             return link;
         }
 
@@ -72,7 +76,8 @@ public class Link extends Component {
         var end = new Point2D(childComponent.getX() + UNIT_WIDTH / 2, childComponent.getY());
         var middle = new Point2D(end.getX(), (begin.getY() + end.getY()) / 2);
         var link = new Link(ctx, parentComponent, childComponent, List.of(begin, middle, end));
-        link.update();
+        parentComponent.getLinksToChildren().forEach(Link::update);
+        childComponent.getLinksFromParents().forEach(Link::update);
         return link;
     }
 
@@ -94,16 +99,28 @@ public class Link extends Component {
         return childComponent;
     }
 
+    public List<Link> getDownwardChildren() {
+        return parentComponent.getLinksToChildren().stream()
+                .filter(l -> !l.isAscending())
+                .toList();
+    }
+
+    public List<Link> getDownwardParents() {
+        return childComponent.getLinksFromParents().stream()
+                .filter(l -> !l.isAscending())
+                .toList();
+    }
+
     public boolean isAscending() {
         return childComponent.getY() < parentComponent.getY() + UNIT_HEIGHT;
     }
 
     public boolean isDivergence() {
-        return parentComponent.getLinksToChildren().size() > 1 && !isAscending();
+        return !isAscending() && getDownwardChildren().size() > 1;
     }
 
     public boolean isConvergence() {
-        return childComponent.getLinksFromParents().size() > 1 && !isAscending();
+        return !isAscending() && getDownwardParents().size() > 1;
     }
 
     @Override
@@ -138,16 +155,20 @@ public class Link extends Component {
     }
 
     private void drawDivergenceBar() {
-        // Dessiné uniquement par le premier lien pour éviter les redessins multiples
-        if (parentComponent.getLinksToChildren().indexOf(this) != 0) {
+        var downwardChildren = getDownwardChildren();
+        if (downwardChildren.size() <= 1) {
+            return;
+        }
+        // Dessiné uniquement par le premier lien descendant pour éviter les redessins multiples
+        if (downwardChildren.indexOf(this) != 0) {
             return;
         }
 
         double branchY = parentComponent.getY() + UNIT_HEIGHT + 20;
-        double minX = parentComponent.getLinksToChildren().stream()
+        double minX = downwardChildren.stream()
                 .mapToDouble(l -> l.getChildComponent().getX() + UNIT_WIDTH / 2)
                 .min().orElse(parentComponent.getX() + UNIT_WIDTH / 2);
-        double maxX = parentComponent.getLinksToChildren().stream()
+        double maxX = downwardChildren.stream()
                 .mapToDouble(l -> l.getChildComponent().getX() + UNIT_WIDTH / 2)
                 .max().orElse(parentComponent.getX() + UNIT_WIDTH / 2);
 
@@ -171,16 +192,20 @@ public class Link extends Component {
     }
 
     private void drawConvergenceBar() {
-        // Dessiné uniquement par le premier lien convergent
-        if (childComponent.getLinksFromParents().indexOf(this) != 0) {
+        var downwardParents = getDownwardParents();
+        if (downwardParents.size() <= 1) {
+            return;
+        }
+        // Dessiné uniquement par le premier lien convergent descendant
+        if (downwardParents.indexOf(this) != 0) {
             return;
         }
 
         double convY = childComponent.getY() - 20;
-        double minX = childComponent.getLinksFromParents().stream()
+        double minX = downwardParents.stream()
                 .mapToDouble(l -> l.getParentComponent().getX() + UNIT_WIDTH / 2)
                 .min().orElse(childComponent.getX() + UNIT_WIDTH / 2);
-        double maxX = childComponent.getLinksFromParents().stream()
+        double maxX = downwardParents.stream()
                 .mapToDouble(l -> l.getParentComponent().getX() + UNIT_WIDTH / 2)
                 .max().orElse(childComponent.getX() + UNIT_WIDTH / 2);
 
@@ -256,7 +281,9 @@ public class Link extends Component {
 
         if (isAscending()) {
             double gutterX = (customGutterX != null) ? customGutterX :
-                    Math.min(begin.getX(), end.getX()) - UNIT_WIDTH * 0.9;
+                    ((begin.getX() > end.getX() + 20)
+                            ? Math.max(begin.getX(), end.getX()) + UNIT_WIDTH * 0.9
+                            : Math.min(begin.getX(), end.getX()) - UNIT_WIDTH * 0.9);
             var p1 = begin;
             var p2 = new Point2D(begin.getX(), begin.getY() + 15);
             var p3 = new Point2D(gutterX, begin.getY() + 15);
@@ -267,8 +294,8 @@ public class Link extends Component {
             return;
         }
 
-        boolean hasDivergence = parentComponent.getLinksToChildren().size() > 1;
-        boolean hasConvergence = childComponent.getLinksFromParents().size() > 1;
+        boolean hasDivergence = isDivergence();
+        boolean hasConvergence = isConvergence();
 
         if (hasDivergence && !hasConvergence) {
             double branchY = parentComponent.getY() + UNIT_HEIGHT + 20;
@@ -318,5 +345,7 @@ public class Link extends Component {
     public void disconnect() {
         parentComponent.getLinksToChildren().remove(this);
         childComponent.getLinksFromParents().remove(this);
+        parentComponent.getLinksToChildren().forEach(Link::update);
+        childComponent.getLinksFromParents().forEach(Link::update);
     }
 }

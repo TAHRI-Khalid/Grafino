@@ -82,6 +82,58 @@ class GrafcetDrawingLogicTest {
     }
 
     @Test
+    @DisplayName("Boucle de reprise après divergence : ne doit pas créer de fausse convergence ni de ligne parasite")
+    void testLoopbackAfterDivergenceDoesNotCreateFalseConvergence() {
+        // S1 -> T1 -> S2 -> (T2, T3)
+        // T2 boucle vers S1
+        // T3 boucle vers S2
+        var s1 = new Step(null);
+        s1.position = new Point2D(400, 50);
+
+        var t1 = new Transition(null);
+        t1.position = new Point2D(400, 130);
+
+        var s2 = new Step(null);
+        s2.position = new Point2D(400, 220);
+
+        var t2 = new Transition(null);
+        t2.position = new Point2D(300, 320);
+
+        var t3 = new Transition(null);
+        t3.position = new Point2D(500, 320);
+
+        var linkS1T1 = Link.between(null, s1, t1);
+        var linkT1S2 = Link.between(null, t1, s2);
+        var linkS2T2 = Link.between(null, s2, t2);
+        var linkS2T3 = Link.between(null, s2, t3);
+
+        // Avant les retours : divergence normale sous S2
+        assertTrue(linkS2T2.isDivergence());
+        assertTrue(linkS2T3.isDivergence());
+        assertFalse(linkT1S2.isConvergence());
+
+        // Liaison boucle T2 -> S1
+        var loopT2S1 = Link.between(null, t2, s1);
+        assertTrue(loopT2S1.isAscending());
+        assertFalse(loopT2S1.isConvergence());
+
+        // Liaison boucle T3 -> S2 (scénario rapporté par l'utilisateur)
+        var loopT3S2 = Link.between(null, t3, s2);
+        assertTrue(loopT3S2.isAscending(), "T3 -> S2 doit être détectée comme une liaison ascendante");
+        assertFalse(loopT3S2.isConvergence(), "Une boucle de reprise ascendante ne doit pas être une convergence");
+        assertFalse(loopT3S2.isDivergence(), "Une boucle de reprise ascendante ne doit pas être une divergence");
+
+        // CRUCIAL : T1 -> S2 ne doit PAS être marqué comme convergence
+        // (S2 a 2 parents, mais un seul parent descendant T1 et une boucle de reprise T3)
+        assertFalse(linkT1S2.isConvergence(), "T1 -> S2 ne doit pas devenir une convergence à cause d'une boucle de retour");
+
+        // Vérifier que la gouttière de T3 (situé à droite de S2) est bien à droite
+        double expectedGutterX = (500 + Component.UNIT_WIDTH / 2) + Component.UNIT_WIDTH * 0.9;
+        assertTrue(loopT3S2.isPointOnTheComponent(new Point2D(expectedGutterX, 250)),
+                "La gouttière de la boucle de droite doit se trouver à droite");
+    }
+
+    @Test
     @DisplayName("Déconnexion propre d'un composant et de ses liaisons")
     void testDisconnectLink() {
         var step = new Step(null);

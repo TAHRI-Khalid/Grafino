@@ -36,8 +36,10 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 3. **Étape initiale** : Au moins une étape initiale doit être définie (représentée par un double carré concentrique).
 4. **Symbole de transition** : Une transition est strictement représentée par un trait simple transversal perpendiculaire à la liaison (repère $T_n$ à gauche, condition en Structured Text à droite).
 5. **Structures de divergence et convergence** :
-   * **Sélection de séquence (OU)** : trait horizontal simple continu reliant l'ensemble des branches alternatives ($X_{min}$ à $X_{max}$).
-   * **Parallélisme / Synchronisation (ET)** : **double barre horizontale** continue (exactement 2 lignes parallèles avec écartement de $6\text{ px}$).
+   * **Sélection de séquence (OU)** : trait horizontal simple continu reliant l'ensemble des branches alternatives descendantes ($X_{min}$ à $X_{max}$).
+   * **Parallélisme / Synchronisation (ET)** : **double barre horizontale** continue (exactement 2 lignes parallèles avec écartement de $6\text{ px}$) reliant les branches descendantes.
+   * **Exclusion stricte des boucles de reprise (retours ascendants)** : les liaisons ascendantes ne participent jamais aux barres de convergence ou de divergence du flux principal direct. Une boucle de reprise se raccorde directement à son étape cible sans générer de barre horizontale parasite.
+   * **Routage adaptatif de la gouttière** : la gouttière de remontée s'adapte à la disposition spatiale relative (gouttière à droite si la source est à droite de la cible, à gauche sinon) pour éviter toute collision graphique.
 6. **Qualificateurs d'actions CEI 61131-3** :
    * `N` : Non-stored (action continue pendant l'activité de l'étape).
    * `S` : Set / Mémorisé à 1.
@@ -97,7 +99,7 @@ tk.tahri.grafino/
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
 │   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions ST
 │   ├── Transition.java        # Rendu de la transition (trait transversal unique) et détection étape amont
-│   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante
+│   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante à gouttière adaptative sans fausse convergence
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable ou expression ST)
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
