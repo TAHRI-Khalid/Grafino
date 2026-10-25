@@ -22,6 +22,7 @@ public class TopToolBar extends ToolBar {
     private final Button orBranchBtn = new Button();
     private final Button andBranchBtn = new Button();
     private final Button deleteBtn = new Button();
+    private final Button autoLayoutBtn = new Button("📐 Aligner");
 
     private final Button zoomInBtn = new Button("＋");
     private final Button zoomOutBtn = new Button("－");
@@ -64,6 +65,10 @@ public class TopToolBar extends ToolBar {
         deleteBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #FFFFFF; -fx-font-size: 16px; -fx-cursor: hand; -fx-padding: 3 8 3 8;");
         deleteBtn.setTooltip(new Tooltip("Supprimer l'élément sélectionné (Suppr)"));
 
+        // Bouton Auto-Layout
+        autoLayoutBtn.setStyle("-fx-background-color: rgba(255, 255, 255, 0.18); -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 4 9 4 9;");
+        autoLayoutBtn.setTooltip(new Tooltip("Aligner et centrer automatiquement tout le Grafcet (Ctrl+L)"));
+
         // Boutons de Zoom
         String zoomBtnStyle = "-fx-background-color: rgba(255, 255, 255, 0.15); -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 4 9 4 9;";
         zoomInBtn.setStyle(zoomBtnStyle);
@@ -90,6 +95,7 @@ public class TopToolBar extends ToolBar {
                 stepBtn, transitionBtn, orBranchBtn, andBranchBtn,
                 sep1,
                 deleteBtn,
+                autoLayoutBtn,
                 spacer,
                 sep2,
                 zoomOutBtn, resetZoomBtn, zoomInBtn
@@ -114,6 +120,10 @@ public class TopToolBar extends ToolBar {
 
     public void setOnDeleteBtnClick(EventHandler<ActionEvent> event) {
         this.deleteBtn.setOnAction(event);
+    }
+
+    public void setOnAutoLayoutClick(EventHandler<ActionEvent> event) {
+        this.autoLayoutBtn.setOnAction(event);
     }
 
     public void setOnZoomInClick(EventHandler<ActionEvent> event) {

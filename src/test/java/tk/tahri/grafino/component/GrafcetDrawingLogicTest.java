@@ -116,4 +116,75 @@ class GrafcetDrawingLogicTest {
         Point2D delBtnCenter = step.getQuickDeleteCenter();
         assertTrue(step.isQuickDeletePressed(delBtnCenter), "Le centre du bouton supprimer doit être détecté");
     }
+
+    @Test
+    @DisplayName("Magnétisme intelligent (Smart Snap) sur l'axe vertical du parent")
+    void testSmartSnapVerticalAlignment() {
+        var grafcet = new tk.tahri.grafino.ui.Grafcet();
+
+        var parentStep = new Step(null);
+        parentStep.position = new Point2D(400, 100);
+        grafcet.getComponents().add(parentStep);
+
+        var childTrans = new Transition(null);
+        childTrans.position = new Point2D(400, 220);
+        grafcet.getComponents().add(childTrans);
+        Link.between(null, parentStep, childTrans);
+
+        // Déplacement de childTrans avec un léger décalage de 6px en X
+        double rawX = 406;
+        double rawY = 250;
+        Point2D snapped = grafcet.computeSmartSnap(childTrans, rawX, rawY);
+
+        assertEquals(400.0, snapped.getX(), "L'élément doit s'aimanter exactement sur l'axe X de son parent");
+    }
+
+    @Test
+    @DisplayName("Magnétisme intelligent (Smart Snap) sur l'axe horizontal d'une branche sœur")
+    void testSmartSnapHorizontalAlignment() {
+        var grafcet = new tk.tahri.grafino.ui.Grafcet();
+
+        var branch1 = new Step(null);
+        branch1.position = new Point2D(300, 200);
+        grafcet.getComponents().add(branch1);
+
+        var branch2 = new Step(null);
+        branch2.position = new Point2D(500, 200);
+        grafcet.getComponents().add(branch2);
+
+        // Déplacement de branch2 avec un léger décalage de 5px en Y
+        double rawX = 520;
+        double rawY = 205;
+        Point2D snapped = grafcet.computeSmartSnap(branch2, rawX, rawY);
+
+        assertEquals(200.0, snapped.getY(), "L'élément doit s'aimanter sur la hauteur Y de la branche parallèle");
+    }
+
+    @Test
+    @DisplayName("Auto-layout hiérarchique régulier du Grafcet")
+    void testAutoLayoutHierarchy() {
+        var grafcet = new tk.tahri.grafino.ui.Grafcet();
+
+        var s0 = new Step(null);
+        s0.setInitial(true);
+        s0.position = new Point2D(100, 50);
+        grafcet.getComponents().add(s0);
+
+        var t1 = new Transition(null);
+        t1.position = new Point2D(250, 80);
+        grafcet.getComponents().add(t1);
+        Link.between(null, s0, t1);
+
+        var s1 = new Step(null);
+        s1.position = new Point2D(60, 300);
+        grafcet.getComponents().add(s1);
+        Link.between(null, t1, s1);
+
+        grafcet.autoLayout();
+
+        assertTrue(s0.getY() < t1.getY(), "L'étape initiale doit être au-dessus de la transition");
+        assertTrue(t1.getY() < s1.getY(), "La transition doit être au-dessus de l'étape suivante");
+        assertEquals(s0.getX(), t1.getX(), "Une chaîne simple doit être alignée sur le même axe X");
+        assertEquals(t1.getX(), s1.getX(), "L'étape suivante doit être alignée sur le même axe X");
+    }
 }

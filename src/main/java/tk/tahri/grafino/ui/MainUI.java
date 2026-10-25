@@ -108,6 +108,7 @@ public class MainUI extends BorderPane {
         }));
 
         toolBar.setOnDeleteBtnClick(event -> grafcet.deleteSelected());
+        toolBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
         toolBar.setOnZoomInClick(event -> grafcet.zoomIn());
         toolBar.setOnZoomOutClick(event -> grafcet.zoomOut());
         toolBar.setOnResetZoomClick(event -> grafcet.resetZoom());

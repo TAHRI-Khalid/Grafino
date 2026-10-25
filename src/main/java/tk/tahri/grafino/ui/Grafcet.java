@@ -14,17 +14,18 @@ import tk.tahri.grafino.Handle;
 import tk.tahri.grafino.Operation;
 import tk.tahri.grafino.component.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
  * Surface interactive de modélisation graphique SFC / Grafcet (CEI 60848 & CEI 61131-3).
- * Intègre un auto-layout fluide, la grille technique, pan/zoom et l'insertion contextuelle TIA Portal.
+ * Intègre un auto-layout fluide, la grille technique, pan/zoom, le magnétisme intelligent
+ * (Smart Snap & Guides d'alignement) et l'insertion contextuelle TIA Portal.
  */
 public class Grafcet extends Pane {
+    public record AlignmentGuide(double x1, double y1, double x2, double y2, boolean isVertical) {}
+
     private final Canvas canvas = new ResizableCanvas();
     private final GraphicsContext ctx = canvas.getGraphicsContext2D();
     private final AnimationTimer animationTimer;
@@ -37,6 +38,9 @@ public class Grafcet extends Pane {
     private double lastMouseX = 0;
     private double lastMouseY = 0;
     private Point2D mouseDragPosition;
+
+    // Lignes de guidage magnétique actives
+    private final List<AlignmentGuide> activeGuideLines = new ArrayList<>();
 
     // Zoom & Pan
     private double zoomFactor = 1.0;
@@ -85,6 +89,7 @@ public class Grafcet extends Pane {
         canvas.setOnMousePressed(event -> {
             this.requestFocus();
             closeInlineEditor();
+            activeGuideLines.clear();
 
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
 
@@ -186,7 +191,9 @@ public class Grafcet extends Pane {
                 var component = getSelectedComponent().get();
                 switch (operation) {
                     case PRESSED_TO_MOVE -> {
-                        var position = new Point2D(diagPt.getX() - pressedH, diagPt.getY() - pressedV);
+                        double rawX = diagPt.getX() - pressedH;
+                        double rawY = diagPt.getY() - pressedV;
+                        var position = computeSmartSnap(component, rawX, rawY);
                         component.updatePositionAndLinks(position);
                         mouseDragPosition = null;
                     }
@@ -212,6 +219,8 @@ public class Grafcet extends Pane {
         });
 
         canvas.setOnMouseReleased(event -> {
+            activeGuideLines.clear();
+
             if (operation == Operation.PANNING) {
                 this.setCursor(Cursor.DEFAULT);
                 operation = Operation.PRESSED_TO_MOVE;
@@ -272,7 +281,10 @@ public class Grafcet extends Pane {
                 return;
             }
 
-            if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
+            if (event.isControlDown() && event.getCode() == KeyCode.L) {
+                autoLayout();
+                event.consume();
+            } else if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
                 deleteSelected();
                 event.consume();
             } else if (event.getCode() == KeyCode.ESCAPE) {
@@ -309,6 +321,71 @@ public class Grafcet extends Pane {
         });
     }
 
+    /**
+     * Calcule le magnétisme intelligent (Smart Snap) d'un composant en déplacement :
+     * 1. Aimantation sur l'axe central X de ses parents et enfants directs.
+     * 2. Aimantation sur l'axe horizontal Y des étapes/transitions sœurs.
+     * 3. Alignement sur grille fine de 12px si aucune aimantation relative n'est détectée.
+     */
+    public Point2D computeSmartSnap(StepAndTransitionCommonBehavior draggedComp, double rawX, double rawY) {
+        activeGuideLines.clear();
+
+        double snappedX = rawX;
+        double snappedY = rawY;
+        double snapTolerance = 14.0;
+
+        double draggedCenterX = rawX + Component.UNIT_WIDTH / 2;
+        boolean snappedXDone = false;
+        boolean snappedYDone = false;
+
+        // 1. Aimantation verticale sur l'axe X (Parents, enfants puis autres composants)
+        List<StepAndTransitionCommonBehavior> xCandidates = new ArrayList<>();
+        draggedComp.getLinksFromParents().forEach(l -> xCandidates.add(l.getParentComponent()));
+        draggedComp.getLinksToChildren().forEach(l -> xCandidates.add(l.getChildComponent()));
+        components.stream().filter(c -> c != draggedComp && !xCandidates.contains(c)).forEach(xCandidates::add);
+
+        for (var ref : xCandidates) {
+            double refCenterX = ref.getX() + Component.UNIT_WIDTH / 2;
+            if (Math.abs(draggedCenterX - refCenterX) <= snapTolerance) {
+                snappedX = refCenterX - Component.UNIT_WIDTH / 2;
+                snappedXDone = true;
+
+                double minY = Math.min(rawY, ref.getY()) - 25;
+                double maxY = Math.max(rawY + Component.UNIT_HEIGHT, ref.getY() + Component.UNIT_HEIGHT) + 25;
+                activeGuideLines.add(new AlignmentGuide(refCenterX, minY, refCenterX, maxY, true));
+                break;
+            }
+        }
+
+        // 2. Aimantation horizontale sur l'axe Y (Branches parallèles / composants au même niveau)
+        for (var ref : components) {
+            if (ref == draggedComp) continue;
+
+            if (Math.abs(rawY - ref.getY()) <= snapTolerance) {
+                snappedY = ref.getY();
+                snappedYDone = true;
+
+                double minX = Math.min(snappedX, ref.getX()) - 25;
+                double maxX = Math.max(snappedX + Component.UNIT_WIDTH, ref.getX() + Component.UNIT_WIDTH) + 25;
+                double guideY = ref.getY() + Component.UNIT_HEIGHT / 2;
+                activeGuideLines.add(new AlignmentGuide(minX, guideY, maxX, guideY, false));
+                break;
+            }
+        }
+
+        // 3. Calage sur grille fine de 12px si aucun composant proche n'est aimanté
+        if (!snappedXDone) {
+            double gridStep = 12.0;
+            snappedX = Math.round(snappedX / gridStep) * gridStep;
+        }
+        if (!snappedYDone) {
+            double gridStep = 12.0;
+            snappedY = Math.round(snappedY / gridStep) * gridStep;
+        }
+
+        return new Point2D(snappedX, snappedY);
+    }
+
     private String getElementName(StepAndTransitionCommonBehavior comp) {
         if (comp instanceof Step s) {
             return "Étape S" + s.getNumber();
@@ -316,6 +393,95 @@ public class Grafcet extends Pane {
             return "Transition T" + t.getNumber();
         }
         return "Élément";
+    }
+
+    // ==========================================
+    // AUTO-LAYOUT / ALIGNEMENT CANONIQUE CEI 60848
+    // ==========================================
+
+    /**
+     * Réaligne automatiquement l'ensemble du Grafcet de manière hiérarchique et symétrique :
+     * - Organisation par couches descendantes successives.
+     * - Centrage horizontal des chaînes et répartition équitable des branches parallèles.
+     * - Mise à jour propre de l'ensemble des liaisons.
+     */
+    public void autoLayout() {
+        if (components.isEmpty()) return;
+
+        // Trouver les étapes initiales ou sans parents comme racines
+        var roots = components.stream()
+                .filter(c -> c.getLinksFromParents().isEmpty() || (c instanceof Step s && s.isInitial()))
+                .toList();
+
+        if (roots.isEmpty()) {
+            roots = List.of(components.getFirst());
+        }
+
+        // Parcours en largeur pour affecter un niveau hiérarchique à chaque composant
+        Map<StepAndTransitionCommonBehavior, Integer> levels = new HashMap<>();
+        Queue<StepAndTransitionCommonBehavior> queue = new ArrayDeque<>();
+
+        for (var root : roots) {
+            levels.put(root, 0);
+            queue.add(root);
+        }
+
+        Set<StepAndTransitionCommonBehavior> visited = new HashSet<>(roots);
+
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            int currentLevel = levels.get(current);
+
+            for (Link link : current.getLinksToChildren()) {
+                var child = link.getChildComponent();
+                if (!roots.contains(child)) {
+                    int existingLevel = levels.getOrDefault(child, -1);
+                    if (existingLevel < currentLevel + 1) {
+                        levels.put(child, currentLevel + 1);
+                        if (!visited.contains(child)) {
+                            visited.add(child);
+                            queue.add(child);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Affecter le niveau 0 pour les éléments non raccordés
+        for (var comp : components) {
+            levels.putIfAbsent(comp, 0);
+        }
+
+        // Regrouper par niveau
+        Map<Integer, List<StepAndTransitionCommonBehavior>> byLevel = new TreeMap<>();
+        levels.forEach((comp, lvl) -> byLevel.computeIfAbsent(lvl, k -> new ArrayList<>()).add(comp));
+
+        double centerX = (canvas.getWidth() > 0) ? canvas.getWidth() / 2 - Component.UNIT_WIDTH / 2 : 400;
+        double startY = 80;
+        double verticalSpacing = 85;
+        double horizontalSpacing = 180;
+
+        byLevel.forEach((lvl, compsInLevel) -> {
+            double y = startY + lvl * verticalSpacing;
+            int count = compsInLevel.size();
+            double totalWidth = (count - 1) * horizontalSpacing;
+            double startX = centerX - totalWidth / 2;
+
+            for (int i = 0; i < count; i++) {
+                var comp = compsInLevel.get(i);
+                double x = startX + i * horizontalSpacing;
+                comp.updatePositionAndLinks(new Point2D(x, y));
+            }
+        });
+
+        // Mettre à jour l'ensemble des liaisons
+        components.stream()
+                .map(StepAndTransitionCommonBehavior::getLinksToChildren)
+                .flatMap(List::stream)
+                .forEach(Link::update);
+
+        notifyStatus("Schéma réaligné automatiquement selon les normes CEI 60848.");
+        redraw();
     }
 
     // ==========================================
@@ -337,6 +503,17 @@ public class Grafcet extends Pane {
         // Application du Pan & Zoom
         ctx.translate(panX, panY);
         ctx.scale(zoomFactor, zoomFactor);
+
+        // Tracé des lignes de guidage magnétique temporaires
+        if (!activeGuideLines.isEmpty()) {
+            ctx.setStroke(Color.rgb(0, 151, 157, 0.85)); // Vibrant Teal
+            ctx.setLineWidth(1.6);
+            ctx.setLineDashes(4.0, 4.0);
+            for (var guide : activeGuideLines) {
+                ctx.strokeLine(guide.x1(), guide.y1(), guide.x2(), guide.y2());
+            }
+            ctx.setLineDashes(null);
+        }
 
         // Tracé des liaisons en premier (en dessous)
         components.stream()
