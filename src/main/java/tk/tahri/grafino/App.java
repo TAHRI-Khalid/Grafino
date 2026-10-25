@@ -13,7 +13,7 @@ public class App extends Application {
         var scene = new Scene(new MainUI(), 800, 600);
         scene.getStylesheets().add(String.valueOf(getClass().getResource("/css/style.css")));
         stage.setMaximized(true);
-        stage.setTitle("Grafino");
+        stage.setTitle("Grafino — Nouveau Projet");
         stage.setScene(scene);
         stage.show();
     }

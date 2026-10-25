@@ -348,4 +348,16 @@ public class Link extends Component {
         parentComponent.getLinksToChildren().forEach(Link::update);
         childComponent.getLinksFromParents().forEach(Link::update);
     }
+
+    public List<Point2D> getPath() {
+        return path;
+    }
+
+    public Double getCustomGutterX() {
+        return customGutterX;
+    }
+
+    public void setCustomGutterX(Double customGutterX) {
+        this.customGutterX = customGutterX;
+    }
 }

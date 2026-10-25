@@ -411,10 +411,13 @@ public class SimulationPanel extends VBox {
     }
 
     public void refreshVisuals() {
-        // 1. Rafraîchissement du canvas Grafcet (marquage des étapes et actions allumées)
+        // 1. Rafraîchissement du canvas Grafcet (marquage des étapes, actions et franchissabilité des transitions)
         var activeSteps = simulator.getState().getActiveStepIds();
         var activeOutputs = simulator.getState().getActiveOutputs();
-        grafcet.updateSimulationVisuals(activeSteps, activeOutputs);
+        var validatedTrans = simulator.getValidatedTransitions();
+        var trueRecTrans = simulator.getTrueReceptivityTransitions();
+        var fireableTrans = simulator.getFireableTransitions();
+        grafcet.updateSimulationVisuals(activeSteps, activeOutputs, validatedTrans, trueRecTrans, fireableTrans);
 
         // 2. Mise à jour du compteur de cycles
         cycleLabel.setText("Cycle : " + simulator.getState().getCycleCount());

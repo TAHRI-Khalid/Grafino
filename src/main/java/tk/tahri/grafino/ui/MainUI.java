@@ -5,12 +5,19 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import tk.tahri.grafino.component.*;
 import tk.tahri.grafino.model.SfcActionBlock;
+import tk.tahri.grafino.model.SfcProgram;
 import tk.tahri.grafino.model.SfcQualifier;
+import tk.tahri.grafino.model.SfcValidationMessage;
 import tk.tahri.grafino.simulation.GrafcetSimulator;
+import tk.tahri.grafino.storage.SfcStorage;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +44,11 @@ public class MainUI extends BorderPane {
     private boolean isTableCollapsed = false;
     private double lastDividerPosition = 0.68;
     private SimulationPanel activeSimulationPanel = null;
+    private DiagnosticsPanel diagnosticsPanel = null;
+
+    // Gestion du fichier actif (Axe 1 : Sécurisation du workflow)
+    private File currentFile = null;
+    private String currentProjectName = "Nouveau_Projet";
 
     public MainUI() {
         // 1. Barre d'outils supérieure
@@ -56,13 +68,26 @@ public class MainUI extends BorderPane {
         // 5. Synchronisation de la sélection d'éléments
         setupSelectionListener();
 
-        // 6. Raccourcis clavier (déplacement fin des composants)
+        // 6. Raccourcis clavier (navigation fine & commandes globales)
         setupKeyboardNavigation();
 
-        // 7. Écoute des modifications de variables pour rafraîchir les panneaux latéraux
+        // 7. Écoute des modifications structurelles du Grafcet pour le linting normatif
+        grafcet.setOnStructureChanged(this::refreshDiagnostics);
+
+        // 8. Écoute des modifications de variables pour rafraîchir les panneaux latéraux
         variableTable.setOnVariablesChanged(this::onVariablesUpdated);
         variableTable.setOnValidationError(this::setStatusError);
         onVariablesUpdated();
+
+        // 9. Titre dynamique de fenêtre lié au fichier chargé
+        this.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                newScene.windowProperty().addListener((wObs, oldW, newW) -> updateWindowTitle());
+            }
+        });
+
+        // 10. Premier calcul de linting normatif
+        refreshDiagnostics();
     }
 
     private void setupCenterSplitPane() {
@@ -119,10 +144,18 @@ public class MainUI extends BorderPane {
 
         toolBar.setOnDeleteBtnClick(event -> grafcet.deleteSelected());
         toolBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
+        toolBar.setOnDiagnosticsClick(event -> toggleDiagnosticsPanel());
         toolBar.setOnSimulationBtnClick(event -> toggleSimulation());
         toolBar.setOnZoomInClick(event -> grafcet.zoomIn());
         toolBar.setOnZoomOutClick(event -> grafcet.zoomOut());
         toolBar.setOnResetZoomClick(event -> grafcet.resetZoom());
+
+        // Handlers du menu Fichier & Persistance (Axe 1)
+        toolBar.setOnNewProject(event -> onNewProject());
+        toolBar.setOnOpenProject(event -> onOpenProject());
+        toolBar.setOnSaveProject(event -> onSaveProject());
+        toolBar.setOnSaveAsProject(event -> onSaveAsProject());
+        toolBar.setOnExportPng(event -> onExportPng());
 
         grafcet.setStatusMessageConsumer(this::setStatus);
 
@@ -150,7 +183,16 @@ public class MainUI extends BorderPane {
                     case Step step -> {
                         var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
                                 variableTable.getCounterVariables(),
-                                () -> grafcet.redraw(), () -> this.setRight(null));
+                                () -> {
+                                    grafcet.redraw();
+                                    refreshDiagnostics();
+                                }, () -> {
+                                    if (diagnosticsPanel != null) {
+                                        this.setRight(diagnosticsPanel);
+                                    } else {
+                                        this.setRight(null);
+                                    }
+                                });
                         this.setRight(sideProperty);
                         setStatus("Étape S" + step.getNumber() + " sélectionnée");
                     }
@@ -161,30 +203,69 @@ public class MainUI extends BorderPane {
                                 .toList();
                         var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
                                 variableTable.getCounterVariables(),
-                                () -> grafcet.redraw(), () -> this.setRight(null));
+                                () -> {
+                                    grafcet.redraw();
+                                    refreshDiagnostics();
+                                }, () -> {
+                                    if (diagnosticsPanel != null) {
+                                        this.setRight(diagnosticsPanel);
+                                    } else {
+                                        this.setRight(null);
+                                    }
+                                });
                         this.setRight(sideProperty);
                         setStatus("Transition T" + transition.getNumber() + " sélectionnée");
                     }
                 }
             } else {
-                this.setRight(null);
+                if (diagnosticsPanel != null) {
+                    this.setRight(diagnosticsPanel);
+                } else {
+                    this.setRight(null);
+                }
                 setStatus("Prêt");
             }
         });
     }
 
     private void setupKeyboardNavigation() {
-        this.setOnKeyPressed(event -> grafcet.getSelectedComponent().ifPresent(component -> {
-            int step = event.isControlDown() ? 10 : 2;
-            switch (event.getCode()) {
-                case UP -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() - step));
-                case DOWN -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
-                case LEFT -> component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
-                case RIGHT -> component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
-                default -> { return; }
+        this.setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.N) {
+                    onNewProject();
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.O) {
+                    onOpenProject();
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.S) {
+                    if (event.isShiftDown()) {
+                        onSaveAsProject();
+                    } else {
+                        onSaveProject();
+                    }
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.E) {
+                    onExportPng();
+                    event.consume();
+                    return;
+                }
             }
-            event.consume();
-        }));
+
+            grafcet.getSelectedComponent().ifPresent(component -> {
+                int step = event.isControlDown() ? 10 : 2;
+                switch (event.getCode()) {
+                    case UP -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() - step));
+                    case DOWN -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
+                    case LEFT -> component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
+                    case RIGHT -> component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
+                    default -> { return; }
+                }
+                event.consume();
+            });
+        });
     }
 
     private void onVariablesUpdated() {
@@ -192,6 +273,9 @@ public class MainUI extends BorderPane {
         long outCount = variableTable.getOutputVariables().size();
         long intCount = variableTable.getVariables().size() - inCount - outCount;
         tableSummaryLabel.setText(inCount + " Entrée(s) %I | " + outCount + " Sortie(s) %Q | " + intCount + " Interne(s)");
+        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+
+        refreshDiagnostics();
 
         if (activeSimulationPanel != null) {
             // Ne pas écraser le pupitre de simulation
@@ -203,7 +287,16 @@ public class MainUI extends BorderPane {
             if (component instanceof Step step) {
                 var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
                         variableTable.getCounterVariables(),
-                        () -> grafcet.redraw(), () -> this.setRight(null));
+                        () -> {
+                            grafcet.redraw();
+                            refreshDiagnostics();
+                        }, () -> {
+                            if (diagnosticsPanel != null) {
+                                this.setRight(diagnosticsPanel);
+                            } else {
+                                this.setRight(null);
+                            }
+                        });
                 this.setRight(sideProperty);
             } else if (component instanceof Transition transition) {
                 List<Step> availableSteps = grafcet.getComponents().stream()
@@ -212,7 +305,16 @@ public class MainUI extends BorderPane {
                         .toList();
                 var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
                         variableTable.getCounterVariables(),
-                        () -> grafcet.redraw(), () -> this.setRight(null));
+                        () -> {
+                            grafcet.redraw();
+                            refreshDiagnostics();
+                        }, () -> {
+                            if (diagnosticsPanel != null) {
+                                this.setRight(diagnosticsPanel);
+                            } else {
+                                this.setRight(null);
+                            }
+                        });
                 this.setRight(sideProperty);
             }
         });
@@ -251,12 +353,180 @@ public class MainUI extends BorderPane {
     }
 
     private void setStatus(String message) {
-        // Barre de statut supprimée pour maximiser la surface disponible
+        if (message != null && !message.isBlank()) {
+            tableSummaryLabel.setText(message);
+            tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+        }
     }
 
     private void setStatusError(String errorMessage) {
         tableSummaryLabel.setText("⚠ " + errorMessage);
         tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.RED_DANGER + ";");
+    }
+
+    // ==========================================
+    // PERSISTANCE & MENU FICHIER (AXE 1)
+    // ==========================================
+
+    public void onNewProject() {
+        if (!grafcet.isDiagramEmpty() || !variableTable.getVariables().isEmpty()) {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Nouveau Projet SFC");
+            alert.setHeaderText("Créer un nouveau diagramme ?");
+            alert.setContentText("Le diagramme actuel sera réinitialisé. Pensez à enregistrer votre travail de TP.");
+            ButtonType btnYes = new ButtonType("Créer nouveau", ButtonBar.ButtonData.OK_DONE);
+            ButtonType btnCancel = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(btnYes, btnCancel);
+
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.isEmpty() || result.get() != btnYes) {
+                return;
+            }
+        }
+
+        currentFile = null;
+        currentProjectName = "Nouveau_Projet";
+        grafcet.clearDiagram();
+        variableTable.clear();
+        updateWindowTitle();
+        refreshDiagnostics();
+        setStatus("Nouveau projet initialisé");
+    }
+
+    public void onOpenProject() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Ouvrir un programme Grafcet / SFC");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Programmes SFC / Grafcet (*.sfc, *.tk)", "*.sfc", "*.tk"),
+                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*")
+        );
+
+        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
+            fileChooser.setInitialDirectory(currentFile.getParentFile());
+        }
+
+        File file = fileChooser.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
+        if (file != null) {
+            try {
+                SfcProgram loaded = SfcStorage.load(file);
+
+                // 1. Recharger la table des variables
+                List<Variable> vars = loaded.variables().stream()
+                        .map(Variable::fromIecVariable)
+                        .toList();
+                variableTable.setVariables(vars);
+
+                // 2. Reconstruire le diagramme graphique Grafcet
+                grafcet.loadFromProgram(loaded, variableTable.getVariables());
+
+                currentFile = file;
+                currentProjectName = loaded.programName();
+                updateWindowTitle();
+                refreshDiagnostics();
+                setStatus("Programme chargé avec succès : " + file.getName());
+            } catch (Exception ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Erreur de chargement");
+                alert.setHeaderText("Impossible d'ouvrir le fichier SFC / Grafcet");
+                alert.setContentText("Détail de l'erreur : " + ex.getMessage());
+                alert.showAndWait();
+                setStatusError("Échec de l'ouverture du fichier : " + ex.getMessage());
+            }
+        }
+    }
+
+    public void onSaveProject() {
+        if (currentFile == null) {
+            onSaveAsProject();
+        } else {
+            doSave(currentFile);
+        }
+    }
+
+    public void onSaveAsProject() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Enregistrer le programme Grafcet / SFC");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Programme SFC CEI 61131-3 (*.sfc)", "*.sfc"),
+                new FileChooser.ExtensionFilter("Fichier Grafcet rétrocompatible (*.tk)", "*.tk"),
+                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*")
+        );
+
+        String defaultName = (currentFile != null)
+                ? currentFile.getName()
+                : (currentProjectName + ".sfc");
+        fileChooser.setInitialFileName(defaultName);
+
+        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
+            fileChooser.setInitialDirectory(currentFile.getParentFile());
+        }
+
+        File file = fileChooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+        if (file != null) {
+            doSave(file);
+        }
+    }
+
+    private void doSave(File targetFile) {
+        try {
+            String baseName = targetFile.getName();
+            if (baseName.contains(".")) {
+                baseName = baseName.substring(0, baseName.lastIndexOf('.'));
+            }
+            currentProjectName = baseName;
+
+            SfcProgram program = grafcet.toProgram(currentProjectName, variableTable.getVariables());
+            SfcStorage.save(program, targetFile);
+
+            currentFile = targetFile;
+            updateWindowTitle();
+            setStatus("Programme enregistré : " + targetFile.getName());
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Erreur d'enregistrement");
+            alert.setHeaderText("Impossible d'enregistrer le fichier SFC");
+            alert.setContentText("Détail de l'erreur : " + ex.getMessage());
+            alert.showAndWait();
+            setStatusError("Échec de l'enregistrement : " + ex.getMessage());
+        }
+    }
+
+    public void onExportPng() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Exporter le Grafcet en image PNG haute résolution");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Image PNG (*.png)", "*.png")
+        );
+        String defaultName = currentProjectName + ".png";
+        fileChooser.setInitialFileName(defaultName);
+
+        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
+            fileChooser.setInitialDirectory(currentFile.getParentFile());
+        }
+
+        File file = fileChooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+        if (file != null) {
+            try {
+                grafcet.exportToPng(file, currentProjectName, 2.0);
+                setStatus("Export PNG réussi : " + file.getName());
+            } catch (Exception ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Erreur d'exportation");
+                alert.setHeaderText("Impossible d'exporter l'image PNG");
+                alert.setContentText("Détail de l'erreur : " + ex.getMessage());
+                alert.showAndWait();
+                setStatusError("Échec de l'export PNG : " + ex.getMessage());
+            }
+        }
+    }
+
+    private void updateWindowTitle() {
+        if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
+            String display = (currentFile != null)
+                    ? currentFile.getName()
+                    : (currentProjectName + " (non enregistré)");
+            stage.setTitle("Grafino — " + display);
+        }
     }
 
     // ==========================================
@@ -360,9 +630,59 @@ public class MainUI extends BorderPane {
             activeSimulationPanel = null; // Mettre à null en premier pour briser toute récursion
             panel.stop();
         }
-        this.setRight(null);
+        if (diagnosticsPanel != null) {
+            this.setRight(diagnosticsPanel);
+        } else {
+            this.setRight(null);
+        }
         toolBar.setSimulationActive(false);
         grafcet.clearSimulationVisuals();
+        refreshDiagnostics();
         setStatus("Simulation arrêtée");
+    }
+
+    // ==========================================
+    // DIAGNOSTIC & LINTING NORMATIF (AXE 2)
+    // ==========================================
+
+    private void toggleDiagnosticsPanel() {
+        if (activeSimulationPanel != null) {
+            setStatus("Veuillez arrêter la simulation pour inspecter les diagnostics");
+            return;
+        }
+
+        if (diagnosticsPanel != null && this.getRight() == diagnosticsPanel) {
+            this.setRight(null);
+            diagnosticsPanel = null;
+        } else {
+            diagnosticsPanel = new DiagnosticsPanel(this::onSelectDiagnosticElement, () -> {
+                this.setRight(null);
+                diagnosticsPanel = null;
+            });
+            refreshDiagnostics();
+            this.setRight(diagnosticsPanel);
+        }
+    }
+
+    public void refreshDiagnostics() {
+        try {
+            SfcProgram program = grafcet.toProgram(currentProjectName, variableTable.getVariables());
+            List<SfcValidationMessage> messages = program.validate();
+            long errorCount = messages.stream().filter(SfcValidationMessage::isError).count();
+            long warningCount = messages.stream().filter(SfcValidationMessage::isWarning).count();
+            toolBar.setDiagnosticsStatus(errorCount, warningCount);
+            if (diagnosticsPanel != null) {
+                diagnosticsPanel.setMessages(messages);
+            }
+        } catch (Exception ignored) {
+            // Diagramme en cours d'édition
+        }
+    }
+
+    private void onSelectDiagnosticElement(String elementId) {
+        if (elementId != null && !elementId.isBlank()) {
+            grafcet.selectComponentByReference(elementId);
+            setStatus("Élément inspecté : " + elementId);
+        }
     }
 }

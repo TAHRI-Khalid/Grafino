@@ -18,9 +18,21 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
    * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
-2. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I` et observation des préactionneurs de sortie `%Q`).
-3. **Validation sémantique formelle** (détection des violations d'alternance, adresses IEC invalides, blocages ou conflits).
-4. **Exportation documentaire** (PNG haute résolution pour rapports de TP et dossiers techniques).
+2. **Sécurisation du flux de travail étudiant & Persistance UI** :
+   * Menu Fichier complet (`Nouveau`, `Ouvrir`, `Enregistrer`, `Enregistrer sous`, `Exporter PNG`).
+   * Raccourcis clavier universels (`Ctrl + N`, `Ctrl + O`, `Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + E`).
+   * Exportation documentaire PNG haute résolution (échelle x2 avec titre et cartouche pour rapports de TP).
+   * Synchronisation dynamique du titre de la fenêtre avec le fichier ouvert et indicateur de modification.
+3. **Pédagogie & Compréhension Visuelle en Simulation** :
+   * **Visualisation tripartite de franchissabilité** selon la Règle 2 CEI 60848 :
+     - *Non validée* (trait sombre `#4B5563`, étapes amont inactives).
+     - *Validée en attente* (trait ambré `#F59E0B`, pulsation et badge `[⏳ T<n>]`, étapes amont actives mais réceptivité fausse).
+     - *Franchissable* (halo vert `#10B981`, flèche dynamique `▶` et badge `[✓ T<n>]`, prête au franchissement synchrone).
+   * **Inspection normative & Linting en direct** (`DiagnosticsPanel`) :
+     - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`).
+     - Détection continue des non-conformités (absence d'étape initiale, non-alternance, temporisations orphelines, compteurs sans qualificateur impulsionnel `P`).
+     - Bouton `[🔍 Localiser]` pour centrer et surligner instantanément l'élément fautif sur le Canvas.
+4. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` et des compteurs INT).
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
 ---
@@ -105,18 +117,19 @@ tk.tahri.grafino/
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
 │   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial), jeton actif ● et blocs d'actions allumés
-│   ├── Transition.java        # Rendu de la transition (trait transversal unique) et détection étape amont
-│   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante à gouttière adaptative sans fausse convergence
+│   ├── Transition.java        # Rendu de la transition (trait transversal, rendu tripartite simulation: non validée, attente, franchissable)
+│   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante à gouttière adaptative
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable ou expression ST)
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
 └── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
-    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
-    ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place, visuels simulation)
-    ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－, simulation ▶/⏹)
-    ├── SimulationPanel.java   # Pupitre virtuel droit (boutons poussoirs/bascules %I, lampes LED %Q, compteurs, contrôles run/pause/step/reset)
+    ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
+    ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur et gestion de projet
+    ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG haute résolution, sélection d'élément)
+    ├── TopToolBar.java        # Barre d'outils graphique (menu Fichier, création, suppression 🗑, diagnostic, auto-layout 📐, zoom, simulation)
+    ├── SimulationPanel.java   # Pupitre virtuel droit (boutons poussoirs/bascules %I, lampes LED %Q, compteurs, contrôles synchrone)
     ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
     ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
@@ -158,6 +171,11 @@ L'interface associe les codes visuels emblématiques de **l'IDE Arduino** et la 
 
 | Raccourci | Action |
 | :--- | :--- |
+| **`Ctrl + N`** | **Nouveau projet SFC / Grafcet** (avec confirmation si diagramme non vide) |
+| **`Ctrl + O`** | **Ouvrir un programme** existant (`.sfc` ou `.tk`) |
+| **`Ctrl + S`** | **Enregistrer le projet actif** (`.sfc`) |
+| **`Ctrl + Shift + S`** | **Enregistrer sous un nouveau nom ou format** |
+| **`Ctrl + E`** | **Exporter en image PNG haute résolution** (pour rapports de TP) |
 | **`T`** ou **`Entrée`** | Insérer la Transition suivante après l'Étape sélectionnée |
 | **`S`** ou **`Entrée`** | Insérer l'Étape suivante après la Transition sélectionnée |
 | **`B`** | Ouvrir une branche (OU sur une étape, ET sur une transition) |
@@ -250,13 +268,13 @@ Exemple de structure d'un programme POU SFC standard :
 
 ```mermaid
 flowchart TD
-    subgraph Etape1 ["Étape 1 : Modèle CEI 61131-3 (Terminée)"]
+    subgraph Etape1 ["Axe Fondations : Modèle CEI 61131-3 & Persistance (Terminé)"]
         A1[Records & Sealed SfcElement] --> A2[Qualificateurs N, S, R, L, D, P]
         A2 --> A3[Variables typées VAR_INPUT / VAR_OUTPUT]
         A3 --> A4[Validation formelle et Tests JUnit 5]
     end
 
-    subgraph Etape2 ["Étape 2 : Édition Graphique TIA Portal, Temporisateurs & Compteurs (Terminée)"]
+    subgraph Etape2 ["Axe Édition & Outils Graphiques TIA Portal (Terminé)"]
         B1[Smart Snapping ±14px & Lignes guides] --> B2[Quick-Add Handles contextuels]
         B2 --> B3[Tracé canonique CEI 60848 ET/OU & Boucles]
         B3 --> B4[Auto-Layout hiérarchique Ctrl+L]
@@ -266,20 +284,27 @@ flowchart TD
         B7 --> B8[Persistance JSON .sfc et .tk]
     end
 
-    subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Terminée)"]
-        C1[Calcul cyclique du marquage Step.X] --> C2[Gestion temporelle Step.T et qualificateurs L/D]
-        C2 --> C3[Pupitre virtuel : Forçage des entrées %I et lampes témoins %Q]
-        C3 --> C4[Modes Pas-à-pas et Temps Réel continu]
+    subgraph Etape3 ["Axe 1 : Sécurisation du Workflow Étudiant (Terminé)"]
+        C1[Menu Fichier complet Nouveau, Ouvrir, Enregistrer] --> C2[Raccourcis universels Ctrl+N, O, S, Shift+S]
+        C2 --> C3[Exportateur PNG haute résolution cartouche Ctrl+E]
+        C3 --> C4[Intégrité des gouttières de reprise & boucle Manhattan]
     end
 
-    subgraph Etape4 ["Étape 4 : Génération de Code Cible (Prochaine étape)"]
-        D1[Exportateur Structured Text ST IEC 61131-3] --> D2[Exportateur croquis Arduino C++ .ino]
-        D2 --> D3[Exportateur standard PLCopen XML]
+    subgraph Etape4 ["Axe 2 : Pédagogie & Compréhension Visuelle (Terminé)"]
+        D1[Visualisation tripartite franchissabilité CEI 60848 Règle 2] --> D2[États Non validée / En attente ambre / Franchissable vert halo]
+        D2 --> D3[Inspection normative & Linting temps réel DiagnosticsPanel]
+        D3 --> D4[Badge toolbar d'alertes & Centrage-sélection Canvas en un clic]
+    end
+
+    subgraph Etape5 ["Axe 3 : Génération de Code Automate & Embarqué (Prochaine étape)"]
+        E1[Exportateur Structured Text ST IEC 61131-3] --> E2[Exportateur croquis Arduino C++ .ino]
+        E2 --> E3[Dialogue d'export avec coloration syntaxique & mapping E/S]
     end
 
     Etape1 --> Etape2
     Etape2 --> Etape3
     Etape3 --> Etape4
+    Etape4 --> Etape5
 ```
 
 ---

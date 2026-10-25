@@ -14,10 +14,18 @@ public abstract class Component {
     public static final double UNIT_HEIGHT = 64;
     public static final double GAP = 10;
 
-    protected final GraphicsContext ctx;
+    protected GraphicsContext ctx;
     protected boolean selected = false;
 
     protected Component(GraphicsContext ctx) {
+        this.ctx = ctx;
+    }
+
+    public GraphicsContext getGraphicsContext() {
+        return ctx;
+    }
+
+    public void setGraphicsContext(GraphicsContext ctx) {
         this.ctx = ctx;
     }
 

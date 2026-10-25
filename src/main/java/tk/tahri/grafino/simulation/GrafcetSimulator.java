@@ -235,6 +235,88 @@ public class GrafcetSimulator {
         return false;
     }
 
+    // ==========================================
+    // REQUÊTES PÉDAGOGIQUES SUR LES TRANSITIONS (AXE 2)
+    // ==========================================
+
+    /**
+     * Une transition est validée si TOUTES ses étapes amont directes sont actives (CEI 60848).
+     */
+    public boolean isTransitionValidated(String transitionId) {
+        TransitionNode t = transitions.get(transitionId);
+        if (t == null || t.upstreamStepIds().isEmpty()) {
+            return false;
+        }
+        for (String upId : t.upstreamStepIds()) {
+            if (!state.isStepActive(upId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Indique si la réceptivité associée à la transition est actuellement vraie.
+     */
+    public boolean isTransitionReceptivityTrue(String transitionId) {
+        return isTransitionReceptivityTrue(transitionId, System.currentTimeMillis());
+    }
+
+    public boolean isTransitionReceptivityTrue(String transitionId, long currentTimeMs) {
+        TransitionNode t = transitions.get(transitionId);
+        if (t == null) return false;
+        return ReceptivityEvaluator.evaluate(t.conditionST(), state, currentTimeMs, this::resolveStepReference);
+    }
+
+    /**
+     * Une transition est franchissable ssi elle est Validée ET sa réceptivité est Vraie (Règle 2).
+     */
+    public boolean isTransitionFireable(String transitionId) {
+        return isTransitionFireable(transitionId, System.currentTimeMillis());
+    }
+
+    public boolean isTransitionFireable(String transitionId, long currentTimeMs) {
+        return isTransitionValidated(transitionId) && isTransitionReceptivityTrue(transitionId, currentTimeMs);
+    }
+
+    public Set<String> getValidatedTransitions() {
+        Set<String> set = new LinkedHashSet<>();
+        for (String id : transitions.keySet()) {
+            if (isTransitionValidated(id)) {
+                set.add(id);
+            }
+        }
+        return set;
+    }
+
+    public Set<String> getTrueReceptivityTransitions() {
+        return getTrueReceptivityTransitions(System.currentTimeMillis());
+    }
+
+    public Set<String> getTrueReceptivityTransitions(long currentTimeMs) {
+        Set<String> set = new LinkedHashSet<>();
+        for (String id : transitions.keySet()) {
+            if (isTransitionReceptivityTrue(id, currentTimeMs)) {
+                set.add(id);
+            }
+        }
+        return set;
+    }
+
+    public Set<String> getFireableTransitions() {
+        return getFireableTransitions(System.currentTimeMillis());
+    }
+
+    public Set<String> getFireableTransitions(long currentTimeMs) {
+        Set<String> set = new LinkedHashSet<>();
+        for (TransitionNode t : transitions.values()) {
+            if (isTransitionFireable(t, currentTimeMs)) {
+                set.add(t.id());
+            }
+        }
+        return set;
+    }
+
     public SimulationState getState() {
         return state;
     }
