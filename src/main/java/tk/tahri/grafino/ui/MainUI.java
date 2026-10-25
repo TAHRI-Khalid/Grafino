@@ -8,6 +8,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import tk.tahri.grafino.component.*;
 
+import java.util.List;
+
 /**
  * Fenêtre principale de Grafino avec vue partagée (SplitPane) intégrée :
  * - Vue supérieure : Éditeur graphique interactif Grafcet.
@@ -139,7 +141,11 @@ public class MainUI extends BorderPane {
                         setStatus("Étape S" + step.getNumber() + " sélectionnée");
                     }
                     case Transition transition -> {
-                        var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(),
+                        List<Step> availableSteps = grafcet.getComponents().stream()
+                                .filter(Step.class::isInstance)
+                                .map(Step.class::cast)
+                                .toList();
+                        var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
                                 () -> grafcet.redraw(), () -> this.setRight(null));
                         this.setRight(sideProperty);
                         setStatus("Transition T" + transition.getNumber() + " sélectionnée");
@@ -179,7 +185,11 @@ public class MainUI extends BorderPane {
                         () -> grafcet.redraw(), () -> this.setRight(null));
                 this.setRight(sideProperty);
             } else if (component instanceof Transition transition) {
-                var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(),
+                List<Step> availableSteps = grafcet.getComponents().stream()
+                        .filter(Step.class::isInstance)
+                        .map(Step.class::cast)
+                        .toList();
+                var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
                         () -> grafcet.redraw(), () -> this.setRight(null));
                 this.setRight(sideProperty);
             }

@@ -138,4 +138,72 @@ class SfcModelTest {
         assertTrue(hasInitialStepError);
         assertTrue(hasAlternanceError);
     }
+
+    @Test
+    @DisplayName("Modélisation et formatage des conditions de temporisateur (CEI 60848 & CEI 61131-3)")
+    void testTimerConditions() {
+        // Format Grafcet générique par défaut
+        var timerGrafcet = SfcTimerCondition.ofGrafcet("t", "X1", 5, "s");
+        assertEquals("t", timerGrafcet.timerName());
+        assertEquals("X1", timerGrafcet.stepReference());
+        assertEquals("t/X1/5s", timerGrafcet.toGrafcetFormat());
+        assertEquals("t/X1/5s", timerGrafcet.toFormattedString());
+
+        // Format Grafcet avec repère numéroté et millisecondes
+        var timerNumbered = SfcTimerCondition.ofGrafcet("t2", "X3", 750, "ms");
+        assertEquals("t2/X3/750ms", timerNumbered.toGrafcetFormat());
+
+        // Format Structured Text CEI 61131-3
+        var timerST = SfcTimerCondition.ofStructuredText("X1", 5, "s");
+        assertEquals("X1.t >= T#5s", timerST.toStructuredTextFormat());
+        assertEquals("X1.t >= T#5s", timerST.toFormattedString());
+
+        // Construction via builder statique
+        assertEquals("t/X2/10s", SfcTimerCondition.buildCondition("t", "2", 10, "s", false));
+        assertEquals("X2.t >= T#10s", SfcTimerCondition.buildCondition("t", "2", 10, "s", true));
+
+        // Détection et parsing depuis une chaîne de réceptivité
+        var parsed1 = SfcTimerCondition.findInExpression("t/X1/5s");
+        assertTrue(parsed1.isPresent());
+        assertEquals("t", parsed1.get().timerName());
+        assertEquals("X1", parsed1.get().stepReference());
+        assertEquals(5.0, parsed1.get().durationValue());
+        assertEquals("s", parsed1.get().durationUnit());
+
+        var parsedCombined = SfcTimerCondition.findInExpression("dcy AND t1/X2/2.5s AND capteur_fin");
+        assertTrue(parsedCombined.isPresent());
+        assertEquals("t1", parsedCombined.get().timerName());
+        assertEquals("X2", parsedCombined.get().stepReference());
+        assertEquals(2.5, parsedCombined.get().durationValue());
+
+        var parsedST = SfcTimerCondition.findInExpression("X4.t >= T#500ms");
+        assertTrue(parsedST.isPresent());
+        assertEquals("X4", parsedST.get().stepReference());
+        assertEquals(500.0, parsedST.get().durationValue());
+        assertEquals("ms", parsedST.get().durationUnit());
+    }
+
+    @Test
+    @DisplayName("Validation formelle d'une transition temporisée avec étape existante ou inconnue")
+    void testTimerValidationInProgram() {
+        var s0 = new SfcStep("s0", "Init", 0, true, 400.0, 60.0);
+        var s1 = new SfcStep("s1", "Step1", 1, false, 400.0, 220.0);
+
+        // Transition avec temporisation valide référençant X0 (s0)
+        var tValid = new SfcTransition("t1", "T1", 1, "t/X0/3s", 400.0, 140.0);
+        var l1 = new SfcLink("l1", "s0", "t1");
+        var l2 = new SfcLink("l2", "t1", "s1");
+
+        var validProg = new SfcProgram("ProgValid", List.of(), List.of(s0, s1), List.of(tValid), List.of(), List.of(l1, l2));
+        assertTrue(validProg.validate().isEmpty(), "La transition temporisée valide ne doit générer aucun avertissement.");
+
+        // Transition avec temporisation référençant une étape inexistante X99
+        var tInvalid = new SfcTransition("t2", "T2", 2, "t/X99/5s", 400.0, 140.0);
+        var lInvalid = new SfcLink("l3", "s0", "t2");
+        var invalidProg = new SfcProgram("ProgInvalid", List.of(), List.of(s0, s1), List.of(tInvalid), List.of(), List.of(lInvalid));
+
+        var msgs = invalidProg.validate();
+        assertFalse(msgs.isEmpty());
+        assertTrue(msgs.stream().anyMatch(m -> m.message().contains("référence une étape inexistante dans sa temporisation : 'X99'")));
+    }
 }

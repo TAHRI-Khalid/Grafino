@@ -51,6 +51,10 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
    * Portées : `VAR_INPUT` (%I), `VAR_OUTPUT` (%Q), `VAR` (%M local), `VAR_GLOBAL` (%G).
    * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`).
    * Couplage bidirectionnel strict entre la portée et l'adresse avec résolution automatique des collisions.
+8. **Temporisateurs dans les transitions (CEI 60848 & CEI 61131-3)** :
+   * **Format Grafcet standard CEI 60848 (format par défaut de Grafino)** : $t_n / X_i / d$ (générique $t / X_i / d$, ex : `t/X1/5s`, `t1/X2/500ms`). La réceptivité devient vraie dès que l'étape associée $X_i$ (par défaut l'étape amont directe) a été active de manière continue pendant la durée $d$.
+   * **Format Structured Text CEI 61131-3** : $X_i.t \ge T\#d$ ou $Step_i.t \ge T\#d$ (ex : `X1.t >= T#5s`).
+   * Assistant interactif dans la barre latérale avec détection automatique de l'étape amont, calcul d'aperçu dynamique et injection contextuelle.
 
 ---
 
@@ -64,6 +68,7 @@ tk.tahri.grafino/
 │   ├── SfcElement.java        # Sealed interface racine (permits SfcStep, SfcTransition, SfcBranch)
 │   ├── SfcStep.java           # Record d'étape (id, name, number, isInitial, actionBlocks)
 │   ├── SfcTransition.java     # Record de transition (id, name, number, conditionST en Structured Text)
+│   ├── SfcTimerCondition.java # Record de temporisateur normalisé (parsing regex, formats t/Xi/d et ST)
 │   ├── SfcBranch.java         # Record de synchronisation et aiguillage
 │   ├── SfcBranchType.java     # Enum : DIVERGENCE_OR, CONVERGENCE_OR, DIVERGENCE_AND, CONVERGENCE_AND
 │   ├── SfcLink.java           # Record d'arc orienté avec points de routage Manhattan
@@ -85,7 +90,7 @@ tk.tahri.grafino/
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
 │   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions
-│   ├── Transition.java        # Rendu de la transition (trait transversal unique) et condition ST
+│   ├── Transition.java        # Rendu de la transition (trait transversal unique) et détection étape amont
 │   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable, paramètre)
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
@@ -96,7 +101,7 @@ tk.tahri.grafino/
     ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place)
     ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－)
     ├── StepProperty.java      # Sidebar d'édition d'étape (étape initiale, qualificateurs, cartes d'action)
-    ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, puces %I, opérateurs)
+    ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, temporisateurs t/Xi/d, puces %I, opérateurs)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M)
 ```
 

@@ -107,6 +107,22 @@ public record SfcProgram(
             }
         }
 
+        // Règle 4 : Validation des temporisations dans les transitions (CEI 60848 / CEI 61131-3)
+        for (SfcTransition transition : transitions) {
+            SfcTimerCondition.findInExpression(transition.conditionST()).ifPresent(timer -> {
+                boolean stepExists = steps.stream().anyMatch(s ->
+                        s.name().equalsIgnoreCase(timer.stepReference()) ||
+                        ("X" + s.number()).equalsIgnoreCase(timer.stepReference()) ||
+                        String.valueOf(s.number()).equalsIgnoreCase(timer.stepReference())
+                );
+                if (!stepExists) {
+                    messages.add(SfcValidationMessage.warning(transition.id(),
+                            "La transition " + transition.name() + " référence une étape inexistante dans sa temporisation : '"
+                                    + timer.stepReference() + "'."));
+                }
+            });
+        }
+
         return List.copyOf(messages);
     }
 }

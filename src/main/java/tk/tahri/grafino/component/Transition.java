@@ -33,6 +33,24 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
         this.receptivity = (receptivity == null || receptivity.isBlank()) ? "1" : receptivity.trim();
     }
 
+    /**
+     * Retourne les étapes immédiatement amont reliées à cette transition.
+     */
+    public java.util.List<Step> getParentSteps() {
+        return linksFromParents.stream()
+                .map(Link::getParentComponent)
+                .filter(Step.class::isInstance)
+                .map(Step.class::cast)
+                .toList();
+    }
+
+    /**
+     * Retourne la première étape amont principale si disponible.
+     */
+    public java.util.Optional<Step> getPrimaryParentStep() {
+        return getParentSteps().stream().findFirst();
+    }
+
     @Override
     protected void drawNormalComponent() {
         double midX = getX() + UNIT_WIDTH / 2;
