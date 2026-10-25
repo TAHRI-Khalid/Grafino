@@ -144,25 +144,21 @@
 
 .top-menu-bar {
     -fx-background-color: #008184;
+    -fx-padding: 2px 4px;
 }
 
-.top-menu-bar .menu-bar {
-    -fx-background-color: transparent;
-    -fx-padding: 1px 2px;
-}
-
-.top-menu-bar .menu-bar .menu {
+.top-menu-bar .menu {
     -fx-background-color: transparent;
     -fx-padding: 4px 10px;
     -fx-background-radius: 4px;
 }
 
-.top-menu-bar .menu-bar .menu:hover,
-.top-menu-bar .menu-bar .menu:showing {
+.top-menu-bar .menu:hover,
+.top-menu-bar .menu:showing {
     -fx-background-color: rgba(255, 255, 255, 0.20);
 }
 
-.top-menu-bar .menu-bar .menu > .label {
+.top-menu-bar .menu > .label {
     -fx-text-fill: #FFFFFF;
     -fx-font-weight: bold;
     -fx-font-size: 12px;
