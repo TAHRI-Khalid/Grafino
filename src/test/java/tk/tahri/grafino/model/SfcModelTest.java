@@ -1,0 +1,141 @@
+package tk.tahri.grafino.model;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DisplayName("Tests du Modèle SFC CEI 61131-3 (Java 25+)")
+class SfcModelTest {
+
+    @Test
+    @DisplayName("Création d'un bloc d'action normalisé CEI 61131-3")
+    void testActionBlocks() {
+        // Action continue (N)
+        var actionN = new SfcActionBlock(SfcQualifier.N, "MOTEUR_AVANT");
+        assertEquals(SfcQualifier.N, actionN.qualifier());
+        assertEquals("MOTEUR_AVANT", actionN.variableName());
+        assertFalse(actionN.isTimed());
+
+        // Action temporisée (L - Time Limited)
+        var actionL = new SfcActionBlock(SfcQualifier.L, "VANNE_EV1", Duration.ofSeconds(3));
+        assertTrue(actionL.isTimed());
+        assertEquals("T#3s", actionL.formattedDuration());
+
+        // Action temporisée (D - Time Delayed)
+        var actionD = new SfcActionBlock(SfcQualifier.D, "CHAUFFAGE", Duration.ofMillis(750));
+        assertEquals("T#750ms", actionD.formattedDuration());
+
+        // Erreur si durée absente pour qualificateur temporisé
+        assertThrows(IllegalArgumentException.class, () ->
+                new SfcActionBlock(SfcQualifier.L, "TEST", null, null)
+        );
+    }
+
+    @Test
+    @DisplayName("Modélisation d'étape avec immutabilité garantie")
+    void testSfcStep() {
+        var action1 = new SfcActionBlock(SfcQualifier.N, "CYLINDRE_SORTIE");
+        var action2 = new SfcActionBlock(SfcQualifier.S, "VOYANT_CYCLE");
+
+        var step = new SfcStep("step_1", "Avance", 1, false, 400.0, 200.0, List.of(action1, action2));
+
+        assertEquals("step_1", step.id());
+        assertEquals("Avance", step.name());
+        assertEquals(1, step.number());
+        assertFalse(step.isInitial());
+        assertTrue(step.hasActions());
+        assertEquals(2, step.actionBlocks().size());
+
+        // Test immutabilité
+        assertThrows(UnsupportedOperationException.class, () ->
+                step.actionBlocks().add(new SfcActionBlock(SfcQualifier.R, "TEST"))
+        );
+
+        // Test helper withPosition
+        var movedStep = step.withPosition(450.0, 250.0);
+        assertEquals(450.0, movedStep.x());
+        assertEquals(250.0, movedStep.y());
+        assertEquals(step.id(), movedStep.id());
+    }
+
+    @Test
+    @DisplayName("Pattern matching exhaustif avec switch sur sealed SfcElement (Java 25+)")
+    void testPatternMatchingOnSealedHierarchy() {
+        SfcElement step = new SfcStep("s0", "Init", 0, true, 400.0, 100.0);
+        SfcElement trans = new SfcTransition("t1", "T1", 1, "dcy AND capteur_haut", 400.0, 180.0);
+        SfcElement branch = new SfcBranch("b1", "AndSync", SfcBranchType.CONVERGENCE_AND, 400.0, 240.0, List.of("s1", "s2"), List.of("t2"));
+
+        assertEquals("Étape initiale Init", describeElement(step));
+        assertEquals("Transition T1 avec réceptivité : dcy AND capteur_haut", describeElement(trans));
+        assertEquals("Synchronisation parallèle ET", describeElement(branch));
+    }
+
+    private String describeElement(SfcElement element) {
+        return switch (element) {
+            case SfcStep s when s.isInitial() -> "Étape initiale " + s.name();
+            case SfcStep s -> "Étape standard " + s.name();
+            case SfcTransition t -> "Transition " + t.name() + " avec réceptivité : " + t.conditionST();
+            case SfcBranch b when b.isParallel() -> "Synchronisation parallèle ET";
+            case SfcBranch b -> "Aiguillage alternatif OU";
+        };
+    }
+
+    @Test
+    @DisplayName("Validation d'un programme SFC conforme CEI 61131-3")
+    void testSfcProgramValidation() {
+        var vDcy = new IecVariable("dcy", IecDataType.BOOL, IecVariableScope.VAR_INPUT, "%I0.0", "Départ cycle");
+        var vMoteur = new IecVariable("MOTEUR", IecDataType.BOOL, IecVariableScope.VAR_OUTPUT, "%Q0.0", "Moteur principal");
+
+        var s0 = new SfcStep("s0", "Init", 0, true, 400.0, 60.0);
+        var t1 = new SfcTransition("t1", "T1", 1, "dcy", 400.0, 140.0);
+        var s1 = new SfcStep("s1", "Travail", 1, false, 400.0, 220.0, List.of(new SfcActionBlock(SfcQualifier.N, "MOTEUR")));
+
+        var l1 = new SfcLink("l1", "s0", "t1");
+        var l2 = new SfcLink("l2", "t1", "s1");
+
+        var program = new SfcProgram(
+                "Perceuse_POU",
+                List.of(vDcy, vMoteur),
+                List.of(s0, s1),
+                List.of(t1),
+                List.of(),
+                List.of(l1, l2)
+        );
+
+        assertEquals("Perceuse_POU", program.programName());
+        assertEquals(1, program.getInitialSteps().size());
+        assertEquals(1, program.getVariablesByScope(IecVariableScope.VAR_INPUT).size());
+        assertEquals(1, program.getVariablesByScope(IecVariableScope.VAR_OUTPUT).size());
+
+        // Programme valide sans erreurs
+        var errors = program.validate();
+        assertTrue(errors.isEmpty(), "Le programme valide ne devrait avoir aucune erreur.");
+    }
+
+    @Test
+    @DisplayName("Détection de violation d'alternance stricte et absence d'étape initiale")
+    void testSfcViolationsDetection() {
+        // 1. Manque d'étape initiale
+        var s1 = new SfcStep("s1", "Step1", 1, false, 400.0, 100.0);
+        var s2 = new SfcStep("s2", "Step2", 2, false, 400.0, 200.0);
+        // Liaison directe étape -> étape (interdite en CEI 61131-3)
+        var invalidLink = new SfcLink("bad_link", "s1", "s2");
+
+        var invalidProgram = new SfcProgram("InvalidPOU", List.of(), List.of(s1, s2), List.of(), List.of(), List.of(invalidLink));
+
+        var messages = invalidProgram.validate();
+        assertEquals(2, messages.size());
+
+        boolean hasInitialStepError = messages.stream()
+                .anyMatch(m -> m.message().contains("étape initiale"));
+        boolean hasAlternanceError = messages.stream()
+                .anyMatch(m -> m.message().contains("deux étapes ne peuvent être reliées"));
+
+        assertTrue(hasInitialStepError);
+        assertTrue(hasAlternanceError);
+    }
+}

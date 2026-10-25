@@ -14,14 +14,10 @@ import java.util.Objects;
 public class TopToolBar extends ToolBar {
     private final Button stepBtn = new Button();
     private final Button transitionBtn = new Button();
-    //private final Button endBtn = new Button();
-    //private final Button jumpBtn = new Button();
     private final Button orBranchBtn = new Button();
     private final Button andBranchBtn = new Button();
     private final Button addVariableBtn = new Button();
     private final Button removeVariableBtn = new Button();
-    private final Button grafcetBtn = new Button();
-    private final Button variableBtn = new Button();
 
     public TopToolBar() {
         stepBtn.getStyleClass().add("toolBarButton");
@@ -60,22 +56,10 @@ public class TopToolBar extends ToolBar {
         removeVariableImg.setFitHeight(30);
         removeVariableBtn.setGraphic(removeVariableImg);
 
-        variableBtn.getStyleClass().add("toolBarButton");
-        var variableImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/variables.png"))));
-        variableImg.setFitWidth(30);
-        variableImg.setFitHeight(30);
-        variableBtn.setGraphic(variableImg);
-
-        grafcetBtn.getStyleClass().add("toolBarButton");
-        var grafcetImg = new ImageView(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/icons/grafcet.png"))));
-        grafcetImg.setFitWidth(30);
-        grafcetImg.setFitHeight(30);
-        grafcetBtn.setGraphic(grafcetImg);
-
         this.setBackground(new Background(new BackgroundFill(Component.MAIN_COLOR, null, null)));
-        this.setGrafcetToolsVisible(true);
         this.setPadding(new Insets(10));
 
+        this.getItems().addAll(stepBtn, transitionBtn, orBranchBtn, andBranchBtn);
     }
 
     public void setOnStepBtnClick(EventHandler<ActionEvent> event) {
@@ -97,26 +81,12 @@ public class TopToolBar extends ToolBar {
     public void setOnAddVariableBtnClick(EventHandler<ActionEvent> event) {
         this.addVariableBtn.setOnAction(event);
     }
+
     public void setOnRemoveSelectedVariable(EventHandler<ActionEvent> event) {
         this.removeVariableBtn.setOnAction(event);
     }
 
-    public void setOnGrafcetBtnClick(EventHandler<ActionEvent> event) {
-        this.grafcetBtn.setOnAction(event);
-    }
-
-    public void setOnVariableTableBtnClick(EventHandler<ActionEvent> event) {
-        this.variableBtn.setOnAction(event);
-    }
-
     public void setGrafcetToolsVisible(boolean value) {
-        this.getItems().clear();
-        var region = new Region();
-        HBox.setHgrow(region, Priority.ALWAYS);
-        if (value) {
-            this.getItems().addAll(stepBtn, transitionBtn, orBranchBtn, andBranchBtn, region, grafcetBtn, variableBtn);
-        } else {
-            this.getItems().addAll(addVariableBtn, removeVariableBtn, region, grafcetBtn, variableBtn);
-        }
+        // Maintenu pour compatibilité si nécessaire
     }
 }

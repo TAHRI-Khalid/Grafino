@@ -4,7 +4,7 @@ import javafx.animation.AnimationTimer;
 import javafx.geometry.Point2D;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import tk.tahri.grafino.Handle;
 import tk.tahri.grafino.Operation;
@@ -16,8 +16,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class Grafcet extends ScrollPane {
-    private final Canvas canvas = new Canvas(1200, 800);
+public class Grafcet extends Pane {
+    private final Canvas canvas = new ResizableCanvas();
     private final GraphicsContext ctx = canvas.getGraphicsContext2D();
     private final AnimationTimer animationTimer;
     private final List<StepAndTransitionCommonBehavior> components = new ArrayList<>();
@@ -28,12 +28,14 @@ public class Grafcet extends ScrollPane {
     private Consumer<Optional<StepAndTransitionCommonBehavior>> selectedComponent;
 
     public Grafcet() {
+        this.setStyle("-fx-background-color: #FFFFFF;");
+        this.getChildren().add(canvas);
 
-        this.setFitToHeight(true);
-        this.setFitToWidth(true);
-        this.setHbarPolicy(ScrollBarPolicy.NEVER);
-        this.setVbarPolicy(ScrollBarPolicy.NEVER);
-        this.setContent(canvas);
+        canvas.widthProperty().bind(this.widthProperty());
+        canvas.heightProperty().bind(this.heightProperty());
+
+        this.widthProperty().addListener((obs, oldV, newV) -> redraw());
+        this.heightProperty().addListener((obs, oldV, newV) -> redraw());
 
         canvas.setOnMousePressed(event -> {
             // unselect all components and links
@@ -234,11 +236,75 @@ public class Grafcet extends ScrollPane {
         this.animationTimer.stop();
     }
 
+    /**
+     * Force un redessin immédiat de l'ensemble des composants et liaisons SFC sur le Canvas.
+     */
+    public void redraw() {
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+
+        ctx.setFill(Color.WHITE);
+        ctx.fillRect(0, 0, w, h);
+
+        components.forEach(Component::drawComponent);
+
+        components.stream()
+                .map(StepAndTransitionCommonBehavior::getLinksToChildren)
+                .flatMap(List::stream)
+                .forEach(Link::drawComponent);
+
+        components.forEach(StepAndTransitionCommonBehavior::drawHandle);
+    }
+
     public void fireSelectionChange(Optional<StepAndTransitionCommonBehavior> component) {
         selectedComponent.accept(component);
     }
 
     public void setOnSelectionChange(Consumer<Optional<StepAndTransitionCommonBehavior>> selectedComponent) {
         this.selectedComponent = selectedComponent;
+    }
+
+    /**
+     * Canvas personnalisable étendant Canvas pour être redimensionné dynamiquement
+     * par son conteneur parent (Pane / StackPane) afin de couvrir tout l'espace disponible.
+     */
+    private static class ResizableCanvas extends Canvas {
+        @Override
+        public boolean isResizable() {
+            return true;
+        }
+
+        @Override
+        public double prefWidth(double height) {
+            return getWidth();
+        }
+
+        @Override
+        public double prefHeight(double width) {
+            return getHeight();
+        }
+
+        @Override
+        public double minWidth(double height) {
+            return 1.0;
+        }
+
+        @Override
+        public double minHeight(double width) {
+            return 1.0;
+        }
+
+        @Override
+        public double maxWidth(double height) {
+            return Double.MAX_VALUE;
+        }
+
+        @Override
+        public double maxHeight(double width) {
+            return Double.MAX_VALUE;
+        }
     }
 }
