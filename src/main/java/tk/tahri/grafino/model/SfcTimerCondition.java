@@ -72,6 +72,13 @@ public record SfcTimerCondition(
     }
 
     /**
+     * Parse une condition temporisée (équivalent à findInExpression).
+     */
+    public static Optional<SfcTimerCondition> parse(String expression) {
+        return findInExpression(expression);
+    }
+
+    /**
      * Recherche et extrait la première condition temporisée présente dans une expression de réceptivité.
      */
     public static Optional<SfcTimerCondition> findInExpression(String expression) {

@@ -103,6 +103,42 @@ public record SfcCounterOperation(
     }
 
     /**
+     * Parse une instruction d'assignation de compteur (ex: "C1 := 0", "C1 := C1 + 1", "C1 := C1 - 1").
+     */
+    public static Optional<SfcCounterOperation> parse(String actionText) {
+        if (actionText == null || actionText.isBlank()) return Optional.empty();
+        Matcher m = ASSIGNMENT_PATTERN.matcher(actionText.trim());
+        if (!m.matches()) return Optional.empty();
+
+        String varName = m.group(1).trim();
+        String expr = m.group(2).trim();
+
+        // 1. Incrément : C1 + k ou k + C1
+        Pattern incPattern = Pattern.compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\+\\s*(\\d+)$", Pattern.CASE_INSENSITIVE);
+        Matcher incMatcher = incPattern.matcher(expr);
+        if (incMatcher.matches() && incMatcher.group(1).equalsIgnoreCase(varName)) {
+            int step = Integer.parseInt(incMatcher.group(2));
+            return Optional.of(new SfcCounterOperation(varName, OperationType.INCREMENT, step));
+        }
+
+        // 2. Décrément : C1 - k
+        Pattern decPattern = Pattern.compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*-\\s*(\\d+)$", Pattern.CASE_INSENSITIVE);
+        Matcher decMatcher = decPattern.matcher(expr);
+        if (decMatcher.matches() && decMatcher.group(1).equalsIgnoreCase(varName)) {
+            int step = Integer.parseInt(decMatcher.group(2));
+            return Optional.of(new SfcCounterOperation(varName, OperationType.DECREMENT, step));
+        }
+
+        // 3. Initialisation / valeur fixe : entier direct
+        try {
+            int val = Integer.parseInt(expr);
+            return Optional.of(new SfcCounterOperation(varName, OperationType.INITIALIZATION, val));
+        } catch (NumberFormatException ignored) {}
+
+        return Optional.empty();
+    }
+
+    /**
      * Détecte si une chaîne d'action est une assignation Structured Text (ex: "C1 := 0" ou "C1 := C1 + 1").
      */
     public static boolean isAssignment(String actionText) {

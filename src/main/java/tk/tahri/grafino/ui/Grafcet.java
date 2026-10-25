@@ -850,6 +850,35 @@ public class Grafcet extends Pane {
         }
     }
 
+    /**
+     * Met à jour les états visuels d'activation des étapes et des blocs d'actions lors de la simulation.
+     */
+    public void updateSimulationVisuals(Set<String> activeStepIds, Set<String> activeOutputs) {
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Step step) {
+                String id1 = "s" + step.getNumber();
+                String id2 = String.valueOf(step.getNumber());
+                boolean isActive = activeStepIds != null && (activeStepIds.contains(id1) || activeStepIds.contains(id2));
+                step.setActive(isActive);
+                step.setActiveOutputs(activeOutputs);
+            }
+        }
+        redraw();
+    }
+
+    /**
+     * Réinitialise tous les indicateurs visuels de simulation sur le canvas.
+     */
+    public void clearSimulationVisuals() {
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Step step) {
+                step.setActive(false);
+                step.setActiveOutputs(Set.of());
+            }
+        }
+        redraw();
+    }
+
     public void setOnSelectionChange(Consumer<Optional<StepAndTransitionCommonBehavior>> selectedComponent) {
         this.selectedComponent = selectedComponent;
     }

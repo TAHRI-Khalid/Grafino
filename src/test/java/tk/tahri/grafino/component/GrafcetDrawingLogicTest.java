@@ -252,4 +252,21 @@ class GrafcetDrawingLogicTest {
         initStep.setInitial(true);
         assertTrue(initStep.isInitial());
     }
+
+    @Test
+    @DisplayName("Simulation visuelle de Step : activation et sorties actives associées")
+    void testStepSimulationVisualState() {
+        var step = new Step(null);
+        step.setNumber(1);
+        step.position = new Point2D(400, 100);
+
+        assertFalse(step.isActive());
+
+        step.setActive(true);
+        assertTrue(step.isActive());
+
+        step.setActiveOutputs(java.util.Set.of("ROTATION", "M1"));
+        step.setActive(false);
+        assertFalse(step.isActive());
+    }
 }

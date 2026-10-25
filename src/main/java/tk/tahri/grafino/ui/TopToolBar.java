@@ -23,6 +23,7 @@ public class TopToolBar extends ToolBar {
     private final Button andBranchBtn = new Button();
     private final Button deleteBtn = new Button();
     private final Button autoLayoutBtn = new Button("📐 Aligner");
+    private final Button simulationBtn = new Button("▶ Simuler");
 
     private final Button zoomInBtn = new Button("＋");
     private final Button zoomOutBtn = new Button("－");
@@ -69,6 +70,10 @@ public class TopToolBar extends ToolBar {
         autoLayoutBtn.setStyle("-fx-background-color: rgba(255, 255, 255, 0.18); -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 4 9 4 9;");
         autoLayoutBtn.setTooltip(new Tooltip("Aligner et centrer automatiquement tout le Grafcet (Ctrl+L)"));
 
+        // Bouton Simulation
+        simulationBtn.setStyle("-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 5 12 5 12;");
+        simulationBtn.setTooltip(new Tooltip("Démarrer la simulation synchrone et ouvrir le pupitre E/S"));
+
         // Boutons de Zoom
         String zoomBtnStyle = "-fx-background-color: rgba(255, 255, 255, 0.15); -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 4 9 4 9;";
         zoomInBtn.setStyle(zoomBtnStyle);
@@ -96,6 +101,7 @@ public class TopToolBar extends ToolBar {
                 sep1,
                 deleteBtn,
                 autoLayoutBtn,
+                simulationBtn,
                 spacer,
                 sep2,
                 zoomOutBtn, resetZoomBtn, zoomInBtn
@@ -124,6 +130,22 @@ public class TopToolBar extends ToolBar {
 
     public void setOnAutoLayoutClick(EventHandler<ActionEvent> event) {
         this.autoLayoutBtn.setOnAction(event);
+    }
+
+    public void setOnSimulationBtnClick(EventHandler<ActionEvent> event) {
+        this.simulationBtn.setOnAction(event);
+    }
+
+    public void setSimulationActive(boolean active) {
+        if (active) {
+            simulationBtn.setText("⏹ Arrêter");
+            simulationBtn.setStyle("-fx-background-color: #D9381E; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 5 12 5 12;");
+            simulationBtn.setTooltip(new Tooltip("Arrêter la simulation et revenir en mode édition"));
+        } else {
+            simulationBtn.setText("▶ Simuler");
+            simulationBtn.setStyle("-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 5 12 5 12;");
+            simulationBtn.setTooltip(new Tooltip("Démarrer la simulation synchrone et ouvrir le pupitre E/S"));
+        }
     }
 
     public void setOnZoomInClick(EventHandler<ActionEvent> event) {

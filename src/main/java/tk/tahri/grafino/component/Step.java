@@ -17,6 +17,8 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
     private final List<Action> actions = new ArrayList<>();
     private static int stepCounter = 0;
     private boolean initial = false;
+    private boolean active = false;
+    private java.util.Set<String> activeOutputNames = java.util.Set.of();
 
     public Step(GraphicsContext gtx) {
         super(gtx);
@@ -39,20 +41,55 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
         this.initial = initial;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setActiveOutputs(java.util.Set<String> activeOutputs) {
+        this.activeOutputNames = (activeOutputs != null) ? activeOutputs : java.util.Set.of();
+    }
+
     @Override
     protected void drawNormalComponent() {
         // Trait vertical de passage
         ctx.strokeLine(getX() + UNIT_WIDTH / 2, getY(), getX() + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT);
 
         // Fond et contour carré
-        ctx.setFill(Color.WHITE);
-        ctx.fillRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
-        ctx.strokeRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
+        if (active) {
+            ctx.setFill(Color.rgb(220, 252, 231)); // Vert pastel émeraude actif
+            ctx.fillRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
+            ctx.setStroke(Color.rgb(16, 185, 129)); // Contour vert émeraude
+            ctx.setLineWidth(2.2);
+            ctx.strokeRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
+            ctx.setLineWidth(LINE_WIDTH);
+            ctx.setStroke(LINE_COLOR);
+        } else {
+            ctx.setFill(Color.WHITE);
+            ctx.fillRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
+            ctx.strokeRect(getX(), getY() + GAP, UNIT_WIDTH, UNIT_HEIGHT - GAP * 2);
+        }
 
         // Si étape initiale : double carré selon la norme CEI 60848
         if (initial) {
             double inner = 5.0;
-            ctx.strokeRect(getX() + inner, getY() + GAP + inner, UNIT_WIDTH - inner * 2, UNIT_HEIGHT - GAP * 2 - inner * 2);
+            if (active) {
+                ctx.setStroke(Color.rgb(16, 185, 129));
+                ctx.strokeRect(getX() + inner, getY() + GAP + inner, UNIT_WIDTH - inner * 2, UNIT_HEIGHT - GAP * 2 - inner * 2);
+                ctx.setStroke(LINE_COLOR);
+            } else {
+                ctx.strokeRect(getX() + inner, getY() + GAP + inner, UNIT_WIDTH - inner * 2, UNIT_HEIGHT - GAP * 2 - inner * 2);
+            }
+        }
+
+        // Jeton de marquage CEI 60848 (point plein au centre haut de l'étape active)
+        if (active) {
+            double dotR = 4.5;
+            ctx.setFill(Color.rgb(16, 185, 129));
+            ctx.fillOval(getX() + UNIT_WIDTH / 2 - dotR, getY() + GAP + 6, dotR * 2, dotR * 2);
         }
 
         // Numéro d'étape centré
@@ -95,18 +132,34 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
 
             boolean showQualifier = !qual.equalsIgnoreCase("Normal") && !qual.equalsIgnoreCase("N") && !qual.isEmpty();
             double qualWidth = showQualifier ? Math.max(26, new Text(qual).getLayoutBounds().getWidth() + 10) : 0;
-            double totalWidth = qualWidth + textWidth + 2 * GAP;
+            double totalWidth = qualWidth + textWidth + 2 * GAP + 12;
 
-            // Rectangle d'action blanc
-            ctx.setFill(Color.WHITE);
-            ctx.fillRect(curX, actY, totalWidth, actH);
-            ctx.strokeRect(curX, actY, totalWidth, actH);
+            // Déterminer si l'action est active (allumée)
+            String targetKey = varName.trim().toUpperCase(java.util.Locale.ROOT);
+            boolean isActionActive = (active && (qual.equalsIgnoreCase("N") || qual.equalsIgnoreCase("Normal")))
+                    || activeOutputNames.contains(targetKey);
+
+            if (isActionActive) {
+                // Rectangle d'action allumé : fond cyan doux lumineux et contour cyan vibrant
+                ctx.setFill(Color.rgb(224, 242, 254));
+                ctx.fillRect(curX, actY, totalWidth, actH);
+                ctx.setStroke(Color.rgb(2, 132, 199));
+                ctx.setLineWidth(2.0);
+                ctx.strokeRect(curX, actY, totalWidth, actH);
+                ctx.setLineWidth(LINE_WIDTH);
+                ctx.setStroke(LINE_COLOR);
+            } else {
+                // Rectangle d'action blanc standard
+                ctx.setFill(Color.WHITE);
+                ctx.fillRect(curX, actY, totalWidth, actH);
+                ctx.strokeRect(curX, actY, totalWidth, actH);
+            }
 
             if (showQualifier) {
                 // Compartiment séparé du qualificateur
                 ctx.strokeLine(curX + qualWidth, actY, curX + qualWidth, actY + actH);
 
-                ctx.setFill(Color.rgb(180, 40, 40));
+                ctx.setFill(isActionActive ? Color.rgb(2, 132, 199) : Color.rgb(180, 40, 40));
                 ctx.setFont(qualFont);
                 ctx.setTextBaseline(VPos.CENTER);
                 ctx.setTextAlign(TextAlignment.CENTER);
@@ -114,11 +167,17 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
             }
 
             // Texte de l'action / variable
-            ctx.setFill(MAIN_COLOR);
+            ctx.setFill(isActionActive ? Color.rgb(3, 105, 161) : MAIN_COLOR);
             ctx.setFont(font);
             ctx.setTextBaseline(VPos.CENTER);
             ctx.setTextAlign(TextAlignment.CENTER);
-            ctx.fillText(varName, curX + qualWidth + (totalWidth - qualWidth) / 2, getY() + UNIT_HEIGHT / 2);
+            ctx.fillText(varName, curX + qualWidth + (totalWidth - qualWidth - 12) / 2, getY() + UNIT_HEIGHT / 2);
+
+            // Témoin LED lumineux si l'action est active
+            if (isActionActive) {
+                ctx.setFill(Color.rgb(2, 132, 199));
+                ctx.fillOval(curX + totalWidth - 12, getY() + UNIT_HEIGHT / 2 - 4, 8, 8);
+            }
 
             curX += totalWidth;
         }

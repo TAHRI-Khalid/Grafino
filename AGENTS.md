@@ -95,10 +95,16 @@ tk.tahri.grafino/
 │   ├── JsonParser.java        # Parseur et formateur JSON natif
 │   └── SfcStorage.java        # Sauvegarde/chargement .sfc et rétrocompatibilité .tk
 │
+├── simulation/                # Moteur de Simulation Synchrone CEI 60848 (zéro dépendance JavaFX, 100% testable)
+│   ├── SimulationState.java   # Marquage instantané des étapes (Xn), horodatages Tn, entrées/sorties et compteurs
+│   ├── ReceptivityEvaluator.java # Évaluateur booléen (NOT, AND, OR), temporisateurs t/Xi/d et tests compteurs
+│   ├── SimulationStepResult.java # Rapport d'évolution cyclique (transitions franchies, étapes activées/désactivées)
+│   └── GrafcetSimulator.java  # Moteur d'évolution cyclique synchrone appliquant les 5 règles fondamentales CEI 60848
+│
 ├── component/                 # Composants visuels pour le Canvas JavaFX
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
-│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions ST
+│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial), jeton actif ● et blocs d'actions allumés
 │   ├── Transition.java        # Rendu de la transition (trait transversal unique) et détection étape amont
 │   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante à gouttière adaptative sans fausse convergence
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable ou expression ST)
@@ -108,8 +114,9 @@ tk.tahri.grafino/
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
-    ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place)
-    ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－)
+    ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place, visuels simulation)
+    ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－, simulation ▶/⏹)
+    ├── SimulationPanel.java   # Pupitre virtuel droit (boutons poussoirs/bascules %I, lampes LED %Q, compteurs, contrôles run/pause/step/reset)
     ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
     ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
@@ -259,13 +266,13 @@ flowchart TD
         B7 --> B8[Persistance JSON .sfc et .tk]
     end
 
-    subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Prochaine étape)"]
+    subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Terminée)"]
         C1[Calcul cyclique du marquage Step.X] --> C2[Gestion temporelle Step.T et qualificateurs L/D]
-        C2 --> C3[Pupitre virtuel : Forçage des entrées %I]
+        C2 --> C3[Pupitre virtuel : Forçage des entrées %I et lampes témoins %Q]
         C3 --> C4[Modes Pas-à-pas et Temps Réel continu]
     end
 
-    subgraph Etape4 ["Étape 4 : Génération de Code Cible"]
+    subgraph Etape4 ["Étape 4 : Génération de Code Cible (Prochaine étape)"]
         D1[Exportateur Structured Text ST IEC 61131-3] --> D2[Exportateur croquis Arduino C++ .ino]
         D2 --> D3[Exportateur standard PLCopen XML]
     end

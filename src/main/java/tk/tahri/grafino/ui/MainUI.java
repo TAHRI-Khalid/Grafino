@@ -7,8 +7,15 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import tk.tahri.grafino.component.*;
+import tk.tahri.grafino.model.SfcActionBlock;
+import tk.tahri.grafino.model.SfcQualifier;
+import tk.tahri.grafino.simulation.GrafcetSimulator;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Fenêtre principale de Grafino avec vue partagée (SplitPane) intégrée :
@@ -17,6 +24,7 @@ import java.util.List;
  */
 public class MainUI extends BorderPane {
 
+    private final TopToolBar toolBar = new TopToolBar();
     private final Grafcet grafcet = new Grafcet();
     private final VariableTable variableTable = new VariableTable();
 
@@ -28,10 +36,10 @@ public class MainUI extends BorderPane {
 
     private boolean isTableCollapsed = false;
     private double lastDividerPosition = 0.68;
+    private SimulationPanel activeSimulationPanel = null;
 
     public MainUI() {
         // 1. Barre d'outils supérieure
-        var toolBar = new TopToolBar();
         this.setTop(toolBar);
 
         // 2. Initialisation du Grafcet
@@ -111,6 +119,7 @@ public class MainUI extends BorderPane {
 
         toolBar.setOnDeleteBtnClick(event -> grafcet.deleteSelected());
         toolBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
+        toolBar.setOnSimulationBtnClick(event -> toggleSimulation());
         toolBar.setOnZoomInClick(event -> grafcet.zoomIn());
         toolBar.setOnZoomOutClick(event -> grafcet.zoomOut());
         toolBar.setOnResetZoomClick(event -> grafcet.resetZoom());
@@ -132,6 +141,10 @@ public class MainUI extends BorderPane {
 
     private void setupSelectionListener() {
         grafcet.setOnSelectionChange(selectedComponent -> {
+            if (activeSimulationPanel != null) {
+                // En mode simulation, le panneau droit reste le pupitre virtuel interactif
+                return;
+            }
             if (selectedComponent.isPresent()) {
                 switch (selectedComponent.get()) {
                     case Step step -> {
@@ -179,6 +192,11 @@ public class MainUI extends BorderPane {
         long outCount = variableTable.getOutputVariables().size();
         long intCount = variableTable.getVariables().size() - inCount - outCount;
         tableSummaryLabel.setText(inCount + " Entrée(s) %I | " + outCount + " Sortie(s) %Q | " + intCount + " Interne(s)");
+
+        if (activeSimulationPanel != null) {
+            // Ne pas écraser le pupitre de simulation
+            return;
+        }
 
         // Rafraîchir le panneau latéral si un élément est actuellement sélectionné
         grafcet.getSelectedComponent().ifPresent(component -> {
@@ -239,5 +257,112 @@ public class MainUI extends BorderPane {
     private void setStatusError(String errorMessage) {
         tableSummaryLabel.setText("⚠ " + errorMessage);
         tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.RED_DANGER + ";");
+    }
+
+    // ==========================================
+    // GESTION DU MODE DE SIMULATION SYNCHRONE
+    // ==========================================
+
+    private void toggleSimulation() {
+        if (activeSimulationPanel != null) {
+            stopSimulation();
+        } else {
+            startSimulation();
+        }
+    }
+
+    private void startSimulation() {
+        if (activeSimulationPanel != null) {
+            stopSimulation();
+            return;
+        }
+
+        GrafcetSimulator simulator = new GrafcetSimulator();
+
+        // 1. Enregistrement des variables IEC déclarées dans la table
+        for (Variable v : variableTable.getInputVariables()) {
+            simulator.getState().setBooleanVariable(v.getName(), false);
+        }
+        for (Variable v : variableTable.getOutputVariables()) {
+            simulator.getState().setBooleanVariable(v.getName(), false);
+        }
+        for (Variable v : variableTable.getCounterVariables()) {
+            simulator.getState().setCounterValue(v.getName(), 0);
+        }
+
+        // 2. Enregistrement des étapes et conversion de leurs blocs d'actions
+        for (StepAndTransitionCommonBehavior comp : grafcet.getComponents()) {
+            if (comp instanceof Step step) {
+                String id = "s" + step.getNumber();
+                List<SfcActionBlock> actionBlocks = new ArrayList<>();
+                for (Action a : step.getActions()) {
+                    SfcQualifier qual = SfcQualifier.N;
+                    if (a.qualifier() != null) {
+                        try {
+                            qual = SfcQualifier.valueOf(a.qualifier().trim().toUpperCase());
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    String varName = a.getDisplayText();
+                    if (varName == null || varName.isBlank()) {
+                        varName = "ACTION";
+                    }
+                    java.time.Duration dur = qual.isTimed() ? java.time.Duration.ofSeconds(2) : null;
+                    actionBlocks.add(new SfcActionBlock(qual, varName, dur, null));
+                }
+                simulator.registerStep(id, "Step" + step.getNumber(), step.getNumber(), step.isInitial(), actionBlocks);
+            }
+        }
+
+        // 3. Enregistrement des transitions avec leurs liaisons amont/aval
+        for (StepAndTransitionCommonBehavior comp : grafcet.getComponents()) {
+            if (comp instanceof Transition trans) {
+                String id = "t" + trans.getNumber();
+                Set<String> upStepIds = trans.getParentSteps().stream()
+                        .map(s -> "s" + s.getNumber())
+                        .collect(Collectors.toSet());
+                Set<String> downStepIds = trans.getLinksToChildren().stream()
+                        .map(Link::getChildComponent)
+                        .filter(Step.class::isInstance)
+                        .map(Step.class::cast)
+                        .map(s -> "s" + s.getNumber())
+                        .collect(Collectors.toSet());
+
+                simulator.registerTransition(id, "T" + trans.getNumber(), trans.getNumber(),
+                        trans.getReceptivity(), upStepIds, downStepIds);
+            }
+        }
+
+        // Initialisation du simulateur à la situation initiale
+        simulator.reset();
+
+        // Désélectionner tout élément graphique
+        grafcet.getComponents().forEach(c -> c.setSelected(false));
+        grafcet.fireSelectionChange(Optional.empty());
+
+        // Créer le pupitre de commande interactif
+        activeSimulationPanel = new SimulationPanel(
+                simulator,
+                grafcet,
+                variableTable.getInputVariables(),
+                variableTable.getOutputVariables(),
+                variableTable.getCounterVariables(),
+                this::stopSimulation
+        );
+
+        this.setRight(activeSimulationPanel);
+        toolBar.setSimulationActive(true);
+        setStatus("Simulation synchrone démarrée");
+    }
+
+    private void stopSimulation() {
+        if (activeSimulationPanel != null) {
+            SimulationPanel panel = activeSimulationPanel;
+            activeSimulationPanel = null; // Mettre à null en premier pour briser toute récursion
+            panel.stop();
+        }
+        this.setRight(null);
+        toolBar.setSimulationActive(false);
+        grafcet.clearSimulationVisuals();
+        setStatus("Simulation arrêtée");
     }
 }
