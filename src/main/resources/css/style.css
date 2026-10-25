@@ -160,7 +160,6 @@
 
 .top-menu-bar .menu > .label {
     -fx-text-fill: #FFFFFF;
-    -fx-font-weight: bold;
     -fx-font-size: 12px;
 }
 
@@ -186,12 +185,13 @@
 .top-menu-bar .menu-item .label {
     -fx-text-fill: #232527;
     -fx-font-size: 12px;
+    -fx-font-weight: normal;
 }
 
 .top-menu-bar .menu-item:focused .label,
 .top-menu-bar .menu-item:hover .label {
     -fx-text-fill: #008184;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
 }
 
 .top-menu-bar .menu-item .accelerator-text {
