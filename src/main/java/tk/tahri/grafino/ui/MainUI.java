@@ -24,7 +24,6 @@ public class MainUI extends BorderPane {
     private final Label tableSummaryLabel = new Label("0 Entrée(s) | 0 Sortie(s) | 0 Mémoire(s)");
     private final Button toggleTableBtn = new Button("▼ Réduire");
 
-    private final Label statusLabel = new Label("Prêt - Modélisation Grafcet / SFC");
     private boolean isTableCollapsed = false;
     private double lastDividerPosition = 0.68;
 
@@ -41,20 +40,16 @@ public class MainUI extends BorderPane {
         setupCenterSplitPane();
         this.setCenter(splitPane);
 
-        // 4. Barre d'état inférieure
-        var statusBar = createStatusBar();
-        this.setBottom(statusBar);
-
-        // 5. Handlers de la barre d'outils graphique
+        // 4. Handlers de la barre d'outils graphique
         setupToolBarEvents(toolBar);
 
-        // 6. Synchronisation de la sélection d'éléments
+        // 5. Synchronisation de la sélection d'éléments
         setupSelectionListener();
 
-        // 7. Raccourcis clavier (déplacement fin des composants)
+        // 6. Raccourcis clavier (déplacement fin des composants)
         setupKeyboardNavigation();
 
-        // 8. Écoute des modifications de variables pour rafraîchir les panneaux latéraux
+        // 7. Écoute des modifications de variables pour rafraîchir les panneaux latéraux
         variableTable.setOnVariablesChanged(this::onVariablesUpdated);
         variableTable.setOnValidationError(this::setStatusError);
         onVariablesUpdated();
@@ -85,14 +80,6 @@ public class MainUI extends BorderPane {
 
         splitPane.getItems().addAll(grafcet, tableContainer);
         splitPane.setDividerPositions(lastDividerPosition);
-    }
-
-    private ToolBar createStatusBar() {
-        statusLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
-        var statusBar = new ToolBar(statusLabel);
-        statusBar.setStyle("-fx-background-color: " + AppTheme.PRIMARY_TEAL + ";");
-        statusBar.setPadding(new Insets(5, 12, 5, 12));
-        return statusBar;
     }
 
     private void setupToolBarEvents(TopToolBar toolBar) {
@@ -228,12 +215,11 @@ public class MainUI extends BorderPane {
     }
 
     private void setStatus(String message) {
-        statusLabel.setText(message);
-        statusLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 12px;");
+        // Barre de statut supprimée pour maximiser la surface disponible
     }
 
     private void setStatusError(String errorMessage) {
-        statusLabel.setText("⚠ " + errorMessage);
-        statusLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-weight: bold; -fx-font-size: 12px; -fx-background-color: " + AppTheme.RED_DANGER + "; -fx-padding: 2 6 2 6; -fx-background-radius: 4;");
+        tableSummaryLabel.setText("⚠ " + errorMessage);
+        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.RED_DANGER + ";");
     }
 }

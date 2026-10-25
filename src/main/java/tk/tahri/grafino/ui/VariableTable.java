@@ -118,17 +118,29 @@ public class VariableTable extends VBox {
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // Boutons d'ajout rapide avec auto-incrémentation des adresses
+        // Boutons d'ajout rapide avec couleurs sémantiques distinctes
         var addInputBtn = new Button("＋ Entrée (%I)");
-        addInputBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE + "; -fx-font-size: 11px; -fx-padding: 5 10 5 10;");
+        String inputStyle = "-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String inputHover = "-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        addInputBtn.setStyle(inputStyle);
+        addInputBtn.setOnMouseEntered(e -> addInputBtn.setStyle(inputHover));
+        addInputBtn.setOnMouseExited(e -> addInputBtn.setStyle(inputStyle));
         addInputBtn.setOnAction(e -> addQuickInput());
 
         var addOutputBtn = new Button("＋ Sortie (%Q)");
-        addOutputBtn.setStyle("-fx-background-color: " + AppTheme.ACCENT_TEAL + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 10 5 10; -fx-background-radius: 6; -fx-cursor: hand;");
+        String outputStyle = "-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String outputHover = "-fx-background-color: #0369A1; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        addOutputBtn.setStyle(outputStyle);
+        addOutputBtn.setOnMouseEntered(e -> addOutputBtn.setStyle(outputHover));
+        addOutputBtn.setOnMouseExited(e -> addOutputBtn.setStyle(outputStyle));
         addOutputBtn.setOnAction(e -> addQuickOutput());
 
         var addInternalBtn = new Button("＋ Mémoire (%M)");
-        addInternalBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE + "; -fx-font-size: 11px; -fx-padding: 5 10 5 10; -fx-font-weight: bold;");
+        String internalStyle = "-fx-background-color: #7C3AED; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String internalHover = "-fx-background-color: #6D28D9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        addInternalBtn.setStyle(internalStyle);
+        addInternalBtn.setOnMouseEntered(e -> addInternalBtn.setStyle(internalHover));
+        addInternalBtn.setOnMouseExited(e -> addInternalBtn.setStyle(internalStyle));
         addInternalBtn.setOnAction(e -> addQuickInternal());
 
         var deleteBtn = new Button("🗑");
@@ -143,10 +155,28 @@ public class VariableTable extends VBox {
     private void applyTabStyle(ToggleButton btn) {
         boolean selected = btn.isSelected();
         if (selected) {
-            btn.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
-                    "-fx-border-color: " + AppTheme.PRIMARY_TEAL + ";" +
+            String primaryColor = AppTheme.PRIMARY_TEAL;
+            String lightBg = AppTheme.TEAL_LIGHT_BG;
+            String textDark = AppTheme.PRIMARY_TEAL_DARK;
+
+            if (btn == inputsBtn) {
+                primaryColor = "#10B981";
+                lightBg = "#ECFDF5";
+                textDark = "#065F46";
+            } else if (btn == outputsBtn) {
+                primaryColor = "#0284C7";
+                lightBg = "#F0F9FF";
+                textDark = "#0369A1";
+            } else if (btn == internalBtn) {
+                primaryColor = "#7C3AED";
+                lightBg = "#F5F3FF";
+                textDark = "#5B21B6";
+            }
+
+            btn.setStyle("-fx-background-color: " + lightBg + ";" +
+                    "-fx-border-color: " + primaryColor + ";" +
                     "-fx-border-width: 0 0 2px 0;" +
-                    "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
+                    "-fx-text-fill: " + textDark + ";" +
                     "-fx-font-weight: bold;" +
                     "-fx-padding: 5 12 5 12;" +
                     "-fx-font-size: 11px;" +
