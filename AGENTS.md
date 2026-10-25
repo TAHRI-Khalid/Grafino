@@ -11,7 +11,12 @@ Le nom **Grafino** symbolise la passerelle entre :
 * L'exécution concrète sur automates programmables industriels (**API / PLC** Siemens, Schneider, Codesys) et cibles embarquées (**Arduino / microcontrôleurs**).
 
 ### Objectif global du cycle de développement :
-1. **Édition graphique** ergonomique conforme aux règles internationales et adaptative en plein écran.
+1. **Édition graphique fluide & assistée (style Siemens TIA Portal S7-GRAPH)** :
+   * Insertion contextuelle intelligente en un clic (*Smart Quick-Add Handles*).
+   * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
+   * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / bouton `📐 Aligner`).
+   * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`).
+   * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
 2. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I` et observation des préactionneurs de sortie `%Q`).
 3. **Validation sémantique formelle** (détection des violations d'alternance, adresses IEC invalides, blocages ou conflits).
 4. **Exportation documentaire** (PNG haute résolution pour rapports de TP et dossiers techniques).
@@ -26,10 +31,14 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 * **CEI 61131-3 (SFC)** : Norme internationale de programmation logicielle pour Automates Programmables Industriels (API).
 
 ### Règles Métier Incontournables :
-1. **Alternance stricte** : Une étape ne peut être raccordée qu'à une transition, et une transition qu'à une étape. Aucune liaison directe étape-étape ou transition-transition n'est autorisée.
-2. **Sens d'évolution et flèches** : L'évolution naturelle s'effectue du haut vers le bas. Toute liaison ascendante (boucle de reprise vers le haut) comporte obligatoirement une flèche orientée vers le haut.
+1. **Alternance stricte** : Une étape ne peut être raccordée qu'à une transition, et une transition qu'à une étape. Aucune liaison directe étape-étape ou transition-transition n'est autorisée. Le curseur fournit un retour visuel vert/rouge en temps réel lors du raccordement.
+2. **Sens d'évolution et flèches** : L'évolution naturelle s'effectue du haut vers le bas **sans flèche**. Toute liaison ascendante (boucle de reprise vers le haut) comporte obligatoirement une flèche triangulaire orientée vers le haut (`▲`) et transite par une gouttière latérale pour éviter toute collision graphique.
 3. **Étape initiale** : Au moins une étape initiale doit être définie (représentée par un double carré concentrique).
-4. **Qualificateurs d'actions CEI 61131-3** :
+4. **Symbole de transition** : Une transition est strictement représentée par un trait simple transversal perpendiculaire à la liaison (repère $T_n$ à gauche, condition en Structured Text à droite).
+5. **Structures de divergence et convergence** :
+   * **Sélection de séquence (OU)** : trait horizontal simple continu reliant l'ensemble des branches alternatives ($X_{min}$ à $X_{max}$).
+   * **Parallélisme / Synchronisation (ET)** : **double barre horizontale** continue (exactement 2 lignes parallèles avec écartement de $6\text{ px}$).
+6. **Qualificateurs d'actions CEI 61131-3** :
    * `N` : Non-stored (action continue pendant l'activité de l'étape).
    * `S` : Set / Mémorisé à 1.
    * `R` : Reset (remise à 0).
@@ -37,10 +46,7 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
    * `L` : Time Limited (action limitée dans le temps `T#...`).
    * `D` : Time Delayed (action retardée par une temporisation `T#...`).
    * `SD`, `DS`, `SL` : Combinaisons temporisées et mémorisées.
-5. **Structures de divergence et convergence** :
-   * **Sélection de séquence (OU)** : traits simples alternatifs avec priorités d'évaluation.
-   * **Parallélisme / Synchronisation (ET)** : double barre horizontale simultanée.
-6. **Typage et Adressage des variables (CEI 61131-3)** :
+7. **Typage et Adressage des variables (CEI 61131-3)** :
    * Types de données : `BOOL`, `BYTE`, `WORD`, `INT`, `DINT`, `REAL`, `TIME` (`T#2s`), `STRING`.
    * Portées : `VAR_INPUT` (%I), `VAR_OUTPUT` (%Q), `VAR` (%M local), `VAR_GLOBAL` (%G).
    * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`).
@@ -48,9 +54,9 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 
 ---
 
-## 3. Architecture Technique & Bonnes Pratiques Java 25+
+## 3. Architecture Technique & Bonnes Pratiques Java 21+ / 25+
 
-Le projet utilise **Java 25** avec **JavaFX 27** et **Gradle**. Il applique une séparation stricte des responsabilités (Clean Architecture / Modèle Découplé) :
+Le projet applique une séparation stricte des responsabilités (Clean Architecture / Modèle Découplé) :
 
 ```
 tk.tahri.grafino/
@@ -77,54 +83,73 @@ tk.tahri.grafino/
 │
 ├── component/                 # Composants visuels pour le Canvas JavaFX
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
-│   ├── StepAndTransitionCommonBehavior.java # Interactions (poignées, sélection, déplacement)
-│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et actions
-│   ├── Transition.java        # Rendu de la transition et condition ST
-│   ├── Link.java              # Tracé orthogonal Manhattan, flèches et double barre
+│   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
+│   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial) et blocs d'actions
+│   ├── Transition.java        # Rendu de la transition (trait transversal unique) et condition ST
+│   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable, paramètre)
 │   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
 │
-└── ui/                        # Interface Utilisateur JavaFX 27 inspirée d'Arduino IDE
+└── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical rétractable pleine hauteur
-    ├── Grafcet.java           # Canvas fluide pleine surface (ResizableCanvas)
-    ├── TopToolBar.java        # Barre d'outils graphique avec infobulles descriptives
+    ├── Grafcet.java           # Canvas fluide (Smart Snap, lignes guides, Auto-Layout, Pan/Zoom, édition in-place)
+    ├── TopToolBar.java        # Barre d'outils graphique (création, suppression 🗑, auto-layout 📐, zoom ＋/－)
     ├── StepProperty.java      # Sidebar d'édition d'étape (étape initiale, qualificateurs, cartes d'action)
     ├── TransitionProperty.java# Sidebar d'édition de transition (condition ST, puces %I, opérateurs)
     └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M)
 ```
 
-### Principes Java 25+ appliqués :
+### Principes appliqués :
 * **`records`** : Modélisation immuable des données de domaine (`SfcStep`, `SfcTransition`, `SfcActionBlock`, `IecVariable`, `SfcProgram`).
 * **`sealed interface`** : `SfcElement permits SfcStep, SfcTransition, SfcBranch` garantissant l'exhaustivité totale lors des expressions `switch` avec pattern matching.
-* **Compact Constructors** : Validation stricte des invariants dès l'instanciation (noms non vides, durées obligatoires pour temporisations).
 * **Indépendance UI** : Le paquet `tk.tahri.grafino.model` n'importe aucune classe JavaFX, permettant l'exécution de simulations et de tests unitaires ultra-rapides en mode headless.
+* **Smart Alignment** : Algorithme `computeSmartSnap` avec tolérance dynamique de $\pm 14\text{ px}$ et détection prioritaire des relations de parenté.
+* **Auto-Layout BFS** : Algorithme de placement hiérarchique régulier ordonnant les couches en tenant compte des divergences et convergences sans chevauchement.
 
 ---
 
-## 4. Charte Graphique & Design System (Inspiration Arduino IDE)
+## 4. Charte Graphique & Design System
 
-L'interface adopte les codes visuels emblématiques de **l'IDE Arduino (Arduino IDE 2.x)** :
+L'interface associe les codes visuels emblématiques de **l'IDE Arduino** et la rigueur fonctionnelle de **TIA Portal** :
 
 | Rôle | Teinte | Hex | Usage |
 | :--- | :--- | :--- | :--- |
 | **Arduino Teal (Primaire)** | Teal classique | `#008184` | Accent principal, barre d'outils, boutons d'action majeurs |
-| **Teal Vibrant (Accent)** | Teal clair | `#00979D` | Survol, boutons de sortie `%Q`, éléments sélectionnés |
+| **Teal Vibrant (Accent)** | Teal clair | `#00979D` | Survol, boutons de sortie `%Q`, lignes guides de repère magnétique |
 | **Sélection Canvas (Jaune)** | Jaune vif | `#FFCC00` | Contour de surbrillance de l'étape, transition ou liaison sélectionnée |
-| **Entrées Capteurs (%I)** | Vert Émeraude | `#10B981` | Bouton d'ajout rapide `＋ Entrée (%I)` et onglet actif |
-| **Sorties Préactionneurs (%Q)**| Bleu Cyan | `#0284C7` | Bouton d'ajout rapide `＋ Sortie (%Q)` et onglet actif |
+| **Entrées Capteurs (%I)** | Vert Émeraude | `#10B981` | Bouton d'ajout rapide `＋ Entrée (%I)`, validation de raccordement conforme |
+| **Sorties Préactionneurs (%Q)**| Bleu Cyan | `#0284C7` | Bouton d'ajout rapide `＋ Sortie (%Q)` et bouton de branche `[⑂]` |
 | **Mémoires Internes (%M)** | Violet / Pourpre | `#7C3AED` | Bouton d'ajout rapide `＋ Mémoire (%M)` et onglet actif |
 | **Teal Light (Surfaces & Puces)**| Fond cyan doux | `#E5F5F5` | Fond des puces capteurs `%I`, badges actifs, surlignage |
 | **Arduino Orange** | Orange d'alerte | `#E67E22` | Badge Transition `T<n>`, qualificateurs temporisés `L`/`D` |
-| **Arduino Red** | Rouge brique | `#D9381E` | Actions Reset `R`, suppression 🗑, alertes de syntaxe d'adresse |
+| **Arduino Red** | Rouge brique | `#D9381E` | Actions Reset `R`, bouton suppression `[✕]` / `🗑`, alerte de violation d'alternance |
+| **Grille technique** | Gris bleuté doux | `#D7DEE4` | Quadrillage à points d'ingénierie TIA Portal (pas de 24px) |
 | **Surfaces Principales** | Blanc pur | `#FFFFFF` | Surface du Canvas Grafcet, fond des cartes d'édition |
 | **Surfaces Secondaires** | Gris très doux | `#F7F9FA` | Fond des panneaux latéraux (`Sidebar`), fond de la table |
 | **Bordures & Séparateurs** | Gris neutre | `#E1E4E8` | Séparateurs, contours de champs de texte et de cartes |
-| **Typographie Code** | Monospace | `'JetBrains Mono', Consolas` | Adresses API (`%I0.0`), expressions ST, qualificateurs |
+| **Typographie Code** | Monospace | `'JetBrains Mono', Consolas` | Adresses API (`%I0.0`), expressions ST, réceptivités in-place |
 
 ---
 
-## 5. Spécification du Format de Fichier JSON (`.sfc` / `.tk`)
+## 5. Raccourcis Clavier & Ergonomie de Dessin
+
+| Raccourci | Action |
+| :--- | :--- |
+| **`T`** ou **`Entrée`** | Insérer la Transition suivante après l'Étape sélectionnée |
+| **`S`** ou **`Entrée`** | Insérer l'Étape suivante après la Transition sélectionnée |
+| **`B`** | Ouvrir une branche (OU sur une étape, ET sur une transition) |
+| **`Suppr`** / **`Retour arrière`** | Supprimer l'élément ou la liaison sélectionnée |
+| **`Ctrl + L`** | **Auto-Layout : réaligner et centrer automatiquement tout le diagramme** |
+| **`Ctrl + Molette`** | Zoom fluide centré sur le curseur |
+| **`Clic Milieu / Droit + Glisser`** | Déplacement panoramique (*Pan*) dans le schéma |
+| **`Double-clic sur Transition`** | Édition in-place immédiate de la réceptivité sur le Canvas |
+| **`Double-clic sur Étape`** | Édition in-place immédiate du numéro d'étape |
+| **`Échap`** | Désélectionner tout |
+
+---
+
+## 6. Spécification du Format de Fichier JSON (`.sfc` / `.tk`)
 
 Exemple de structure d'un programme POU SFC standard :
 ```json
@@ -199,7 +224,7 @@ Exemple de structure d'un programme POU SFC standard :
 
 ---
 
-## 6. Feuille de Route (Roadmap d'Amélioration)
+## 7. Feuille de Route (Roadmap d'Amélioration)
 
 ```mermaid
 flowchart TD
@@ -209,11 +234,13 @@ flowchart TD
         A3 --> A4[Validation formelle et Tests JUnit 5]
     end
 
-    subgraph Etape2 ["Étape 2 : Persistance & Intégration UI (Terminée)"]
-        B1[Couche de stockage JSON .sfc et .tk] --> B2[Table des variables rétractable SplitPane]
-        B2 --> B3[Validation adresses IEC et couplage Scope/Adresse]
-        B3 --> B4[Sidebar d'édition Step / Transition style Arduino]
-        B4 --> B5[Canvas adaptatif plein écran ResizableCanvas]
+    subgraph Etape2 ["Étape 2 : Édition Graphique TIA Portal & Persistance (Terminée)"]
+        B1[Smart Snapping ±14px & Lignes guides] --> B2[Quick-Add Handles contextuels]
+        B2 --> B3[Tracé canonique CEI 60848 ET/OU & Boucles]
+        B3 --> B4[Auto-Layout hiérarchique Ctrl+L]
+        B4 --> B5[Pan & Zoom fluide + Grille technique]
+        B5 --> B6[Édition in-place réceptivités et étapes]
+        B6 --> B7[Persistance JSON .sfc et .tk]
     end
 
     subgraph Etape3 ["Étape 3 : Moteur de Simulation Synchrone (Prochaine étape)"]
@@ -234,20 +261,20 @@ flowchart TD
 
 ---
 
-## 7. Commandes de Compilation & Exécution
+## 8. Commandes de Compilation & Exécution
 
 ### Prérequis
-* **Java 25** (ou JDK 21+ compatible)
-* **Gradle 9.5.1** (ou gradle système)
+* **JDK 21+ ou Java 25**
+* **Gradle 9.4+ / 9.5+** (ou script `./gradlew`)
 
 ### Commandes usuelles :
 ```bash
 # Lancer l'application Grafino
-gradle run
+./gradlew run
 
-# Exécuter l'ensemble des tests unitaires automatisés
-gradle test
+# Exécuter l'ensemble des 20 tests unitaires automatisés
+./gradlew test
 
 # Nettoyer les artefacts de build
-gradle clean
+./gradlew clean
 ```
