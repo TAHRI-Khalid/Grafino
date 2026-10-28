@@ -38,5 +38,11 @@ bin/
 ### VS Code ###
 .vscode/
 
+### Distribution & Packaging ###
+dist/
+release-artifacts/
+dist-release/
+*.iconset/
+
 ### Mac OS ###
 .DS_Store

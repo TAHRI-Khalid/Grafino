@@ -27,7 +27,7 @@ public class TimingRecorder {
     }
 
     public TimingRecorder(int maxSamples) {
-        this.maxSamples = Math.max(100, maxSamples);
+        this.maxSamples = Math.max(1, maxSamples);
     }
 
     /**

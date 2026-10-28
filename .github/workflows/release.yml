@@ -1,0 +1,406 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version de release (ex: 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 1. BUILD LINUX & UNIVERSAL JAR
+  # --------------------------------------------------------------------------
+  build-linux:
+    name: Build Linux & Jar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK 27
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'liberica'
+          java-version: '27'
+          cache: gradle
+
+      - name: Installer les dépendances d'empaquetage (deb & rpm)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot rpm
+
+      - name: Rendre gradlew exécutable
+        run: chmod +x ./gradlew
+
+      - name: Compiler le JAR universel
+        run: |
+          ./gradlew fatJar -PappVersion="${{ env.VERSION }}" -x test
+
+      - name: Préparer le JAR autonome
+        run: |
+          mkdir -p release-artifacts
+          JAR_SRC=$(ls build/libs/Grafino-*-all.jar | head -n 1)
+          cp "$JAR_SRC" "release-artifacts/Grafino-${{ env.VERSION }}.jar"
+
+      - name: Générer les paquets Linux (DEB, RPM, App-Image)
+        run: |
+          chmod +x ./package-native.sh
+          ./package-native.sh deb "${{ env.VERSION }}"
+          ./package-native.sh rpm "${{ env.VERSION }}"
+          ./package-native.sh app-image "${{ env.VERSION }}"
+
+          tar -czf "release-artifacts/Grafino-linux-x64-${{ env.VERSION }}.tar.gz" -C dist Grafino
+
+          find dist/ -type f \( -name "*.deb" -o -name "*.rpm" \) -exec cp {} release-artifacts/ \;
+
+      - name: Uploader les artefacts Linux & Jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: release-artifacts/*
+
+  # --------------------------------------------------------------------------
+  # 2. BUILD WINDOWS (MSI & ZIP portable)
+  # --------------------------------------------------------------------------
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: get_version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Set up JDK 27
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'liberica'
+          java-version: '27'
+          cache: gradle
+
+      - name: Installer et configurer WiX Toolset
+        shell: powershell
+        run: |
+          $wixPath = "C:\Program Files (x86)\WiX Toolset v3.11\bin"
+          if (-not (Test-Path (Join-Path $wixPath "candle.exe"))) {
+            Write-Host "Installation de WiX 3.11 via Chocolatey..."
+            choco install wixtoolset --yes --no-progress
+          }
+          if (Test-Path $wixPath) {
+            echo $wixPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "WiX Toolset configuré dans GITHUB_PATH : $wixPath"
+          }
+
+      - name: Générer le package Windows Portable (ZIP)
+        shell: powershell
+        run: |
+          .\package-native.ps1 -PackageType app-image -AppVersion "${{ env.VERSION }}"
+          New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
+          Compress-Archive -Path dist\Grafino -DestinationPath "release-artifacts\Grafino-windows-x64-${{ env.VERSION }}.zip" -Force
+
+      - name: Générer le package Windows Installateur (MSI)
+        shell: powershell
+        run: |
+          $env:SKIP_BUILD = "true"
+          .\package-native.ps1 -PackageType msi -AppVersion "${{ env.VERSION }}"
+          Get-ChildItem -Path dist\*.msi | Copy-Item -Destination release-artifacts\
+
+      - name: Uploader les artefacts Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: release-artifacts/*
+
+  # --------------------------------------------------------------------------
+  # 3. BUILD MACOS APPLE SILICON (ARM64)
+  # --------------------------------------------------------------------------
+  build-macos-arm64:
+    name: Build macOS ARM64
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Set up JDK 27
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'liberica'
+          java-version: '27'
+          cache: gradle
+
+      - name: Validate ARM64 architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Runner architecture:"
+          uname -m
+
+          echo "Java version:"
+          java -version
+
+          echo "Java architecture:"
+          java -XshowSettings:properties -version 2>&1 | grep -E 'os.arch|java.home'
+
+          RUNNER_ARCH="$(uname -m)"
+          JAVA_ARCH="$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/os.arch =/ {print $2; exit}')"
+
+          if [ "$RUNNER_ARCH" != "arm64" ]; then
+            echo "ERROR: Expected an ARM64 runner, got: $RUNNER_ARCH"
+            exit 1
+          fi
+
+          case "$JAVA_ARCH" in
+            aarch64|arm64)
+              ;;
+            *)
+              echo "ERROR: Expected an ARM64 JDK, got: $JAVA_ARCH"
+              exit 1
+              ;;
+          esac
+
+      - name: Rendre gradlew exécutable
+        run: chmod +x ./gradlew
+
+      - name: Générer l'icône native Apple (.icns)
+        run: |
+          mkdir -p Grafino.iconset
+          sips -z 16 16     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_16x16.png
+          sips -z 32 32     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_16x16@2x.png
+          sips -z 32 32     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_32x32.png
+          sips -z 64 64     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_32x32@2x.png
+          sips -z 128 128   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_128x128.png
+          sips -z 256 256   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_128x128@2x.png
+          sips -z 256 256   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_256x256.png
+          sips -z 512 512   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_256x256@2x.png
+          iconutil -c icns Grafino.iconset -o src/main/resources/icons/app-icon.icns
+          rm -rf Grafino.iconset
+
+      - name: Générer les packages macOS ARM64
+        run: |
+          set -euo pipefail
+          chmod +x ./package-native.sh
+          mkdir -p release-artifacts
+
+          ./package-native.sh app-image "${{ env.VERSION }}"
+
+          tar -czf \
+            "release-artifacts/Grafino-macos-arm64-${{ env.VERSION }}.tar.gz" \
+            -C dist Grafino.app
+
+          export SKIP_BUILD="true"
+          ./package-native.sh dmg "${{ env.VERSION }}"
+
+          ARM64_DMG="$(find dist/ -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+          if [ -z "$ARM64_DMG" ]; then
+            echo "ERROR: ARM64 DMG was not created"
+            exit 1
+          fi
+
+          cp "$ARM64_DMG" \
+            "release-artifacts/Grafino-macos-arm64-${{ env.VERSION }}.dmg"
+
+      - name: Uploader les artefacts macOS ARM64
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-artifacts
+          path: release-artifacts/*
+
+  # --------------------------------------------------------------------------
+  # 4. BUILD MACOS INTEL (X86_64)
+  # --------------------------------------------------------------------------
+  build-macos-x64:
+    name: Build macOS Intel x86_64
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Set up Intel JDK 27
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'liberica'
+          java-version: '27'
+          cache: gradle
+
+      - name: Validate Intel x86_64 architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Runner architecture:"
+          uname -m
+
+          echo "Java version:"
+          java -version
+
+          echo "Java architecture:"
+          java -XshowSettings:properties -version 2>&1 | grep -E 'os.arch|java.home'
+
+          RUNNER_ARCH="$(uname -m)"
+          JAVA_ARCH="$(java -XshowSettings:properties -version 2>&1 | awk -F'= ' '/os.arch =/ {print $2; exit}')"
+
+          if [ "$RUNNER_ARCH" != "x86_64" ]; then
+            echo "ERROR: Expected an Intel x86_64 runner, got: $RUNNER_ARCH"
+            exit 1
+          fi
+
+          case "$JAVA_ARCH" in
+            x86_64|amd64|x64)
+              ;;
+            *)
+              echo "ERROR: Expected an Intel x86_64 JDK, got: $JAVA_ARCH"
+              exit 1
+              ;;
+          esac
+
+      - name: Rendre gradlew exécutable
+        run: chmod +x ./gradlew
+
+      - name: Générer l'icône native Apple (.icns)
+        run: |
+          mkdir -p Grafino.iconset
+          sips -z 16 16     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_16x16.png
+          sips -z 32 32     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_16x16@2x.png
+          sips -z 32 32     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_32x32.png
+          sips -z 64 64     src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_32x32@2x.png
+          sips -z 128 128   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_128x128.png
+          sips -z 256 256   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_128x128@2x.png
+          sips -z 256 256   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_256x256.png
+          sips -z 512 512   src/main/resources/icons/app-icon.png --out Grafino.iconset/icon_256x256@2x.png
+          iconutil -c icns Grafino.iconset -o src/main/resources/icons/app-icon.icns
+          rm -rf Grafino.iconset
+
+      - name: Générer les packages macOS Intel
+        run: |
+          set -euo pipefail
+          chmod +x ./package-native.sh
+          mkdir -p release-artifacts
+
+          ./package-native.sh app-image "${{ env.VERSION }}"
+
+          tar -czf \
+            "release-artifacts/Grafino-macos-x64-${{ env.VERSION }}.tar.gz" \
+            -C dist Grafino.app
+
+          export SKIP_BUILD="true"
+          ./package-native.sh dmg "${{ env.VERSION }}"
+
+          X64_DMG="$(find dist/ -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+          if [ -z "$X64_DMG" ]; then
+            echo "ERROR: Intel x86_64 DMG was not created"
+            exit 1
+          fi
+
+          cp "$X64_DMG" \
+            "release-artifacts/Grafino-macos-x64-${{ env.VERSION }}.dmg"
+
+      - name: Uploader les artefacts macOS Intel
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64-artifacts
+          path: release-artifacts/*
+
+  # --------------------------------------------------------------------------
+  # 5. PUBLICATION DE LA RELEASE GITHUB
+  # --------------------------------------------------------------------------
+  publish-release:
+    name: Publish Release on GitHub
+    needs:
+      - build-linux
+      - build-windows
+      - build-macos-arm64
+      - build-macos-x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Déterminer la version et le nom de tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Télécharger tous les artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Consolider et calculer les sommes de contrôle SHA256
+        run: |
+          mkdir -p dist-release
+          find all-artifacts -type f -exec cp {} dist-release/ \;
+
+          cd dist-release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+
+      - name: Créer ou mettre à jour la Release GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Grafino ${{ env.TAG }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist-release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
