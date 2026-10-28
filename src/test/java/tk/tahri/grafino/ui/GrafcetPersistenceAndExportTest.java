@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tk.tahri.grafino.JavaFxTestHelper;
 import tk.tahri.grafino.component.Action;
 import tk.tahri.grafino.component.Link;
 import tk.tahri.grafino.component.Step;
@@ -25,6 +26,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Axe 1 : Tests de persistance, conversion SfcProgram et export PNG (Workflow étudiant)")
 class GrafcetPersistenceAndExportTest {
+
+    @BeforeAll
+    static void initJavaFx() {
+        JavaFxTestHelper.initJavaFx();
+    }
 
     @Test
     @DisplayName("Conversion du diagramme Grafcet vers un SfcProgram (toProgram)")

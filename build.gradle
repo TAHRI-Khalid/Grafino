@@ -27,9 +27,19 @@ application {
     mainClass = 'tk.tahri.grafino.App'
 }
 
-// Détection automatique de la plateforme (Linux, Windows, macOS) pour les artefacts JavaFX
+// Détection automatique de la plateforme (Linux, Windows, macOS, x86_64 et ARM64) pour les artefacts JavaFX
 def osName = System.getProperty("os.name").toLowerCase()
-def osClassifier = osName.contains("win") ? "win" : (osName.contains("mac") ? "mac" : "linux")
+def osArch = System.getProperty("os.arch").toLowerCase()
+
+def osClassifier = {
+    if (osName.contains("win")) {
+        return "win"
+    } else if (osName.contains("mac")) {
+        return (osArch == "aarch64" || osArch == "arm64") ? "mac-aarch64" : "mac"
+    } else {
+        return (osArch == "aarch64" || osArch == "arm64") ? "linux-aarch64" : "linux"
+    }
+}()
 
 def javafxVersion = project.findProperty('javafx.version') ?: '27'
 def junitVersion = '5.13.4'
@@ -75,4 +85,7 @@ tasks.register('fatJar', Jar) {
 
 test {
     useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'prism.order', 'sw'
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
 }

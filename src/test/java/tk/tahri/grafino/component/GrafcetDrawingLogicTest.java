@@ -1,13 +1,20 @@
 package tk.tahri.grafino.component;
 
 import javafx.geometry.Point2D;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tk.tahri.grafino.JavaFxTestHelper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Tests des règles de tracé et de géométrie des liaisons SFC / Grafcet (CEI 60848)")
 class GrafcetDrawingLogicTest {
+
+    @BeforeAll
+    static void initJavaFx() {
+        JavaFxTestHelper.initJavaFx();
+    }
 
     @Test
     @DisplayName("Liaison descendante directe (1-à-1) : non ascendante, sans divergence")

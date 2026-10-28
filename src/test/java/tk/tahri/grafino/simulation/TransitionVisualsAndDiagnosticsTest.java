@@ -1,7 +1,9 @@
 package tk.tahri.grafino.simulation;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tk.tahri.grafino.JavaFxTestHelper;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Transition;
 import tk.tahri.grafino.model.*;
@@ -14,6 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Axe 2 : Tests de validation des transitions triparties et de l'inspection normative")
 class TransitionVisualsAndDiagnosticsTest {
+
+    @BeforeAll
+    static void initJavaFx() {
+        JavaFxTestHelper.initJavaFx();
+    }
 
     @Test
     @DisplayName("Validation tripartite de franchissabilité CEI 60848 (Non validée -> Validée attente réceptivité -> Franchissable)")
