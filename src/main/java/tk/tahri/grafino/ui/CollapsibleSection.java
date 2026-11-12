@@ -37,7 +37,7 @@ public class CollapsibleSection extends VBox {
 
         if (icon != null && !icon.isBlank()) {
             var iconLbl = new Label(icon);
-            iconLbl.setStyle("-fx-font-size: 13px;");
+            iconLbl.setStyle("-fx-font-size: 14px;");
             header.getChildren().add(iconLbl);
         }
 
@@ -49,7 +49,7 @@ public class CollapsibleSection extends VBox {
         if (badgeText != null && !badgeText.isBlank()) {
             badgeLabel.setText(badgeText);
             badgeLabel.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                    "; -fx-font-size: 10px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
+                    "; -fx-font-size: 11.5px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
             header.getChildren().add(badgeLabel);
         }
 
@@ -58,7 +58,7 @@ public class CollapsibleSection extends VBox {
         header.getChildren().add(spacer);
 
         chevron = new Label(initiallyExpanded ? "▼" : "▶");
-        chevron.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-weight: bold;");
+        chevron.setStyle("-fx-font-size: 11.5px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-weight: bold;");
         header.getChildren().add(chevron);
 
         // Feedback au survol de la souris
@@ -81,10 +81,10 @@ public class CollapsibleSection extends VBox {
 
     private void applyHeaderStyle(boolean hovered) {
         String bg = hovered ? AppTheme.TEAL_LIGHT_BG : "transparent";
-        header.setStyle("-fx-cursor: hand; -fx-padding: 3px 6px; -fx-background-color: " + bg +
+        header.setStyle("-fx-cursor: hand; -fx-padding: 4px 6px; -fx-background-color: " + bg +
                 "; -fx-background-radius: 4px;");
         if (chevron != null) {
-            chevron.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " +
+            chevron.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " +
                     (hovered ? AppTheme.PRIMARY_TEAL : AppTheme.TEXT_MUTED) + ";");
         }
     }
@@ -108,7 +108,7 @@ public class CollapsibleSection extends VBox {
         if (text != null && !text.isBlank()) {
             badgeLabel.setText(text);
             badgeLabel.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                    "; -fx-font-size: 10px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
+                    "; -fx-font-size: 11.5px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
             if (!header.getChildren().contains(badgeLabel)) {
                 // Insérer juste après titleLabel
                 int titleIndex = header.getChildren().indexOf(titleLabel);

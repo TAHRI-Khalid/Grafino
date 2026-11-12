@@ -16,9 +16,9 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Raccourcis clavier universels rapides (`T`/`Entrée` transition, `S`/`Entrée` étape, `B` branche, `Suppr` suppression) permettant d'épurer la barre d'outils supérieure des boutons redondants.
    * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / bouton `📐 Aligner`).
-   * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`).
+   * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
-   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
+   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
 2. **Sécurisation du flux de travail étudiant & Persistance UI** :
    * Menu Fichier complet (`Nouveau`, `Ouvrir`, `Enregistrer`, `Enregistrer sous`, `Exporter PNG`).
    * Raccourcis clavier universels (`Ctrl + N`, `Ctrl + O`, `Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + E`).
@@ -31,9 +31,9 @@ Le nom **Grafino** symbolise la passerelle entre :
      - *Validée en attente* (trait ambré `#F59E0B`, pulsation et badge `[⏳ T<n>]`, étapes amont actives mais réceptivité fausse).
      - *Franchissable* (halo vert `#10B981`, flèche dynamique `▶` et badge `[✓ T<n>]`, prête au franchissement synchrone).
    * **Inspection normative & Diagnostic pédagogique des erreurs étudiantes** (`DiagnosticsPanel`, `SfcProgram.validate()` & `GrafcetSimulator.getRuntimeDiagnostics()`) :
-     - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`) et pastilles visuelles (`!` / `⚠`) directement sur les étapes et transitions du Canvas avec infobulle pédagogique au survol.
-     - Fiches pédagogiques structurées avec référence normative (`📖 CEI 60848 / CEI 61131-3`), constat de l'erreur et encadré **« 💡 Comprendre & Corriger »** expliquant pourquoi il s'agit d'une anomalie afin que l'étudiant la corrige lui-même.
-     - Détection statique et topologique complète : absence d'étape initiale, doublons de numéros, violation d'alternance, étapes non initiales inatteignables, transitions sans amont ou en cul-de-sac, incohérences Divergence OU / Convergence ET (*Deadlock*) ou Divergence ET / Convergence OU, parenthèses et opérateurs ST invalides, écriture interdite sur entrée `%I`, sorties/capteurs non déclarés, asymétrie Set (`S`) / Reset (`R`), compteurs sans qualificateur impulsionnel `P` ou sans initialisation (`C := 0`).
+     - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`) et pastilles visuelles discrètes (`!` / `⚠`) sur les étapes et transitions du Canvas, **sans encadré flottant intrusif sur le schéma** (l'intégralité des messages détaillés est regroupée dans le panneau latéral droit).
+     - Fiches pédagogiques structurées à police agrandie (`12px`–`15px`) avec référence normative (`📖 CEI 60848 / CEI 61131-3`), constat de l'erreur et encadré **« 💡 Comprendre & Corriger »** expliquant pourquoi il s'agit d'une anomalie afin que l'étudiant la corrige lui-même.
+     - Détection statique et topologique complète : absence d'étape initiale, doublons de numéros, violation d'alternance, **absence de boucle ou de fin de cycle / liaisons ouvertes** (traitée comme **erreur** : transition sans étape aval, étape sans transition aval, étape initiale sans boucle de retour de cycle, étape non initiale ou transition sans amont, liaison orpheline), incohérences Divergence OU / Convergence ET (*Deadlock*) ou Divergence ET / Convergence OU, parenthèses et opérateurs ST invalides, écriture interdite sur entrée `%I`, sorties/capteurs non déclarés, asymétrie Set (`S`) / Reset (`R`), compteurs sans qualificateur impulsionnel `P` ou sans initialisation (`C := 0`).
      - Diagnostics dynamiques en cours de simulation (`SimulationPanel`) : détection des conflits d'exclusivité sur aiguillage en OU (franchissement simultané), des conflits simultanés Set (`S`) / Reset (`R`) sur une même sortie, de l'extinction du marquage et de l'état d'attente des synchronisations en ET.
      - Bouton `[🔍 Localiser]` pour centrer et sélectionner instantanément l'élément fautif sur le Canvas.
    * **Chronogramme d'Évolution Multi-voies interactif** (`TimingDiagramPanel`) :

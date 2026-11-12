@@ -63,11 +63,11 @@ public final class AppTheme {
 
     public static final String SECTION_HEADER_STYLE =
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 12px;" +
+            "-fx-font-size: 13.5px;" +
             "-fx-text-fill: " + TEXT_MAIN + ";";
 
     public static final String LABEL_MUTED_STYLE =
-            "-fx-font-size: 11px;" +
+            "-fx-font-size: 12.5px;" +
             "-fx-text-fill: " + TEXT_MUTED + ";";
 
     // Styles des champs de saisie
@@ -78,7 +78,7 @@ public final class AppTheme {
             "-fx-background-radius: 6px;" +
             "-fx-padding: 6px 10px;" +
             "-fx-text-fill: " + TEXT_MAIN + ";" +
-            "-fx-font-size: 12px;";
+            "-fx-font-size: 13px;";
 
     public static final String MONO_FIELD_STYLE =
             "-fx-background-color: " + CARD_BG + ";" +
@@ -88,7 +88,7 @@ public final class AppTheme {
             "-fx-padding: 6px 10px;" +
             "-fx-text-fill: " + TEXT_MAIN + ";" +
             "-fx-font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 14px;" +
             "-fx-font-weight: bold;";
 
     // Styles des boutons
@@ -96,8 +96,8 @@ public final class AppTheme {
             "-fx-background-color: " + PRIMARY_TEAL + ";" +
             "-fx-text-fill: #FFFFFF;" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 12px;" +
-            "-fx-padding: 6px 14px;" +
+            "-fx-font-size: 13px;" +
+            "-fx-padding: 7px 14px;" +
             "-fx-background-radius: 6px;" +
             "-fx-cursor: hand;";
 
@@ -105,8 +105,8 @@ public final class AppTheme {
             "-fx-background-color: " + CARD_BG + ";" +
             "-fx-border-color: " + BORDER_COLOR + ";" +
             "-fx-text-fill: " + TEXT_MAIN + ";" +
-            "-fx-font-size: 11px;" +
-            "-fx-padding: 4px 8px;" +
+            "-fx-font-size: 12.5px;" +
+            "-fx-padding: 5px 10px;" +
             "-fx-background-radius: 4px;" +
             "-fx-border-radius: 4px;" +
             "-fx-cursor: hand;";
@@ -115,9 +115,9 @@ public final class AppTheme {
             "-fx-background-color: " + TEAL_LIGHT_BG + ";" +
             "-fx-border-color: " + TEAL_LIGHT_BORDER + ";" +
             "-fx-text-fill: " + PRIMARY_TEAL_DARK + ";" +
-            "-fx-font-size: 11px;" +
+            "-fx-font-size: 12.5px;" +
             "-fx-font-weight: bold;" +
-            "-fx-padding: 3px 10px;" +
+            "-fx-padding: 4px 11px;" +
             "-fx-background-radius: 12px;" +
             "-fx-border-radius: 12px;" +
             "-fx-cursor: hand;";
@@ -126,17 +126,17 @@ public final class AppTheme {
             "-fx-background-color: transparent;" +
             "-fx-text-fill: " + TEXT_MUTED + ";" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 15px;" +
             "-fx-padding: 2px 6px;" +
             "-fx-cursor: hand;";
 
     public static final String RADIO_BUTTON_STYLE =
-            "-fx-font-size: 11px;" +
+            "-fx-font-size: 12.5px;" +
             "-fx-text-fill: " + TEXT_MAIN + ";" +
             "-fx-cursor: hand;";
 
     public static final String RADIO_BUTTON_BOLD_STYLE =
-            "-fx-font-size: 11px;" +
+            "-fx-font-size: 12.5px;" +
             "-fx-font-weight: bold;" +
             "-fx-text-fill: " + TEXT_MAIN + ";" +
             "-fx-cursor: hand;";
@@ -145,8 +145,8 @@ public final class AppTheme {
         return "-fx-background-color: " + bgHex + ";" +
                "-fx-text-fill: " + textHex + ";" +
                "-fx-font-weight: bold;" +
-               "-fx-font-size: 11px;" +
-               "-fx-padding: 3px 9px;" +
+               "-fx-font-size: 12px;" +
+               "-fx-padding: 4px 10px;" +
                "-fx-background-radius: 12px;";
     }
 

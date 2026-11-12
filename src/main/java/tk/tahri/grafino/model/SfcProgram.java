@@ -143,11 +143,11 @@ public record SfcProgram(
             SfcElement target = elementMap.get(link.targetId());
 
             if (source == null || target == null) {
-                messages.add(SfcValidationMessage.warning(
+                messages.add(SfcValidationMessage.error(
                         link.id(),
-                        "Topologie — Liaison orpheline",
-                        "Liaison orpheline détectée (élément source ou cible introuvable).",
-                        "Cette liaison pointe vers un élément supprimé. Supprimez-la et recréez le raccordement entre une étape et une transition."
+                        "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                        "Liaison ouverte détectée (élément source ou cible introuvable).",
+                        "Cette liaison est ouverte et pointe vers un élément supprimé. Supprimez-la et recréez le raccordement complet entre une étape et une transition."
                 ));
                 continue;
             }
@@ -221,16 +221,35 @@ public record SfcProgram(
             }
         }
 
-        // Règle 4 : Continuité topologique (Étapes inatteignables & Transitions non raccordées)
-        if (!transitions.isEmpty()) {
+        // Règle 4 : Continuité topologique — Absence de boucle ou de fin de cycle (Liaisons ouvertes)
+        if (!transitions.isEmpty() || (steps.size() > 1 && !getInitialSteps().isEmpty())) {
             for (SfcStep step : steps) {
                 if (!step.isInitial() && incomingToStep.get(step.id()).isEmpty()) {
-                    messages.add(SfcValidationMessage.warning(
+                    messages.add(SfcValidationMessage.error(
                             step.id(),
-                            "Topologie — Étape inatteignable",
-                            "L'étape " + step.name() + " (S" + step.number() + ") n'est pas initiale et n'a aucune transition en amont.",
+                            "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                            "Liaison amont ouverte : l'étape " + step.name() + " (S" + step.number() + ") n'est pas initiale et n'a aucune transition en amont.",
                             "Une étape non initiale ne peut s'activer que par le franchissement d'une transition située au-dessus d'elle. "
                                     + "Reliez une transition en amont de " + step.name() + " ou définissez-la comme étape initiale."
+                    ));
+                }
+                if (outgoingFromStep.get(step.id()).isEmpty()) {
+                    messages.add(SfcValidationMessage.error(
+                            step.id(),
+                            "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                            "Absence de boucle ou de fin de cycle (Liaisons ouvertes) : l'étape " + step.name() + " (S" + step.number() + ") n'est reliée à aucune transition en aval.",
+                            "Un Grafcet industriel décrit un cycle séquentiel fermé. Sans transition aval ni boucle de retour vers l'étape initiale, "
+                                    + "l'évolution restera bloquée indéfiniment sur l'étape " + step.name() + ". Ajoutez une transition après " + step.name()
+                                    + " et rebouclez vers l'étape initiale."
+                    ));
+                } else if (step.isInitial() && incomingToStep.get(step.id()).isEmpty()) {
+                    messages.add(SfcValidationMessage.error(
+                            step.id(),
+                            "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                            "Absence de boucle de cycle (Liaisons ouvertes) : aucune transition de fin de cycle ne reboucle vers l'étape initiale "
+                                    + step.name() + " (S" + step.number() + ").",
+                            "Pour que le cycle automatisé puisse se répéter après son exécution, reliez la dernière transition de votre séquence "
+                                    + "vers le haut de l'étape initiale " + step.name() + " (boucle de reprise orientée vers le haut ▲)."
                     ));
                 }
             }
@@ -239,19 +258,19 @@ public record SfcProgram(
                 if (upstreamStepsOfTrans.get(transition.id()).isEmpty()) {
                     messages.add(SfcValidationMessage.error(
                             transition.id(),
-                            "CEI 60848 — Règle 2 (Validation de transition)",
-                            "La transition " + transition.name() + " n'a aucune étape en amont : elle ne pourra jamais être validée.",
+                            "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                            "Liaison amont ouverte : la transition " + transition.name() + " n'a aucune étape en amont et ne pourra jamais être validée.",
                             "Selon la Règle 2 de la norme CEI 60848, une transition ne peut être validée que si toutes ses étapes immédiatement "
                                     + "précédentes sont actives. Reliez la sortie d'une étape au sommet de " + transition.name() + "."
                     ));
                 }
                 if (downstreamStepsOfTrans.get(transition.id()).isEmpty()) {
-                    messages.add(SfcValidationMessage.warning(
+                    messages.add(SfcValidationMessage.error(
                             transition.id(),
-                            "Topologie — Transition en cul-de-sac",
-                            "La transition " + transition.name() + " n'est reliée à aucune étape en aval.",
+                            "CEI 60848 — Absence de boucle ou de fin de cycle (Liaisons ouvertes)",
+                            "Absence de boucle ou de fin de cycle (Liaisons ouvertes) : la transition " + transition.name() + " n'est reliée à aucune étape en aval.",
                             "Le franchissement d'une transition sans étape aval désactiverait l'étape amont sans activer d'étape suivante "
-                                    + "(perte du jeton). Reliez le bas de " + transition.name() + " vers une étape suivante ou une boucle de reprise."
+                                    + "(perte du jeton et arrêt du cycle). Reliez le bas de " + transition.name() + " vers une étape suivante ou rebouclez vers l'étape initiale."
                     ));
                 }
             }

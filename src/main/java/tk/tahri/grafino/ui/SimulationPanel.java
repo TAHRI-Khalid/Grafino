@@ -622,32 +622,32 @@ public class SimulationPanel extends VBox {
         if (runtimeMsgs.isEmpty()) {
             Label okLbl = new Label("✓ Aucun conflit d'exécution détecté (aiguillages OU, Set/Reset et synchronisations ET conformes).");
             okLbl.setWrapText(true);
-            okLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + ";");
+            okLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + ";");
             runtimeAlertsContainer.getChildren().add(okLbl);
             return;
         }
 
         for (SfcValidationMessage msg : runtimeMsgs) {
-            VBox card = new VBox(4);
+            VBox card = new VBox(5);
             String border = msg.isError() ? AppTheme.RED_BORDER : (msg.isWarning() ? AppTheme.ORANGE_BORDER : "#BAE6FD");
             String bg = msg.isError() ? AppTheme.RED_LIGHT_BG : (msg.isWarning() ? AppTheme.ORANGE_LIGHT_BG : "#F0F9FF");
             card.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border +
-                    "; -fx-border-radius: 5px; -fx-background-radius: 5px; -fx-padding: 7px;");
+                    "; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 9px;");
 
             Label ruleLbl = new Label((msg.isError() ? "✕ " : (msg.isWarning() ? "⚠ " : "ℹ ")) + msg.ruleReference());
-            ruleLbl.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " +
+            ruleLbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " +
                     (msg.isError() ? AppTheme.RED_DANGER : (msg.isWarning() ? AppTheme.ORANGE : "#0369A1")) + ";");
 
             Label mLbl = new Label(msg.message());
             mLbl.setWrapText(true);
-            mLbl.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+            mLbl.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
 
             card.getChildren().addAll(ruleLbl, mLbl);
 
             if (msg.hasPedagogicalHint()) {
                 Label hintLbl = new Label("💡 " + msg.pedagogicalHint());
                 hintLbl.setWrapText(true);
-                hintLbl.setStyle("-fx-font-size: 10px; -fx-text-fill: #475569;");
+                hintLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569;");
                 card.getChildren().add(hintLbl);
             }
             runtimeAlertsContainer.getChildren().add(card);

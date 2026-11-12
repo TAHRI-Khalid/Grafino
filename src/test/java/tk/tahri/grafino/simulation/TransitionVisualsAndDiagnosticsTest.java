@@ -182,9 +182,13 @@ class TransitionVisualsAndDiagnosticsTest {
         assertTrue(diagnostics.stream().allMatch(SfcValidationMessage::hasPedagogicalHint),
                 "Chaque diagnostic étudiant doit fournir une explication pédagogique");
 
-        // A. Détection de l'étape inatteignable (s3)
-        assertTrue(diagnostics.stream().anyMatch(m -> m.elementId().equals("s3") && m.message().contains("aucune transition en amont")),
-                "L'étape non initiale sans amont (s3) doit être signalée comme inatteignable");
+        // A. Détection de l'étape inatteignable (s3) et des liaisons ouvertes / absence de boucle en ERREUR
+        assertTrue(diagnostics.stream().anyMatch(m -> m.elementId().equals("s3") && m.isError() && m.message().contains("aucune transition en amont")),
+                "L'étape non initiale sans amont (s3) doit être signalée comme erreur de liaison ouverte");
+        assertTrue(diagnostics.stream().anyMatch(m -> m.elementId().equals("t3") && m.isError() && m.ruleReference().contains("Absence de boucle ou de fin de cycle")),
+                "Une transition sans étape aval (t3) doit être signalée comme ERREUR d'absence de boucle ou de fin de cycle (liaison ouverte)");
+        assertTrue(diagnostics.stream().anyMatch(m -> m.elementId().equals("s0") && m.isError() && m.ruleReference().contains("Absence de boucle ou de fin de cycle")),
+                "Une étape initiale sans boucle de retour (s0) doit être signalée comme ERREUR d'absence de boucle de cycle");
 
         // B. Détection de l'incohérence Divergence OU -> Convergence ET sur t3
         assertTrue(diagnostics.stream().anyMatch(m -> m.elementId().equals("t3") && m.isError() && m.message().contains("aiguillage en OU")),

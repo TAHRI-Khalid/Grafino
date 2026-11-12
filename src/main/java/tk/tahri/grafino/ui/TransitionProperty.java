@@ -44,8 +44,8 @@ public class TransitionProperty extends VBox {
 
     public TransitionProperty(Transition transition, List<Variable> inputVariables, List<Step> availableSteps,
                               List<Variable> counterVariables, Runnable onModified, Runnable onClose) {
-        this.setPrefWidth(360);
-        this.setMinWidth(330);
+        this.setPrefWidth(390);
+        this.setMinWidth(350);
         this.setSpacing(10);
         this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -56,11 +56,11 @@ public class TransitionProperty extends VBox {
 
         var titleBox = new VBox(2);
         var subTitle = new Label("PROPRIÉTÉS DE LA TRANSITION");
-        subTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var badge = new Label("Transition T" + transition.getNumber());
         badge.setStyle(AppTheme.pillBadgeStyle(AppTheme.ORANGE_LIGHT_BG, AppTheme.ORANGE) +
-                "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13px;");
+                "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 14px;");
         titleBox.getChildren().addAll(subTitle, badge);
 
         var spacer = new Region();

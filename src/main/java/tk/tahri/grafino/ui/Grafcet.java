@@ -2,16 +2,21 @@ package tk.tahri.grafino.ui;
 
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -103,6 +108,9 @@ public class Grafcet extends Pane {
 
             // Gestion des raccourcis clavier
             setupKeyboardEvents();
+
+            // Boutons circulaires flottants sur le Canvas : (+), (-), et Centrer le diagramme
+            setupFloatingCanvasControls();
 
             // Boucle de rendu
             animationTimer = new AnimationTimer() {
@@ -591,70 +599,6 @@ public class Grafcet extends Pane {
         }
 
         ctx.restore();
-
-        // Infobulle pédagogique flottante au survol d'un élément comportant une erreur ou un avertissement
-        if (hoveredComponent != null && !hoveredComponent.getDiagnosticMessages().isEmpty()) {
-            drawHoveredDiagnosticOverlay(hoveredComponent);
-        }
-    }
-
-    private void drawHoveredDiagnosticOverlay(StepAndTransitionCommonBehavior comp) {
-        if (ctx == null || canvas == null) return;
-        List<SfcValidationMessage> msgs = comp.getDiagnosticMessages();
-        if (msgs.isEmpty()) return;
-
-        SfcValidationMessage primary = msgs.stream()
-                .filter(SfcValidationMessage::isError)
-                .findFirst()
-                .orElse(msgs.getFirst());
-
-        boolean isErr = primary.isError();
-        String badgeText = isErr ? "✕ ERREUR — " + primary.ruleReference() : "⚠ AVERTISSEMENT — " + primary.ruleReference();
-        String mainText = primary.message();
-        String hintText = primary.hasPedagogicalHint() ? ("💡 " + primary.pedagogicalHint()) : "";
-
-        double boxWidth = Math.min(440, Math.max(260, canvas.getWidth() - 32));
-        Point2D screenAnchor = diagramToScreen(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() - 10);
-        double boxX = Math.clamp(screenAnchor.getX() - boxWidth / 2, 12, Math.max(12, canvas.getWidth() - boxWidth - 12));
-        double boxH = hintText.isEmpty() ? 54 : 84;
-        double boxY = screenAnchor.getY() - boxH - 8;
-        if (boxY < 10) {
-            Point2D bottomAnchor = diagramToScreen(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT + 16);
-            boxY = Math.min(canvas.getHeight() - boxH - 10, bottomAnchor.getY());
-        }
-
-        ctx.save();
-        ctx.setFill(isErr ? Color.rgb(254, 242, 242, 0.97) : Color.rgb(255, 251, 235, 0.97));
-        ctx.setStroke(isErr ? Color.rgb(217, 56, 30) : Color.rgb(245, 158, 11));
-        ctx.setLineWidth(1.5);
-        ctx.fillRoundRect(boxX, boxY, boxWidth, boxH, 8, 8);
-        ctx.strokeRoundRect(boxX, boxY, boxWidth, boxH, 8, 8);
-
-        ctx.setFill(isErr ? Color.rgb(185, 28, 28) : Color.rgb(180, 83, 9));
-        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11));
-        ctx.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
-        ctx.setTextBaseline(javafx.geometry.VPos.TOP);
-        ctx.fillText(truncateText(badgeText, 62), boxX + 10, boxY + 8);
-
-        ctx.setFill(Color.rgb(30, 41, 59));
-        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11.5));
-        ctx.fillText(truncateText(mainText, 64), boxX + 10, boxY + 26);
-
-        if (!hintText.isEmpty()) {
-            ctx.setFill(Color.rgb(71, 85, 105));
-            ctx.setFont(Font.font("SansSerif", FontWeight.NORMAL, 10.5));
-            String line1 = truncateText(hintText, 72);
-            ctx.fillText(line1, boxX + 10, boxY + 46);
-            if (hintText.length() > 72) {
-                ctx.fillText(truncateText(hintText.substring(72).trim(), 72), boxX + 10, boxY + 62);
-            }
-        }
-        ctx.restore();
-    }
-
-    private String truncateText(String s, int maxLen) {
-        if (s == null) return "";
-        return s.length() <= maxLen ? s : s.substring(0, maxLen - 1) + "…";
     }
 
     private void drawBackgroundGrid() {
@@ -721,6 +665,76 @@ public class Grafcet extends Pane {
         }
     }
 
+    private void setupFloatingCanvasControls() {
+        VBox controlsBox = new VBox(8);
+        controlsBox.setAlignment(Pos.CENTER);
+        controlsBox.setPickOnBounds(false);
+
+        Button zoomInBtn = createCircularCanvasButton("＋", "Zoom + (Agrandir le schéma)", this::zoomIn);
+        Button zoomOutBtn = createCircularCanvasButton("－", "Zoom - (Réduire le schéma)", this::zoomOut);
+        Button centerBtn = createCircularCanvasButton("⌖", "Centrer le diagramme complet au centre de la page", this::centerDiagram);
+
+        controlsBox.getChildren().addAll(zoomInBtn, zoomOutBtn, centerBtn);
+        this.getChildren().add(controlsBox);
+
+        Runnable updatePosition = () -> {
+            double boxW = 42;
+            double boxH = 3 * 38 + 2 * 8;
+            controlsBox.setLayoutX(Math.max(12, this.getWidth() - boxW - 18));
+            controlsBox.setLayoutY(Math.max(12, this.getHeight() - boxH - 18));
+        };
+
+        this.widthProperty().addListener((obs, oldV, newV) -> updatePosition.run());
+        this.heightProperty().addListener((obs, oldV, newV) -> updatePosition.run());
+        javafx.application.Platform.runLater(updatePosition);
+    }
+
+    private Button createCircularCanvasButton(String symbol, String tooltipText, Runnable action) {
+        Button btn = new Button(symbol);
+        double size = 38.0;
+        btn.setMinSize(size, size);
+        btn.setPrefSize(size, size);
+        btn.setMaxSize(size, size);
+        btn.setFocusTraversable(false);
+        btn.setTooltip(new Tooltip(tooltipText));
+
+        String normalStyle =
+                "-fx-background-color: #FFFFFF;" +
+                "-fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";" +
+                "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
+                "-fx-border-width: 1.5px;" +
+                "-fx-background-radius: 19px;" +
+                "-fx-border-radius: 19px;" +
+                "-fx-font-size: 16px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 0;" +
+                "-fx-cursor: hand;";
+
+        String hoverStyle =
+                "-fx-background-color: " + AppTheme.PRIMARY_TEAL + ";" +
+                "-fx-text-fill: #FFFFFF;" +
+                "-fx-border-color: " + AppTheme.PRIMARY_TEAL + ";" +
+                "-fx-border-width: 1.5px;" +
+                "-fx-background-radius: 19px;" +
+                "-fx-border-radius: 19px;" +
+                "-fx-font-size: 16px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 0;" +
+                "-fx-cursor: hand;";
+
+        btn.setStyle(normalStyle);
+        btn.setEffect(new DropShadow(6, 0, 2, Color.rgb(15, 23, 42, 0.14)));
+
+        btn.setOnMouseEntered(e -> btn.setStyle(hoverStyle));
+        btn.setOnMouseExited(e -> btn.setStyle(normalStyle));
+        btn.setOnAction(e -> {
+            action.run();
+            this.requestFocus();
+            e.consume();
+        });
+        return btn;
+    }
+
     public Point2D screenToDiagram(double screenX, double screenY) {
         return new Point2D((screenX - panX) / zoomFactor, (screenY - panY) / zoomFactor);
     }
@@ -740,17 +754,93 @@ public class Grafcet extends Pane {
     }
 
     public void zoomIn() {
-        zoomAround(1.18, getWidth() / 2, getHeight() / 2);
+        double cx = (canvas != null && canvas.getWidth() > 0) ? canvas.getWidth() / 2 : 400;
+        double cy = (canvas != null && canvas.getHeight() > 0) ? canvas.getHeight() / 2 : 300;
+        zoomAround(1.18, cx, cy);
+        notifyStatus(String.format(Locale.ROOT, "Zoom : %d%%", Math.round(zoomFactor * 100)));
     }
 
     public void zoomOut() {
-        zoomAround(1 / 1.18, getWidth() / 2, getHeight() / 2);
+        double cx = (canvas != null && canvas.getWidth() > 0) ? canvas.getWidth() / 2 : 400;
+        double cy = (canvas != null && canvas.getHeight() > 0) ? canvas.getHeight() / 2 : 300;
+        zoomAround(1 / 1.18, cx, cy);
+        notifyStatus(String.format(Locale.ROOT, "Zoom : %d%%", Math.round(zoomFactor * 100)));
     }
 
     public void resetZoom() {
-        this.zoomFactor = 1.0;
-        this.panX = 0;
-        this.panY = 0;
+        centerDiagram();
+    }
+
+    /**
+     * Recentre l'intégralité du diagramme SFC au milieu de la page (Canvas) et ajuste le zoom si nécessaire.
+     */
+    public void centerDiagram() {
+        if (components.isEmpty()) {
+            this.zoomFactor = 1.0;
+            this.panX = 0;
+            this.panY = 0;
+            redraw();
+            return;
+        }
+
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+
+        for (StepAndTransitionCommonBehavior comp : components) {
+            minX = Math.min(minX, comp.getX());
+            minY = Math.min(minY, comp.getY());
+            maxX = Math.max(maxX, comp.getX() + Component.UNIT_WIDTH);
+            maxY = Math.max(maxY, comp.getY() + Component.UNIT_HEIGHT);
+
+            if (comp instanceof Step step) {
+                double curX = step.getX() + Component.UNIT_WIDTH + Component.GAP;
+                for (Action a : step.getActions()) {
+                    String text = a.getDisplayText();
+                    double textWidth = (text != null) ? Math.max(30, text.length() * 9.0) : 30;
+                    curX += textWidth + 40;
+                }
+                maxX = Math.max(maxX, curX);
+            } else if (comp instanceof Transition trans) {
+                minX = Math.min(minX, trans.getX() - 35);
+                String rec = trans.getReceptivity();
+                double recWidth = (rec != null) ? rec.length() * 10.0 : 20;
+                maxX = Math.max(maxX, trans.getX() + Component.UNIT_WIDTH * 3 / 4 + 15 + recWidth);
+            }
+
+            for (Link link : comp.getLinksToChildren()) {
+                for (Point2D pt : link.getPath()) {
+                    minX = Math.min(minX, pt.getX());
+                    minY = Math.min(minY, pt.getY());
+                    maxX = Math.max(maxX, pt.getX());
+                    maxY = Math.max(maxY, pt.getY());
+                }
+                if (link.isAscending() && link.getCustomGutterX() != null) {
+                    minX = Math.min(minX, link.getCustomGutterX() - 15);
+                    maxX = Math.max(maxX, link.getCustomGutterX() + 15);
+                }
+            }
+        }
+
+        double viewW = (canvas != null && canvas.getWidth() > 0) ? canvas.getWidth() : 800;
+        double viewH = (canvas != null && canvas.getHeight() > 0) ? canvas.getHeight() : 600;
+
+        double diagW = Math.max(100, maxX - minX);
+        double diagH = Math.max(100, maxY - minY);
+        double padding = 80.0;
+
+        double fitScaleX = Math.max(0.35, (viewW - padding * 2) / diagW);
+        double fitScaleY = Math.max(0.35, (viewH - padding * 2) / diagH);
+        this.zoomFactor = Math.clamp(Math.min(fitScaleX, fitScaleY), 0.35, 1.0);
+
+        double diagCenterX = (minX + maxX) / 2.0;
+        double diagCenterY = (minY + maxY) / 2.0;
+
+        this.panX = (viewW / 2.0) - diagCenterX * this.zoomFactor;
+        this.panY = (viewH / 2.0) - diagCenterY * this.zoomFactor;
+
+        notifyStatus("Diagramme complet centré au milieu de la page.");
         redraw();
     }
 

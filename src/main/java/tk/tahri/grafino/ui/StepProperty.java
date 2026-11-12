@@ -42,8 +42,8 @@ public class StepProperty extends VBox {
     public StepProperty(Step step, List<Variable> outputVariables, List<Variable> counterVariables,
                         Runnable onModified, Runnable onClose) {
         this.onModified = onModified;
-        this.setPrefWidth(360);
-        this.setMinWidth(330);
+        this.setPrefWidth(390);
+        this.setMinWidth(350);
         this.setSpacing(10);
         this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -54,11 +54,11 @@ public class StepProperty extends VBox {
 
         var titleBox = new VBox(2);
         var subTitle = new Label("PROPRIÉTÉS DE L'ÉTAPE");
-        subTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var badge = new Label("Étape S" + step.getNumber());
         badge.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                "; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13px;");
+                "; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 14px;");
         titleBox.getChildren().addAll(subTitle, badge);
 
         var spacer = new Region();

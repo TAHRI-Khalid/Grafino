@@ -93,17 +93,20 @@ class SfcModelTest {
         var s0 = new SfcStep("s0", "Init", 0, true, 400.0, 60.0);
         var t1 = new SfcTransition("t1", "T1", 1, "dcy", 400.0, 140.0);
         var s1 = new SfcStep("s1", "Travail", 1, false, 400.0, 220.0, List.of(new SfcActionBlock(SfcQualifier.N, "MOTEUR")));
+        var t2 = new SfcTransition("t2", "T2", 2, "NOT dcy", 400.0, 300.0);
 
         var l1 = new SfcLink("l1", "s0", "t1");
         var l2 = new SfcLink("l2", "t1", "s1");
+        var l3 = new SfcLink("l3", "s1", "t2");
+        var l4 = new SfcLink("l4", "t2", "s0");
 
         var program = new SfcProgram(
                 "Perceuse_POU",
                 List.of(vDcy, vMoteur),
                 List.of(s0, s1),
-                List.of(t1),
+                List.of(t1, t2),
                 List.of(),
-                List.of(l1, l2)
+                List.of(l1, l2, l3, l4)
         );
 
         assertEquals("Perceuse_POU", program.programName());
@@ -111,7 +114,7 @@ class SfcModelTest {
         assertEquals(1, program.getVariablesByScope(IecVariableScope.VAR_INPUT).size());
         assertEquals(1, program.getVariablesByScope(IecVariableScope.VAR_OUTPUT).size());
 
-        // Programme valide sans erreurs
+        // Programme valide sans erreurs (cycle fermé complet)
         var errors = program.validate();
         assertTrue(errors.isEmpty(), "Le programme valide ne devrait avoir aucune erreur.");
     }
@@ -189,12 +192,15 @@ class SfcModelTest {
         var s0 = new SfcStep("s0", "Init", 0, true, 400.0, 60.0);
         var s1 = new SfcStep("s1", "Step1", 1, false, 400.0, 220.0);
 
-        // Transition avec temporisation valide référençant X0 (s0)
+        // Transition avec temporisation valide référençant X0 (s0) dans un cycle rebouclé
         var tValid = new SfcTransition("t1", "T1", 1, "t/X0/3s", 400.0, 140.0);
+        var tLoop = new SfcTransition("t2", "T2", 2, "1", 400.0, 300.0);
         var l1 = new SfcLink("l1", "s0", "t1");
         var l2 = new SfcLink("l2", "t1", "s1");
+        var l3 = new SfcLink("l3", "s1", "t2");
+        var l4 = new SfcLink("l4", "t2", "s0");
 
-        var validProg = new SfcProgram("ProgValid", List.of(), List.of(s0, s1), List.of(tValid), List.of(), List.of(l1, l2));
+        var validProg = new SfcProgram("ProgValid", List.of(), List.of(s0, s1), List.of(tValid, tLoop), List.of(), List.of(l1, l2, l3, l4));
         assertTrue(validProg.validate().isEmpty(), "La transition temporisée valide ne doit générer aucun avertissement.");
 
         // Transition avec temporisation référençant une étape inexistante X99
