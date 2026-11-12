@@ -107,11 +107,6 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
                 if (this.linksToChildren.isEmpty()) drawBottomHandle();
             }
         }
-
-        // Si sélectionné, dessiner les boutons d'actions intelligentes (style TIA Portal)
-        if (isSelected()) {
-            drawQuickActionHandles();
-        }
     }
 
     private void drawTopHandle() {

@@ -67,7 +67,17 @@ public class Grafcet extends Pane {
     // Éditeur in-place actif
     private TextField activeInlineEditor = null;
     private Point2D dragStartPos = null;
+    private boolean isDraggingComponent = false;
     private StepAndTransitionCommonBehavior hoveredComponent = null;
+
+    // Sélection par rectangle (Lasso / Marquee)
+    private Point2D marqueeStartDiag = null;
+    private Point2D marqueeCurrentDiag = null;
+
+    // Barre d'action contextuelle flottante & Aperçu fantôme (Ghost Preview)
+    private final ActionBar actionBar;
+    private ActionBar.GhostPreviewType activeGhostPreview = ActionBar.GhostPreviewType.NONE;
+    private boolean simulationRunning = false;
 
     private Consumer<Optional<StepAndTransitionCommonBehavior>> selectedComponent;
     private Consumer<String> statusMessageConsumer;
@@ -109,6 +119,15 @@ public class Grafcet extends Pane {
             // Gestion des raccourcis clavier
             setupKeyboardEvents();
 
+            // Barre d'outils verticale fixe sur le côté gauche du Canvas
+            this.actionBar = new ActionBar(this);
+            this.actionBar.setOnHoverPreview(previewType -> {
+                this.activeGhostPreview = previewType;
+                redraw();
+            });
+            this.getChildren().add(this.actionBar);
+            refreshActionBar();
+
             // Boutons circulaires flottants sur le Canvas : (+), (-), et Centrer le diagramme
             setupFloatingCanvasControls();
 
@@ -125,6 +144,7 @@ public class Grafcet extends Pane {
             this.canvas = null;
             this.ctx = null;
             this.animationTimer = null;
+            this.actionBar = null;
         }
     }
 
@@ -145,68 +165,68 @@ public class Grafcet extends Pane {
                 return;
             }
 
-            // Vérifier si un bouton d'action intelligente (TIA Portal) du composant sélectionné a été cliqué
-            var currentSelected = getSelectedComponent();
-            if (currentSelected.isPresent()) {
-                var comp = currentSelected.get();
-                if (comp.isQuickAddNextPressed(diagPt)) {
-                    if (comp instanceof Step step) {
-                        createTransition(step);
-                    } else if (comp instanceof Transition trans) {
-                        createStep(trans);
-                    }
-                    return;
-                }
-                if (comp.isQuickAddBranchPressed(diagPt)) {
-                    if (comp instanceof Step step) {
-                        createOrBranch(step);
-                    } else if (comp instanceof Transition trans) {
-                        createAndBranch(trans);
-                    }
-                    return;
-                }
-                if (comp.isQuickDeletePressed(diagPt)) {
-                    deleteSelected();
-                    return;
-                }
-            }
-
-            // Désélection générale
-            components.forEach(com -> com.setSelected(false));
-            components.stream()
-                    .map(StepAndTransitionCommonBehavior::getLinksToChildren)
-                    .flatMap(List::stream)
-                    .forEach(link -> link.setSelected(false));
+            boolean multiModifier = event.isControlDown() || event.isShiftDown();
 
             // Détection du composant cliqué
-            components.stream()
+            var clickedCompOpt = components.stream()
                     .filter(com -> com.isPointOnTheComponent(diagPt))
-                    .findFirst()
-                    .ifPresentOrElse(component -> {
-                        component.setSelected(true);
-                        fireSelectionChange(Optional.of(component));
+                    .findFirst();
 
-                        if (component.isBottomHandlePressed(diagPt)) {
-                            operation = Operation.PRESSED_TO_BOTTOM_LINK;
-                        } else {
-                            operation = Operation.PRESSED_TO_MOVE;
-                            dragStartPos = new Point2D(component.getX(), component.getY());
-                        }
-                        pressedH = diagPt.getX() - component.getX();
-                        pressedV = diagPt.getY() - component.getY();
-                    }, () -> {
-                        dragStartPos = null;
-                        fireSelectionChange(Optional.empty());
-                    });
+            if (clickedCompOpt.isPresent()) {
+                var component = clickedCompOpt.get();
+                clearLinkSelections();
 
-            // Détection du lien cliqué
-            if (getSelectedComponent().isEmpty()) {
-                components.stream()
+                if (multiModifier) {
+                    // Bascule de sélection multiple (Ctrl+Clic / Shift+Clic)
+                    component.setSelected(!component.isSelected());
+                    dragStartPos = null;
+                    refreshActionBar();
+                    fireSelectionChange(getSelectedComponent());
+                    redraw();
+                    return;
+                }
+
+                if (!component.isSelected()) {
+                    components.forEach(com -> com.setSelected(false));
+                    component.setSelected(true);
+                }
+                fireSelectionChange(Optional.of(component));
+
+                if (component.isBottomHandlePressed(diagPt)) {
+                    operation = Operation.PRESSED_TO_BOTTOM_LINK;
+                } else {
+                    operation = Operation.PRESSED_TO_MOVE;
+                    dragStartPos = new Point2D(component.getX(), component.getY());
+                }
+                pressedH = diagPt.getX() - component.getX();
+                pressedV = diagPt.getY() - component.getY();
+                refreshActionBar();
+            } else {
+                // Aucun composant cliqué : vérifier si un lien est cliqué
+                components.forEach(com -> com.setSelected(false));
+                clearLinkSelections();
+
+                var clickedLinkOpt = components.stream()
                         .map(StepAndTransitionCommonBehavior::getLinksToChildren)
                         .flatMap(List::stream)
                         .filter(link -> link.isPointOnTheComponent(diagPt))
-                        .findFirst()
-                        .ifPresent(link -> link.setSelected(true));
+                        .findFirst();
+
+                if (clickedLinkOpt.isPresent()) {
+                    clickedLinkOpt.get().setSelected(true);
+                    dragStartPos = null;
+                    operation = Operation.PRESSED_TO_MOVE;
+                    fireSelectionChange(Optional.empty());
+                    refreshActionBar();
+                } else {
+                    // Clic dans le vide -> Démarrer la sélection par rectangle (Lasso / Marquee)
+                    dragStartPos = null;
+                    operation = Operation.MARQUEE_SELECT;
+                    marqueeStartDiag = diagPt;
+                    marqueeCurrentDiag = diagPt;
+                    fireSelectionChange(Optional.empty());
+                    refreshActionBar();
+                }
             }
 
             // Double-clic pour édition in-place directe
@@ -229,19 +249,45 @@ public class Grafcet extends Pane {
                 panY += dy;
                 lastMouseX = event.getX();
                 lastMouseY = event.getY();
+                updateActionBarPosition();
                 return;
             }
 
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
 
+            if (operation == Operation.MARQUEE_SELECT && marqueeStartDiag != null) {
+                marqueeCurrentDiag = diagPt;
+                double minX = Math.min(marqueeStartDiag.getX(), marqueeCurrentDiag.getX());
+                double maxX = Math.max(marqueeStartDiag.getX(), marqueeCurrentDiag.getX());
+                double minY = Math.min(marqueeStartDiag.getY(), marqueeCurrentDiag.getY());
+                double maxY = Math.max(marqueeStartDiag.getY(), marqueeCurrentDiag.getY());
+
+                for (var comp : components) {
+                    double cx = comp.getX() + Component.UNIT_WIDTH / 2;
+                    double cy = comp.getY() + Component.UNIT_HEIGHT / 2;
+                    comp.setSelected(cx >= minX && cx <= maxX && cy >= minY && cy <= maxY);
+                }
+                return;
+            }
+
             if (getSelectedComponent().isPresent() && event.isPrimaryButtonDown()) {
                 var component = getSelectedComponent().get();
                 switch (operation) {
                     case PRESSED_TO_MOVE -> {
+                        isDraggingComponent = true;
                         double rawX = diagPt.getX() - pressedH;
                         double rawY = diagPt.getY() - pressedV;
                         var position = computeSmartSnap(component, rawX, rawY);
+                        double dx = position.getX() - component.getX();
+                        double dy = position.getY() - component.getY();
                         component.updatePositionAndLinks(position);
+
+                        // Si plusieurs éléments sont sélectionnés, déplacer tout le groupe ensemble
+                        for (var other : getSelectedComponents()) {
+                            if (other != component) {
+                                other.updatePositionAndLinks(new Point2D(other.getX() + dx, other.getY() + dy));
+                            }
+                        }
                         mouseDragPosition = null;
                     }
                     case PRESSED_TO_BOTTOM_LINK -> {
@@ -267,11 +313,23 @@ public class Grafcet extends Pane {
 
         canvas.setOnMouseReleased(event -> {
             activeGuideLines.clear();
+            isDraggingComponent = false;
 
             if (operation == Operation.PANNING) {
                 this.setCursor(Cursor.DEFAULT);
                 operation = Operation.PRESSED_TO_MOVE;
                 dragStartPos = null;
+                refreshActionBar();
+                return;
+            }
+
+            if (operation == Operation.MARQUEE_SELECT) {
+                marqueeStartDiag = null;
+                marqueeCurrentDiag = null;
+                operation = Operation.PRESSED_TO_MOVE;
+                fireSelectionChange(getSelectedComponent());
+                refreshActionBar();
+                redraw();
                 return;
             }
 
@@ -287,26 +345,34 @@ public class Grafcet extends Pane {
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
 
             if (operation == Operation.PRESSED_TO_BOTTOM_LINK) {
-                getSelectedComponent().ifPresent(source -> components.stream()
-                        .filter(component -> component.isPointOnTheComponent(diagPt))
-                        .findFirst()
-                        .ifPresent(target -> {
-                            if (source != target) {
-                                // Raccordement normalisé avec vérification d'alternance CEI 60848
-                                if ((source instanceof Transition && target instanceof Step) ||
-                                    (source instanceof Step && target instanceof Transition)) {
-                                    Link.between(ctx, source, target);
-                                    notifyStatus("Liaison créée entre " + getElementName(source) + " et " + getElementName(target));
-                                    notifyStructureChanged();
-                                } else {
-                                    notifyStatus("⚠ Violation d'alternance CEI 60848 : une étape ne peut être reliée qu'à une transition.");
-                                }
+                getSelectedComponent().ifPresent(source -> {
+                    var targetOpt = components.stream()
+                            .filter(component -> component.isPointOnTheComponent(diagPt))
+                            .findFirst();
+
+                    if (targetOpt.isPresent()) {
+                        var target = targetOpt.get();
+                        if (source != target) {
+                            // Raccordement normalisé avec vérification d'alternance CEI 60848
+                            if ((source instanceof Transition && target instanceof Step) ||
+                                (source instanceof Step && target instanceof Transition)) {
+                                Link.between(ctx, source, target);
+                                notifyStatus("Liaison créée entre " + getElementName(source) + " et " + getElementName(target));
+                                notifyStructureChanged();
+                            } else {
+                                notifyStatus("⚠ Violation d'alternance CEI 60848 : une étape ne peut être reliée qu'à une transition.");
                             }
-                        }));
+                        }
+                    } else if (diagPt.getY() > source.getY() + Component.UNIT_HEIGHT + 30) {
+                        // Drop-to-Create moderne : relâcher un lien dans le vide crée directement l'élément suivant à cet endroit !
+                        createElementAtDropPoint(source, diagPt);
+                    }
+                });
             }
 
             mouseDragPosition = null;
             operation = Operation.PRESSED_TO_MOVE;
+            refreshActionBar();
         });
 
         canvas.setOnMouseMoved(event -> {
@@ -333,6 +399,7 @@ public class Grafcet extends Pane {
             } else {
                 panY += event.getDeltaY() * 0.8;
                 panX += event.getDeltaX() * 0.8;
+                updateActionBarPosition();
                 event.consume();
             }
         });
@@ -352,17 +419,32 @@ public class Grafcet extends Pane {
                 event.consume();
             } else if (event.getCode() == KeyCode.ESCAPE) {
                 components.forEach(c -> c.setSelected(false));
+                clearLinkSelections();
                 fireSelectionChange(Optional.empty());
+                refreshActionBar();
                 redraw();
                 event.consume();
-            } else if (event.getCode() == KeyCode.T || event.getCode() == KeyCode.ENTER) {
+            } else if (event.isShiftDown() && event.getCode() == KeyCode.ENTER) {
                 getSelectedComponent().ifPresent(comp -> {
                     if (comp instanceof Step step) {
-                        createTransition(step);
+                        createTransitionAndStepPair(step);
                     } else if (comp instanceof Transition trans) {
-                        createStep(trans);
+                        createStepAndTransitionPair(trans);
                     }
                 });
+                event.consume();
+            } else if (event.getCode() == KeyCode.T || event.getCode() == KeyCode.ENTER) {
+                if (getSelectedLink().isPresent() && event.getCode() == KeyCode.ENTER) {
+                    insertPairOnLink(getSelectedLink().get());
+                } else {
+                    getSelectedComponent().ifPresent(comp -> {
+                        if (comp instanceof Step step) {
+                            createTransition(step);
+                        } else if (comp instanceof Transition trans) {
+                            createStep(trans);
+                        }
+                    });
+                }
                 event.consume();
             } else if (event.getCode() == KeyCode.S) {
                 getSelectedComponent().ifPresent(comp -> {
@@ -377,6 +459,31 @@ public class Grafcet extends Pane {
                         createOrBranch(step);
                     } else if (comp instanceof Transition trans) {
                         createAndBranch(trans);
+                    }
+                });
+                event.consume();
+            } else if (event.getCode() == KeyCode.C && !event.isControlDown()) {
+                var selectedList = getSelectedComponents();
+                if (selectedList.size() >= 2) {
+                    if (selectedList.stream().allMatch(Step.class::isInstance)) {
+                        createAndConvergence(selectedList.stream().map(Step.class::cast).toList());
+                    } else if (selectedList.stream().allMatch(Transition.class::isInstance)) {
+                        createOrConvergence(selectedList.stream().map(Transition.class::cast).toList());
+                    }
+                } else if (selectedList.size() == 1) {
+                    convergeWithOpenSiblings(selectedList.getFirst());
+                }
+                event.consume();
+            } else if (event.getCode() == KeyCode.R && !event.isControlDown()) {
+                getSelectedComponents().stream()
+                        .filter(Transition.class::isInstance)
+                        .map(Transition.class::cast)
+                        .forEach(this::loopBackToInitialStep);
+                event.consume();
+            } else if (event.getCode() == KeyCode.I && !event.isControlDown()) {
+                getSelectedComponent().ifPresent(comp -> {
+                    if (comp instanceof Step step) {
+                        toggleInitialStep(step);
                     }
                 });
                 event.consume();
@@ -593,12 +700,25 @@ public class Grafcet extends Pane {
         // Tracé des poignées et boutons contextuels TIA Portal
         components.forEach(StepAndTransitionCommonBehavior::drawHandle);
 
+        // Tracé de l'aperçu fantôme (Ghost Preview) au survol de la ActionBar
+        if (activeGhostPreview != ActionBar.GhostPreviewType.NONE) {
+            drawGhostPreview();
+        }
+
+        // Tracé du rectangle de sélection multiple (Lasso / Marquee)
+        if (operation == Operation.MARQUEE_SELECT && marqueeStartDiag != null && marqueeCurrentDiag != null) {
+            drawMarqueeSelectionBox();
+        }
+
         // Tracé du lien dynamique en cours d'étirement
         if (mouseDragPosition != null && operation == Operation.PRESSED_TO_BOTTOM_LINK) {
             getSelectedComponent().ifPresent(comp -> drawDraggedLinkPreview(comp, mouseDragPosition));
         }
 
         ctx.restore();
+
+        // Mise à jour de la position écran de la barre d'action flottante
+        updateActionBarPosition();
     }
 
     private void drawBackgroundGrid() {
@@ -849,8 +969,284 @@ public class Grafcet extends Pane {
     }
 
     // ==========================================
-    // CRÉATION & INSERTION CONTEXTUELLE TIA PORTAL
+    // CRÉATION & INSERTION CONTEXTUELLE MODERNE (FLOATING BAR & GHOST PREVIEW)
     // ==========================================
+
+    private void clearLinkSelections() {
+        components.stream()
+                .map(StepAndTransitionCommonBehavior::getLinksToChildren)
+                .flatMap(List::stream)
+                .forEach(link -> link.setSelected(false));
+    }
+
+    public List<StepAndTransitionCommonBehavior> getSelectedComponents() {
+        return components.stream().filter(Component::isSelected).toList();
+    }
+
+    public ActionBar getActionBar() {
+        return actionBar;
+    }
+
+    public void setActiveGhostPreview(ActionBar.GhostPreviewType previewType) {
+        this.activeGhostPreview = (previewType != null) ? previewType : ActionBar.GhostPreviewType.NONE;
+        redraw();
+    }
+
+    public ActionBar.GhostPreviewType getActiveGhostPreview() {
+        return activeGhostPreview;
+    }
+
+    public void refreshActionBar() {
+        if (actionBar == null) return;
+        if (simulationRunning) {
+            actionBar.setVisible(false);
+            return;
+        }
+        actionBar.refreshForSelection(getSelectedComponents(), getSelectedLink().orElse(null));
+        updateActionBarPosition();
+    }
+
+    /**
+     * Positionne la barre d'outils verticale à un emplacement fixe sur le bord gauche du Canvas,
+     * centrée verticalement.
+     */
+    private void updateActionBarPosition() {
+        if (actionBar == null || !actionBar.isVisible()) return;
+
+        actionBar.autosize();
+        double barH = Math.max(actionBar.getHeight(), actionBar.prefHeight(-1));
+        if (barH <= 10) barH = 260;
+
+        double paneH = this.getHeight() > 0 ? this.getHeight() : 600;
+        double fixedLeftX = 14.0;
+        double centeredY = Math.max(14.0, (paneH - barH) / 2.0);
+
+        actionBar.setLayoutX(fixedLeftX);
+        actionBar.setLayoutY(centeredY);
+    }
+
+    private void drawMarqueeSelectionBox() {
+        double minX = Math.min(marqueeStartDiag.getX(), marqueeCurrentDiag.getX());
+        double minY = Math.min(marqueeStartDiag.getY(), marqueeCurrentDiag.getY());
+        double w = Math.abs(marqueeCurrentDiag.getX() - marqueeStartDiag.getX());
+        double h = Math.abs(marqueeCurrentDiag.getY() - marqueeStartDiag.getY());
+
+        ctx.save();
+        ctx.setFill(Color.rgb(0, 129, 132, 0.10));
+        ctx.fillRect(minX, minY, w, h);
+        ctx.setStroke(Color.rgb(0, 129, 132, 0.85));
+        ctx.setLineWidth(1.5);
+        ctx.setLineDashes(5.0, 4.0);
+        ctx.strokeRect(minX, minY, w, h);
+        ctx.restore();
+    }
+
+    /**
+     * Retourne uniquement les liaisons descendantes (excluant les boucles de reprise ascendantes CEI 60848).
+     */
+    public List<Link> getDownwardLinks(StepAndTransitionCommonBehavior comp) {
+        if (comp == null) return List.of();
+        return comp.getLinksToChildren().stream()
+                .filter(l -> !l.isAscending())
+                .toList();
+    }
+
+    private void drawGhostPreview() {
+        ctx.save();
+        Color ghostStroke = Color.rgb(0, 129, 132, 0.65);
+        Color ghostFill = Color.rgb(229, 245, 245, 0.55);
+        ctx.setStroke(ghostStroke);
+        ctx.setFill(ghostFill);
+        ctx.setLineWidth(2.0);
+        ctx.setLineDashes(5.0, 4.0);
+
+        List<StepAndTransitionCommonBehavior> selected = getSelectedComponents();
+
+        switch (activeGhostPreview) {
+            case NEXT_SINGLE -> {
+                if (selected.size() == 1) {
+                    var comp = selected.getFirst();
+                    double targetX = comp.getX();
+                    double targetY = comp.getY() + Component.UNIT_HEIGHT + 40;
+                    drawGhostLink(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT,
+                                  targetX + Component.UNIT_WIDTH / 2, targetY);
+                    if (comp instanceof Step) {
+                        drawGhostTransitionShape(targetX, targetY);
+                    } else {
+                        drawGhostStepShape(targetX, targetY);
+                    }
+                }
+            }
+            case BRANCH -> {
+                if (selected.size() == 1) {
+                    var comp = selected.getFirst();
+                    List<Link> downward = getDownwardLinks(comp);
+                    double targetY = comp.getY() + Component.UNIT_HEIGHT + 40;
+                    double branchBarY = comp.getY() + Component.UNIT_HEIGHT + 20;
+                    boolean isAndDiv = comp instanceof Transition;
+
+                    if (downward.isEmpty()) {
+                        // Aperçu d'ouverture de divergence complète à 2 branches
+                        double firstX = comp.getX();
+                        double secondX = comp.getX() + 2.2 * Component.UNIT_WIDTH;
+                        double minCenterX = firstX + Component.UNIT_WIDTH / 2 - 15;
+                        double maxCenterX = secondX + Component.UNIT_WIDTH / 2 + 15;
+
+                        ctx.strokeLine(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT,
+                                       comp.getX() + Component.UNIT_WIDTH / 2, branchBarY);
+                        if (isAndDiv) {
+                            ctx.strokeLine(minCenterX, branchBarY - 3, maxCenterX, branchBarY - 3);
+                            ctx.strokeLine(minCenterX, branchBarY + 3, maxCenterX, branchBarY + 3);
+                            drawGhostStepShape(firstX, targetY);
+                            drawGhostStepShape(secondX, targetY);
+                        } else {
+                            ctx.strokeLine(minCenterX, branchBarY, maxCenterX, branchBarY);
+                            drawGhostTransitionShape(firstX, targetY);
+                            drawGhostTransitionShape(secondX, targetY);
+                        }
+                        ctx.strokeLine(firstX + Component.UNIT_WIDTH / 2, branchBarY, firstX + Component.UNIT_WIDTH / 2, targetY);
+                        ctx.strokeLine(secondX + Component.UNIT_WIDTH / 2, branchBarY, secondX + Component.UNIT_WIDTH / 2, targetY);
+                    } else {
+                        // Aperçu d'ajout d'une branche supplémentaire à droite
+                        double maxX = downward.stream()
+                                .mapToDouble(l -> l.getChildComponent().getX())
+                                .max().orElse(comp.getX());
+                        double minX = downward.stream()
+                                .mapToDouble(l -> l.getChildComponent().getX())
+                                .min().orElse(comp.getX());
+                        double targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+                        double minCenterX = Math.min(minX, comp.getX()) + Component.UNIT_WIDTH / 2 - 15;
+                        double maxCenterX = targetX + Component.UNIT_WIDTH / 2 + 15;
+
+                        if (isAndDiv) {
+                            ctx.strokeLine(minCenterX, branchBarY - 3, maxCenterX, branchBarY - 3);
+                            ctx.strokeLine(minCenterX, branchBarY + 3, maxCenterX, branchBarY + 3);
+                            drawGhostStepShape(targetX, targetY);
+                        } else {
+                            ctx.strokeLine(minCenterX, branchBarY, maxCenterX, branchBarY);
+                            drawGhostTransitionShape(targetX, targetY);
+                        }
+                        ctx.strokeLine(targetX + Component.UNIT_WIDTH / 2, branchBarY, targetX + Component.UNIT_WIDTH / 2, targetY);
+                    }
+                }
+            }
+            case NEXT_PAIR -> {
+                if (selected.size() == 1) {
+                    var comp = selected.getFirst();
+                    List<Link> downward = getDownwardLinks(comp);
+                    double targetX = comp.getX();
+                    double firstY = comp.getY() + Component.UNIT_HEIGHT + 40;
+                    if (!downward.isEmpty()) {
+                        double maxX = downward.stream()
+                                .mapToDouble(l -> l.getChildComponent().getX())
+                                .max().orElse(comp.getX());
+                        targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+                    }
+                    double secondY = firstY + Component.UNIT_HEIGHT + 40;
+                    double midX = targetX + Component.UNIT_WIDTH / 2;
+                    drawGhostLink(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT, midX, firstY);
+                    drawGhostLink(midX, firstY + Component.UNIT_HEIGHT, midX, secondY);
+                    if (comp instanceof Step) {
+                        drawGhostTransitionShape(targetX, firstY);
+                        drawGhostStepShape(targetX, secondY);
+                    } else {
+                        drawGhostStepShape(targetX, firstY);
+                        drawGhostTransitionShape(targetX, secondY);
+                    }
+                }
+            }
+            case CONVERGE -> {
+                List<StepAndTransitionCommonBehavior> toConverge = new ArrayList<>(selected);
+                if (toConverge.size() == 1) {
+                    var single = toConverge.getFirst();
+                    if (single instanceof Step s) {
+                        toConverge.addAll(findConvergenceCandidateSteps(s));
+                    } else if (single instanceof Transition t) {
+                        toConverge.addAll(findConvergenceCandidateTransitions(t));
+                    }
+                }
+                if (toConverge.size() >= 2) {
+                    double avgX = toConverge.stream().mapToDouble(StepAndTransitionCommonBehavior::getX).average().orElse(400);
+                    double maxY = toConverge.stream().mapToDouble(StepAndTransitionCommonBehavior::getY).max().orElse(200);
+                    double targetY = maxY + Component.UNIT_HEIGHT + 45;
+                    double convBarY = targetY - 20;
+                    double minCenterX = toConverge.stream().mapToDouble(c -> c.getX() + Component.UNIT_WIDTH / 2).min().orElse(avgX) - 15;
+                    double maxCenterX = toConverge.stream().mapToDouble(c -> c.getX() + Component.UNIT_WIDTH / 2).max().orElse(avgX) + 15;
+
+                    boolean isAndConv = toConverge.getFirst() instanceof Step;
+                    if (isAndConv) {
+                        ctx.strokeLine(minCenterX, convBarY - 3, maxCenterX, convBarY - 3);
+                        ctx.strokeLine(minCenterX, convBarY + 3, maxCenterX, convBarY + 3);
+                        drawGhostTransitionShape(avgX, targetY);
+                    } else {
+                        ctx.strokeLine(minCenterX, convBarY, maxCenterX, convBarY);
+                        drawGhostStepShape(avgX, targetY);
+                    }
+                    for (var src : toConverge) {
+                        double sx = src.getX() + Component.UNIT_WIDTH / 2;
+                        ctx.strokeLine(sx, src.getY() + Component.UNIT_HEIGHT, sx, convBarY);
+                    }
+                    ctx.strokeLine(avgX + Component.UNIT_WIDTH / 2, convBarY, avgX + Component.UNIT_WIDTH / 2, targetY);
+                }
+            }
+            case LOOP_BACK -> {
+                Step targetInit = findTargetInitialStep();
+                if (targetInit != null) {
+                    for (var comp : selected) {
+                        if (comp instanceof Transition trans && targetInit.getY() < trans.getY()) {
+                            Point2D begin = new Point2D(trans.getX() + Component.UNIT_WIDTH / 2, trans.getY() + Component.UNIT_HEIGHT);
+                            Point2D end = new Point2D(targetInit.getX() + Component.UNIT_WIDTH / 2, targetInit.getY());
+                            double gutterX = (begin.getX() > end.getX() + 20)
+                                    ? Math.max(begin.getX(), end.getX()) + Component.UNIT_WIDTH * 0.9
+                                    : Math.min(begin.getX(), end.getX()) - Component.UNIT_WIDTH * 0.9;
+                            ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), begin.getY() + 15);
+                            ctx.strokeLine(begin.getX(), begin.getY() + 15, gutterX, begin.getY() + 15);
+                            ctx.strokeLine(gutterX, begin.getY() + 15, gutterX, end.getY() - 15);
+                            ctx.strokeLine(gutterX, end.getY() - 15, end.getX(), end.getY() - 15);
+                            ctx.strokeLine(end.getX(), end.getY() - 15, end.getX(), end.getY());
+                        }
+                    }
+                }
+            }
+            case INSERT_ON_LINK -> {
+                getSelectedLink().ifPresent(link -> {
+                    var parent = link.getParentComponent();
+                    var child = link.getChildComponent();
+                    double midX = link.isDivergence() ? child.getX() : parent.getX();
+                    double firstY = parent.getY() + Component.UNIT_HEIGHT + 35;
+                    if (parent instanceof Step) {
+                        drawGhostTransitionShape(midX, firstY);
+                    } else {
+                        drawGhostStepShape(midX, firstY);
+                    }
+                });
+            }
+            default -> {}
+        }
+
+        ctx.restore();
+    }
+
+    private void drawGhostLink(double x1, double y1, double x2, double y2) {
+        double midY = (y1 + y2) / 2.0;
+        ctx.strokeLine(x1, y1, x1, midY);
+        ctx.strokeLine(x1, midY, x2, midY);
+        ctx.strokeLine(x2, midY, x2, y2);
+    }
+
+    private void drawGhostStepShape(double x, double y) {
+        double gap = Component.GAP;
+        ctx.fillRect(x, y + gap, Component.UNIT_WIDTH, Component.UNIT_HEIGHT - gap * 2);
+        ctx.strokeRect(x, y + gap, Component.UNIT_WIDTH, Component.UNIT_HEIGHT - gap * 2);
+        ctx.strokeLine(x + Component.UNIT_WIDTH / 2, y, x + Component.UNIT_WIDTH / 2, y + Component.UNIT_HEIGHT);
+    }
+
+    private void drawGhostTransitionShape(double x, double y) {
+        double midX = x + Component.UNIT_WIDTH / 2;
+        double midY = y + Component.UNIT_HEIGHT / 2;
+        ctx.strokeLine(midX, y, midX, y + Component.UNIT_HEIGHT);
+        ctx.strokeLine(x + Component.UNIT_WIDTH / 4, midY, x + Component.UNIT_WIDTH * 3 / 4, midY);
+    }
 
     public void createInitialStep() {
         double initX = (canvas != null && canvas.getWidth() > 0) ? (canvas.getWidth() / 2 - Component.UNIT_WIDTH / 2) : 400;
@@ -858,6 +1254,7 @@ public class Grafcet extends Pane {
         var initStep = new InitStep(ctx, new Point2D(initX, initY));
         components.add(initStep);
         fireSelectionChange(Optional.of(initStep));
+        refreshActionBar();
         notifyStatus("Étape initiale créée.");
         notifyStructureChanged();
         redraw();
@@ -865,14 +1262,16 @@ public class Grafcet extends Pane {
 
     public void createStep(Transition transition) {
         components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
         var step = new Step(ctx);
 
         double targetX = transition.getX();
         double targetY = transition.getY() + Component.UNIT_HEIGHT + 40;
 
-        // Si la transition a déjà des enfants (divergence ET)
-        if (!transition.getLinksToChildren().isEmpty()) {
-            double maxX = transition.getLinksToChildren().stream()
+        // Si la transition a déjà des enfants descendants (divergence ET)
+        List<Link> downward = getDownwardLinks(transition);
+        if (!downward.isEmpty()) {
+            double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(transition.getX());
             targetX = maxX + 2.2 * Component.UNIT_WIDTH;
@@ -882,6 +1281,7 @@ public class Grafcet extends Pane {
         Link.between(ctx, transition, step);
         components.add(step);
         fireSelectionChange(Optional.of(step));
+        refreshActionBar();
         notifyStatus("Étape S" + step.getNumber() + " créée après la transition T" + transition.getNumber());
         notifyStructureChanged();
         redraw();
@@ -889,14 +1289,16 @@ public class Grafcet extends Pane {
 
     public void createTransition(Step step) {
         components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
         var transition = new Transition(ctx);
 
         double targetX = step.getX();
         double targetY = step.getY() + Component.UNIT_HEIGHT + 40;
 
-        // Si l'étape a déjà des enfants (divergence OU)
-        if (!step.getLinksToChildren().isEmpty()) {
-            double maxX = step.getLinksToChildren().stream()
+        // Si l'étape a déjà des enfants descendants (divergence OU)
+        List<Link> downward = getDownwardLinks(step);
+        if (!downward.isEmpty()) {
+            double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(step.getX());
             targetX = maxX + 2.2 * Component.UNIT_WIDTH;
@@ -906,25 +1308,549 @@ public class Grafcet extends Pane {
         Link.between(ctx, step, transition);
         components.add(transition);
         fireSelectionChange(Optional.of(transition));
+        refreshActionBar();
         notifyStatus("Transition T" + transition.getNumber() + " créée après l'étape S" + step.getNumber());
         notifyStructureChanged();
         redraw();
     }
 
+    /**
+     * Crée en un seul clic un couple complet Transition + Étape après une étape existante.
+     */
+    public Step createTransitionAndStepPair(Step parentStep) {
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+
+        double targetX = parentStep.getX();
+        double transY = parentStep.getY() + Component.UNIT_HEIGHT + 40;
+        List<Link> downward = getDownwardLinks(parentStep);
+        if (!downward.isEmpty()) {
+            double maxX = downward.stream()
+                    .mapToDouble(l -> l.getChildComponent().getX())
+                    .max().orElse(parentStep.getX());
+            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+        }
+        double stepY = transY + Component.UNIT_HEIGHT + 40;
+
+        var transition = new Transition(ctx);
+        transition.setSelected(false);
+        transition.position = new Point2D(targetX, transY);
+        components.add(transition);
+        Link.between(ctx, parentStep, transition);
+
+        var nextStep = new Step(ctx);
+        nextStep.setSelected(true);
+        nextStep.position = new Point2D(targetX, stepY);
+        components.add(nextStep);
+        Link.between(ctx, transition, nextStep);
+
+        fireSelectionChange(Optional.of(nextStep));
+        refreshActionBar();
+        notifyStatus("Séquence T" + transition.getNumber() + " → S" + nextStep.getNumber() + " insérée après S" + parentStep.getNumber());
+        notifyStructureChanged();
+        redraw();
+        return nextStep;
+    }
+
+    /**
+     * Crée en un seul clic un couple complet Étape + Transition après une transition existante.
+     */
+    public Transition createStepAndTransitionPair(Transition parentTransition) {
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+
+        double targetX = parentTransition.getX();
+        double stepY = parentTransition.getY() + Component.UNIT_HEIGHT + 40;
+        List<Link> downward = getDownwardLinks(parentTransition);
+        if (!downward.isEmpty()) {
+            double maxX = downward.stream()
+                    .mapToDouble(l -> l.getChildComponent().getX())
+                    .max().orElse(parentTransition.getX());
+            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+        }
+        double transY = stepY + Component.UNIT_HEIGHT + 40;
+
+        var step = new Step(ctx);
+        step.setSelected(false);
+        step.position = new Point2D(targetX, stepY);
+        components.add(step);
+        Link.between(ctx, parentTransition, step);
+
+        var nextTransition = new Transition(ctx);
+        nextTransition.setSelected(true);
+        nextTransition.position = new Point2D(targetX, transY);
+        components.add(nextTransition);
+        Link.between(ctx, step, nextTransition);
+
+        fireSelectionChange(Optional.of(nextTransition));
+        refreshActionBar();
+        notifyStatus("Séquence S" + step.getNumber() + " → T" + nextTransition.getNumber() + " insérée après T" + parentTransition.getNumber());
+        notifyStructureChanged();
+        redraw();
+        return nextTransition;
+    }
+
+    /**
+     * Recherche les autres étapes de fin de branche (sans liaison descendante) pouvant converger en ET
+     * avec l'étape donnée sans provoquer d'incohérence CEI 60848 (Divergence OU fermée par Convergence ET).
+     */
+    public List<Step> findConvergenceCandidateSteps(Step primary) {
+        if (primary == null) return List.of();
+        return components.stream()
+                .filter(Step.class::isInstance)
+                .map(Step.class::cast)
+                .filter(s -> s != primary && !s.isInitial() && getDownwardLinks(s).isEmpty())
+                .filter(s -> !wouldCauseOrToAndDeadlock(List.of(primary, s)))
+                .toList();
+    }
+
+    /**
+     * Recherche les autres transitions de fin de branche (sans liaison descendante) pouvant converger en OU
+     * avec la transition donnée sans provoquer d'incohérence CEI 60848 (Divergence ET fermée par Convergence OU).
+     */
+    public List<Transition> findConvergenceCandidateTransitions(Transition primary) {
+        if (primary == null) return List.of();
+        return components.stream()
+                .filter(Transition.class::isInstance)
+                .map(Transition.class::cast)
+                .filter(t -> t != primary && getDownwardLinks(t).isEmpty())
+                .filter(t -> !wouldCauseAndToOrUnsyncedConvergence(List.of(primary, t)))
+                .toList();
+    }
+
+    /**
+     * Vérifie si la convergence en ET d'un groupe d'étapes refermerait illégalement une Divergence en OU (Deadlock CEI 60848).
+     */
+    public boolean wouldCauseOrToAndDeadlock(List<Step> candidateSteps) {
+        if (candidateSteps == null || candidateSteps.size() < 2) return false;
+        Set<Step> targetSet = new HashSet<>(candidateSteps);
+
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Step divStep) {
+                List<Link> branchLinks = getDownwardLinks(divStep);
+                if (branchLinks.size() < 2) continue;
+
+                int matchedBranches = 0;
+                for (Link bLink : branchLinks) {
+                    if (bLink.getChildComponent() instanceof Transition startTrans) {
+                        if (getDownwardLinks(startTrans).size() > 1) continue;
+                        Set<Step> reachable = collectDownwardStepsWithoutAndDivergence(startTrans);
+                        if (reachable.stream().anyMatch(targetSet::contains)) {
+                            matchedBranches++;
+                        }
+                    }
+                }
+                if (matchedBranches >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Vérifie si la convergence en OU d'un groupe de transitions refermerait illégalement une Divergence en ET sans synchronisation.
+     */
+    public boolean wouldCauseAndToOrUnsyncedConvergence(List<Transition> candidateTransitions) {
+        if (candidateTransitions == null || candidateTransitions.size() < 2) return false;
+        Set<Transition> targetSet = new HashSet<>(candidateTransitions);
+
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Transition divTrans) {
+                List<Link> branchLinks = getDownwardLinks(divTrans);
+                if (branchLinks.size() < 2) continue;
+
+                int matchedBranches = 0;
+                for (Link bLink : branchLinks) {
+                    if (bLink.getChildComponent() instanceof Step startStep) {
+                        Set<Transition> reachable = collectDownwardTransitionsWithoutAndConvergence(startStep);
+                        if (reachable.stream().anyMatch(targetSet::contains)) {
+                            matchedBranches++;
+                        }
+                    }
+                }
+                if (matchedBranches >= 2) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private Set<Step> collectDownwardStepsWithoutAndDivergence(Transition startTrans) {
+        Set<Step> visitedSteps = new LinkedHashSet<>();
+        Queue<Transition> queueTrans = new ArrayDeque<>();
+        Set<Transition> visitedTrans = new HashSet<>();
+        queueTrans.add(startTrans);
+        visitedTrans.add(startTrans);
+
+        while (!queueTrans.isEmpty()) {
+            Transition t = queueTrans.poll();
+            List<Link> nextLinks = getDownwardLinks(t);
+            if (nextLinks.size() > 1) continue;
+            for (Link l : nextLinks) {
+                if (l.getChildComponent() instanceof Step s && visitedSteps.add(s)) {
+                    for (Link nextTL : getDownwardLinks(s)) {
+                        if (nextTL.getChildComponent() instanceof Transition nextT && visitedTrans.add(nextT)) {
+                            queueTrans.add(nextT);
+                        }
+                    }
+                }
+            }
+        }
+        return visitedSteps;
+    }
+
+    private Set<Transition> collectDownwardTransitionsWithoutAndConvergence(Step startStep) {
+        Set<Transition> visitedTrans = new LinkedHashSet<>();
+        Queue<Step> queueSteps = new ArrayDeque<>();
+        Set<Step> visitedSteps = new HashSet<>();
+        queueSteps.add(startStep);
+        visitedSteps.add(startStep);
+
+        while (!queueSteps.isEmpty()) {
+            Step s = queueSteps.poll();
+            for (Link l : getDownwardLinks(s)) {
+                if (l.getChildComponent() instanceof Transition t) {
+                    long downParents = t.getLinksFromParents().stream().filter(pl -> !pl.isAscending()).count();
+                    if (downParents > 1) continue;
+                    if (visitedTrans.add(t)) {
+                        for (Link nextSL : getDownwardLinks(t)) {
+                            if (nextSL.getChildComponent() instanceof Step nextS && visitedSteps.add(nextS)) {
+                                queueSteps.add(nextS);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return visitedTrans;
+    }
+
+    /**
+     * Converge automatiquement un composant sélectionné avec les autres fins de branches ouvertes compatibles CEI 60848.
+     */
+    public void convergeWithOpenSiblings(StepAndTransitionCommonBehavior comp) {
+        if (comp instanceof Step step) {
+            List<Step> group = new ArrayList<>();
+            group.add(step);
+            group.addAll(findConvergenceCandidateSteps(step));
+            if (group.size() >= 2) {
+                createAndConvergence(group);
+            } else {
+                notifyStatus("Sélectionnez au moins 2 étapes parallèles compatibles CEI 60848 pour créer une convergence en ET.");
+            }
+        } else if (comp instanceof Transition trans) {
+            List<Transition> group = new ArrayList<>();
+            group.add(trans);
+            group.addAll(findConvergenceCandidateTransitions(trans));
+            if (group.size() >= 2) {
+                createOrConvergence(group);
+            } else {
+                notifyStatus("Sélectionnez au moins 2 transitions alternatives compatibles CEI 60848 pour créer une convergence en OU.");
+            }
+        }
+    }
+
+    /**
+     * Crée une Convergence en ET (synchronisation à double barre CEI 60848) reliant plusieurs étapes vers une transition commune.
+     */
+    public Transition createAndConvergence(List<Step> steps) {
+        if (steps == null || steps.size() < 2) return null;
+
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+
+        double avgX = steps.stream().mapToDouble(Step::getX).average().orElse(400.0);
+        double maxY = steps.stream().mapToDouble(Step::getY).max().orElse(200.0);
+        double targetY = maxY + Component.UNIT_HEIGHT + 45.0;
+
+        var commonTransition = new Transition(ctx);
+        commonTransition.position = new Point2D(avgX, targetY);
+        commonTransition.setSelected(true);
+        components.add(commonTransition);
+
+        for (Step s : steps) {
+            Link.between(ctx, s, commonTransition);
+        }
+
+        fireSelectionChange(Optional.of(commonTransition));
+        refreshActionBar();
+        notifyStatus("Convergence en ET créée vers T" + commonTransition.getNumber() + " (" + steps.size() + " branches synchronisées)");
+        notifyStructureChanged();
+        redraw();
+        return commonTransition;
+    }
+
+    /**
+     * Crée une Convergence en OU (regroupement de séquences CEI 60848) reliant plusieurs transitions vers une étape commune.
+     */
+    public Step createOrConvergence(List<Transition> transitions) {
+        if (transitions == null || transitions.size() < 2) return null;
+
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+
+        double avgX = transitions.stream().mapToDouble(Transition::getX).average().orElse(400.0);
+        double maxY = transitions.stream().mapToDouble(Transition::getY).max().orElse(200.0);
+        double targetY = maxY + Component.UNIT_HEIGHT + 45.0;
+
+        var commonStep = new Step(ctx);
+        commonStep.position = new Point2D(avgX, targetY);
+        commonStep.setSelected(true);
+        components.add(commonStep);
+
+        for (Transition t : transitions) {
+            Link.between(ctx, t, commonStep);
+        }
+
+        fireSelectionChange(Optional.of(commonStep));
+        refreshActionBar();
+        notifyStatus("Convergence en OU créée vers S" + commonStep.getNumber() + " (" + transitions.size() + " branches regroupées)");
+        notifyStructureChanged();
+        redraw();
+        return commonStep;
+    }
+
+    /**
+     * Retourne l'étape initiale principale (ou la plus haute étape du schéma) pour le rebouclage de cycle.
+     */
+    public Step findTargetInitialStep() {
+        return components.stream()
+                .filter(Step.class::isInstance)
+                .map(Step.class::cast)
+                .sorted(Comparator.comparing(Step::isInitial).reversed()
+                        .thenComparingDouble(Step::getY))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Ferme le cycle en raccordant la transition donnée à l'étape initiale du Grafcet.
+     */
+    public Link loopBackToInitialStep(Transition transition) {
+        Step target = findTargetInitialStep();
+        if (target == null) return null;
+        return loopBackToStep(transition, target);
+    }
+
+    public Link loopBackToStep(Transition transition, Step targetStep) {
+        if (transition == null || targetStep == null) return null;
+        Link link = Link.between(ctx, transition, targetStep);
+        refreshActionBar();
+        notifyStatus("Boucle de reprise créée : T" + transition.getNumber() + " ⮐ S" + targetStep.getNumber());
+        notifyStructureChanged();
+        redraw();
+        return link;
+    }
+
+    /**
+     * Ouvre une liaison existante, décale les éléments aval vers le bas et insère un couple Étape + Transition
+     * respectant l'alternance stricte CEI 60848 et l'axe X de la branche.
+     */
+    public void insertPairOnLink(Link link) {
+        if (link == null) return;
+        var parent = link.getParentComponent();
+        var child = link.getChildComponent();
+        boolean wasAscending = link.isAscending();
+        boolean wasDivergence = link.isDivergence();
+
+        link.disconnect();
+
+        if (wasAscending) {
+            // Si c'était une boucle de retour, insérer en bas du parent puis reboucler vers child
+            if (parent instanceof Transition trans && child instanceof Step targetStep) {
+                Transition nextTrans = createStepAndTransitionPair(trans);
+                Link.between(ctx, nextTrans, targetStep);
+            } else if (parent instanceof Step step && child instanceof Transition targetTrans) {
+                Step nextStep = createTransitionAndStepPair(step);
+                Link.between(ctx, nextStep, targetTrans);
+            }
+            refreshActionBar();
+            notifyStructureChanged();
+            redraw();
+            return;
+        }
+
+        // Décaler tous les descendants aval vers le bas pour faire de la place au couple inséré
+        double shiftY = 2 * (Component.UNIT_HEIGHT + 40);
+        shiftDownstreamComponents(child, shiftY);
+
+        components.forEach(c -> c.setSelected(false));
+        clearLinkSelections();
+
+        double midX = wasDivergence ? child.getX() : parent.getX();
+        double firstY = parent.getY() + Component.UNIT_HEIGHT + 40;
+        double secondY = firstY + Component.UNIT_HEIGHT + 40;
+
+        if (parent instanceof Step step && child instanceof Transition transChild) {
+            // S_parent -> [T_new -> S_new] -> T_child
+            var newTrans = new Transition(ctx);
+            newTrans.setSelected(false);
+            newTrans.position = new Point2D(midX, firstY);
+            components.add(newTrans);
+
+            var newStep = new Step(ctx);
+            newStep.setSelected(true);
+            newStep.position = new Point2D(midX, secondY);
+            components.add(newStep);
+
+            Link.between(ctx, step, newTrans);
+            Link.between(ctx, newTrans, newStep);
+            Link.between(ctx, newStep, transChild);
+
+            fireSelectionChange(Optional.of(newStep));
+            notifyStatus("Couple T" + newTrans.getNumber() + " → S" + newStep.getNumber() + " inséré sur la liaison.");
+        } else if (parent instanceof Transition trans && child instanceof Step stepChild) {
+            // T_parent -> [S_new -> T_new] -> S_child
+            var newStep = new Step(ctx);
+            newStep.setSelected(true);
+            newStep.position = new Point2D(midX, firstY);
+            components.add(newStep);
+
+            var newTrans = new Transition(ctx);
+            newTrans.setSelected(false);
+            newTrans.position = new Point2D(midX, secondY);
+            components.add(newTrans);
+
+            Link.between(ctx, trans, newStep);
+            Link.between(ctx, newStep, newTrans);
+            Link.between(ctx, newTrans, stepChild);
+
+            fireSelectionChange(Optional.of(newStep));
+            notifyStatus("Couple S" + newStep.getNumber() + " → T" + newTrans.getNumber() + " inséré sur la liaison.");
+        }
+
+        refreshActionBar();
+        notifyStructureChanged();
+        redraw();
+    }
+
+    private void shiftDownstreamComponents(StepAndTransitionCommonBehavior start, double deltaY) {
+        Set<StepAndTransitionCommonBehavior> visited = new HashSet<>();
+        Queue<StepAndTransitionCommonBehavior> queue = new ArrayDeque<>();
+        queue.add(start);
+        visited.add(start);
+
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            current.updatePositionAndLinks(new Point2D(current.getX(), current.getY() + deltaY));
+            for (Link l : current.getLinksToChildren()) {
+                if (!l.isAscending()) {
+                    var next = l.getChildComponent();
+                    if (visited.add(next)) {
+                        queue.add(next);
+                    }
+                }
+            }
+        }
+    }
+
+    private void createElementAtDropPoint(StepAndTransitionCommonBehavior source, Point2D dropPt) {
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+
+        double rawX = dropPt.getX() - Component.UNIT_WIDTH / 2;
+        double rawY = dropPt.getY();
+
+        if (source instanceof Step step) {
+            var transition = new Transition(ctx);
+            transition.position = computeSmartSnap(transition, rawX, rawY);
+            activeGuideLines.clear();
+            Link.between(ctx, step, transition);
+            components.add(transition);
+            fireSelectionChange(Optional.of(transition));
+            notifyStatus("Transition T" + transition.getNumber() + " créée par glisser-déposer.");
+        } else if (source instanceof Transition trans) {
+            var step = new Step(ctx);
+            step.position = computeSmartSnap(step, rawX, rawY);
+            activeGuideLines.clear();
+            Link.between(ctx, trans, step);
+            components.add(step);
+            fireSelectionChange(Optional.of(step));
+            notifyStatus("Étape S" + step.getNumber() + " créée par glisser-déposer.");
+        }
+        notifyStructureChanged();
+        redraw();
+    }
+
+    public void toggleInitialStep(Step step) {
+        if (step == null) return;
+        step.setInitial(!step.isInitial());
+        fireSelectionChange(Optional.of(step));
+        refreshActionBar();
+        notifyStatus("Étape S" + step.getNumber() + (step.isInitial() ? " définie comme étape initiale." : " définie comme étape normale."));
+        notifyStructureChanged();
+        redraw();
+    }
+
+    public void editTransitionReceptivityInline(Transition transition) {
+        if (transition != null) {
+            openInlineReceptivityEditor(transition);
+        }
+    }
+
+    public void alignSelectedHorizontally() {
+        List<StepAndTransitionCommonBehavior> selected = getSelectedComponents();
+        if (selected.size() < 2) return;
+        double avgY = selected.stream().mapToDouble(StepAndTransitionCommonBehavior::getY).average().orElse(200.0);
+        double snappedY = Math.round(avgY / 12.0) * 12.0;
+        for (var comp : selected) {
+            comp.updatePositionAndLinks(new Point2D(comp.getX(), snappedY));
+        }
+        refreshActionBar();
+        notifyStatus(selected.size() + " éléments alignés horizontalement.");
+        notifyStructureChanged();
+        redraw();
+    }
+
     public void createOrBranch(Step step) {
-        createTransition(step);
-        notifyStatus("Branche OU créée (Sélection de séquence)");
+        if (step == null) return;
+        if (getDownwardLinks(step).isEmpty()) {
+            // Aucune transition aval : créer les 2 branches d'aiguillage en OU d'un seul coup (CEI 60848)
+            createTransition(step);
+            createTransition(step);
+        } else {
+            createTransition(step);
+        }
+        notifyStatus("Branche OU créée (Sélection de séquence CEI 60848)");
     }
 
     public void createAndBranch(Transition transition) {
-        createStep(transition);
-        notifyStatus("Branche ET créée (Synchronisation / Parallélisme)");
+        if (transition == null) return;
+        if (getDownwardLinks(transition).isEmpty()) {
+            // Aucune étape aval : créer les 2 branches parallèles en ET d'un seul coup (CEI 60848)
+            createStep(transition);
+            createStep(transition);
+        } else {
+            createStep(transition);
+        }
+        notifyStatus("Branche ET créée (Synchronisation / Parallélisme CEI 60848)");
     }
 
     public void deleteSelected() {
-        getSelectedComponent().ifPresent(this::deleteComponent);
+        List<StepAndTransitionCommonBehavior> selectedList = new ArrayList<>(getSelectedComponents());
+        if (!selectedList.isEmpty()) {
+            for (var comp : selectedList) {
+                List<Link> toRemove = new ArrayList<>();
+                toRemove.addAll(comp.getLinksFromParents());
+                toRemove.addAll(comp.getLinksToChildren());
+                toRemove.forEach(Link::disconnect);
+                components.remove(comp);
+            }
+            fireSelectionChange(Optional.empty());
+            refreshActionBar();
+            notifyStatus(selectedList.size() == 1
+                    ? ("Élément " + getElementName(selectedList.getFirst()) + " supprimé.")
+                    : (selectedList.size() + " éléments supprimés."));
+            notifyStructureChanged();
+            redraw();
+            return;
+        }
+
         getSelectedLink().ifPresent(link -> {
             link.disconnect();
+            refreshActionBar();
             notifyStatus("Liaison supprimée.");
             notifyStructureChanged();
             redraw();
@@ -939,6 +1865,7 @@ public class Grafcet extends Pane {
 
         components.remove(comp);
         fireSelectionChange(Optional.empty());
+        refreshActionBar();
         notifyStatus("Élément " + getElementName(comp) + " supprimé.");
         notifyStructureChanged();
         redraw();
@@ -1082,6 +2009,8 @@ public class Grafcet extends Pane {
     public void updateSimulationVisuals(Set<String> activeStepIds, Set<String> activeOutputs,
                                         Set<String> validatedTransitions, Set<String> trueReceptivityTransitions,
                                         Set<String> fireableTransitions) {
+        this.simulationRunning = true;
+        refreshActionBar();
         for (StepAndTransitionCommonBehavior comp : components) {
             if (comp instanceof Step step) {
                 String id1 = "s" + step.getNumber();
@@ -1105,6 +2034,7 @@ public class Grafcet extends Pane {
      * Réinitialise tous les indicateurs visuels de simulation sur le canvas.
      */
     public void clearSimulationVisuals() {
+        this.simulationRunning = false;
         for (StepAndTransitionCommonBehavior comp : components) {
             if (comp instanceof Step step) {
                 step.setActive(false);
@@ -1113,6 +2043,7 @@ public class Grafcet extends Pane {
                 trans.clearSimulationState();
             }
         }
+        refreshActionBar();
         redraw();
     }
 
@@ -1188,8 +2119,10 @@ public class Grafcet extends Pane {
         if (found.isPresent()) {
             StepAndTransitionCommonBehavior comp = found.get();
             components.forEach(c -> c.setSelected(false));
+            clearLinkSelections();
             comp.setSelected(true);
             fireSelectionChange(Optional.of(comp));
+            refreshActionBar();
             redraw();
             return true;
         }
@@ -1396,9 +2329,12 @@ public class Grafcet extends Pane {
 
         if (components.isEmpty()) {
             createInitialStep();
+        } else {
+            components.forEach(c -> c.setSelected(false));
         }
 
         fireSelectionChange(Optional.empty());
+        refreshActionBar();
         notifyStructureChanged();
         redraw();
     }

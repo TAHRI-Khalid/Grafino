@@ -12,10 +12,10 @@ Le nom **Grafino** symbolise la passerelle entre :
 
 ### Objectif global du cycle de développement :
 1. **Édition graphique fluide & assistée (style Siemens TIA Portal S7-GRAPH)** :
-   * Insertion contextuelle intelligente en un clic (*Smart Quick-Add Handles* [＋], [⑂], [✕] directement sur le Canvas).
-   * Raccourcis clavier universels rapides (`T`/`Entrée` transition, `S`/`Entrée` étape, `B` branche, `Suppr` suppression) permettant d'épurer la barre d'outils supérieure des boutons redondants.
+   * Barre d'actions contextuelle verticale fixe à gauche (`ActionBar`) avec aperçu fantôme (*Ghost Preview*) : insertion unitaire (`＋`), couple complet (`⚡`), ouverture directe de divergence à 2 branches (`⑂` en OU / `⇉` en ET), convergence sécurisée CEI 60848 (`⫘`), boucle de reprise ascendante (`⮐`) et insertion sur liaison (`➕`).
+   * Raccourcis clavier universels rapides (`T`/`Entrée` transition, `S`/`Entrée` étape, `Shift + Entrée` séquence complète, `B` branche, `C` convergence, `R` boucle, `I` étape initiale, `Suppr` suppression) permettant d'épurer la barre d'outils supérieure des boutons redondants.
    * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
-   * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / bouton `📐 Aligner`).
+   * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / menu `Édition > Aligner & Centrer`).
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
    * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
@@ -140,7 +140,8 @@ tk.tahri.grafino/
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, onglets Variables / Chronogramme et gestion de projet
-    ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG haute résolution, sélection d'élément)
+    ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG, multi-sélection Lasso, Ghost Preview)
+    ├── ActionBar.java         # Barre d'action contextuelle verticale fixe à gauche (séquences T+S, divergences/convergences ET/OU, boucle S0, insertion sur lien)
     ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, badge linting, simulation)
     ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
     ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
@@ -197,8 +198,13 @@ L'interface associe les codes visuels emblématiques de **l'IDE Arduino** et la 
 | **`Ctrl + K`** | **Ouvrir / Basculer sur le Chronogramme d'Évolution Multi-voies** |
 | **`T`** ou **`Entrée`** | Insérer la Transition suivante après l'Étape sélectionnée |
 | **`S`** ou **`Entrée`** | Insérer l'Étape suivante après la Transition sélectionnée |
-| **`B`** | Ouvrir une branche (OU sur une étape, ET sur une transition) |
-| **`Suppr`** / **`Retour arrière`** | Supprimer l'élément ou la liaison sélectionnée |
+| **`Shift + Entrée`** | Insérer directement un **couple complet Transition + Étape** (ou Étape + Transition) |
+| **`B`** | Ouvrir une branche (Divergence OU sur une étape, Divergence ET sur une transition) |
+| **`C`** | **Converger les branches** (Convergence ET sur étapes sélectionnées, Convergence OU sur transitions) |
+| **`R`** | **Reboucler vers l'étape initiale $S_0$** depuis la ou les transitions sélectionnées |
+| **`I`** | Basculer le statut d'**Étape Initiale** (double carré CEI 60848) sur l'étape sélectionnée |
+| **`Ctrl + Clic`** / **Glisser vide** | **Multi-sélection** d'étapes ou de transitions (ou sélection rectangulaire *Lasso*) |
+| **`Suppr`** / **`Retour arrière`** | Supprimer le(s) élément(s) ou la liaison sélectionnée |
 | **`Ctrl + L`** | **Auto-Layout : réaligner et centrer automatiquement tout le diagramme** |
 | **`Ctrl + Molette`** | Zoom fluide centré sur le curseur |
 | **`Clic Milieu / Droit + Glisser`** | Déplacement panoramique (*Pan*) dans le schéma |
