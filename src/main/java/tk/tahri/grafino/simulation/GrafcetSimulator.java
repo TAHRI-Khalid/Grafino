@@ -40,6 +40,7 @@ public class GrafcetSimulator {
     private final Set<String> knownOutputVariables = new LinkedHashSet<>();
     private final Set<String> knownInputVariables = new LinkedHashSet<>();
     private final SimulationState state = new SimulationState();
+    private final List<SfcValidationMessage> recordedRuntimeAlerts = new ArrayList<>();
 
     public GrafcetSimulator() {
     }
@@ -198,6 +199,7 @@ public class GrafcetSimulator {
     public void reset() {
         long now = System.currentTimeMillis();
         state.reset();
+        recordedRuntimeAlerts.clear();
 
         for (StepNode s : steps.values()) {
             if (s.isInitial()) {
@@ -354,11 +356,32 @@ public class GrafcetSimulator {
         Set<String> stepsToActivate = new LinkedHashSet<>();
 
         // Règle 2 : Détection des transitions franchissables
+        Map<String, List<TransitionNode>> firedByUpstreamStep = new HashMap<>();
         for (TransitionNode t : transitions.values()) {
             if (isTransitionFireable(t, currentTimeMs)) {
                 firedTransitions.add(t.id());
                 stepsToDeactivate.addAll(t.upstreamStepIds());
                 stepsToActivate.addAll(t.downstreamStepIds());
+                for (String upStepId : t.upstreamStepIds()) {
+                    firedByUpstreamStep.computeIfAbsent(upStepId, k -> new ArrayList<>()).add(t);
+                }
+            }
+        }
+
+        // Détection pédagogique : Conflit de non-exclusivité sur une divergence en OU
+        for (var entry : firedByUpstreamStep.entrySet()) {
+            List<TransitionNode> simultaneous = entry.getValue();
+            if (simultaneous.size() > 1) {
+                StepNode divStep = steps.get(entry.getKey());
+                String stepLabel = (divStep != null) ? ("S" + divStep.number()) : entry.getKey();
+                String transNames = String.join(", ", simultaneous.stream().map(TransitionNode::name).toList());
+                recordRuntimeAlert(SfcValidationMessage.warning(
+                        entry.getKey(),
+                        "CEI 60848 — Exclusivité d'aiguillage en OU",
+                        "Les transitions " + transNames + " sous l'étape " + stepLabel + " ont été franchies simultanément.",
+                        "Dans une sélection de séquence (divergence en OU sous " + stepLabel + "), si vous souhaitez qu'une seule branche "
+                                + "s'active à la fois, rendez leurs réceptivités mutuellement exclusives (ex: 'a' et 'NOT a')."
+                ));
             }
         }
 
@@ -506,6 +529,96 @@ public class GrafcetSimulator {
         for (String out : outputsToTurnOn) {
             state.setOutputActive(out, true);
         }
+
+        // 4. Détection pédagogique de conflit Set (S) / Reset (R) simultané dans les étapes actives
+        detectSimultaneousSetResetConflicts();
+    }
+
+    private void detectSimultaneousSetResetConflicts() {
+        Map<String, String> setByStep = new HashMap<>();
+        Map<String, String> resetByStep = new HashMap<>();
+
+        for (String activeStepId : state.getActiveStepIds()) {
+            StepNode step = steps.get(activeStepId);
+            if (step == null) continue;
+            for (SfcActionBlock action : step.actionBlocks()) {
+                String normVar = SimulationState.normalizeKey(action.variableName());
+                if (action.qualifier() == SfcQualifier.S) {
+                    setByStep.put(normVar, "S" + step.number());
+                } else if (action.qualifier() == SfcQualifier.R) {
+                    resetByStep.put(normVar, "S" + step.number());
+                }
+            }
+        }
+
+        for (String varName : setByStep.keySet()) {
+            if (resetByStep.containsKey(varName)) {
+                String sSet = setByStep.get(varName);
+                String sReset = resetByStep.get(varName);
+                recordRuntimeAlert(SfcValidationMessage.error(
+                        "",
+                        "CEI 61131-3 — Conflit simultané Set (S) / Reset (R)",
+                        "Conflit sur la sortie '" + varName + "' : commandée simultanément à 1 (S dans " + sSet
+                                + ") et à 0 (R dans " + sReset + ").",
+                        "Deux étapes actives en même temps envoient des ordres contradictoires (Set et Reset) sur '" + varName + "'. "
+                                + "Assurez-vous que les étapes de mise à 1 et de remise à 0 ne soient jamais actives simultanément."
+                ));
+            }
+        }
+    }
+
+    private void recordRuntimeAlert(SfcValidationMessage alert) {
+        boolean alreadyPresent = recordedRuntimeAlerts.stream()
+                .anyMatch(m -> m.message().equals(alert.message()));
+        if (!alreadyPresent) {
+            recordedRuntimeAlerts.add(alert);
+        }
+    }
+
+    /**
+     * Retourne la liste complète des diagnostics d'exécution (alertes enregistrées durant le cycle + diagnostics d'attente).
+     */
+    public List<SfcValidationMessage> getRuntimeDiagnostics() {
+        List<SfcValidationMessage> result = new ArrayList<>(recordedRuntimeAlerts);
+
+        // 1. Vérifier si le Grafcet a perdu tout marquage actif
+        if (!steps.isEmpty() && state.getActiveStepIds().isEmpty()) {
+            result.add(SfcValidationMessage.error(
+                    "",
+                    "CEI 60848 — Extinction du marquage",
+                    "Aucune étape n'est actuellement active dans le Grafcet.",
+                    "Vérifiez qu'au moins une étape initiale (double carré) est définie et que toutes vos transitions aboutissent bien à une étape aval."
+            ));
+        }
+
+        // 2. Détecter les synchronisations en ET (Convergence ET) en attente d'une branche parallèle
+        for (TransitionNode t : transitions.values()) {
+            if (t.upstreamStepIds().size() >= 2) {
+                List<String> activeUp = new ArrayList<>();
+                List<String> missingUp = new ArrayList<>();
+                for (String upId : t.upstreamStepIds()) {
+                    StepNode sn = steps.get(upId);
+                    String label = (sn != null) ? ("S" + sn.number()) : upId;
+                    if (state.isStepActive(upId)) {
+                        activeUp.add(label);
+                    } else {
+                        missingUp.add(label);
+                    }
+                }
+                if (!activeUp.isEmpty() && !missingUp.isEmpty()) {
+                    result.add(SfcValidationMessage.info(
+                            t.id(),
+                            "CEI 60848 — Synchronisation ET (Règle 2)",
+                            "Convergence ET sur " + t.name() + " en attente : " + String.join(", ", activeUp)
+                                    + " active(s), mais attend " + String.join(", ", missingUp) + ".",
+                            "Une transition de synchronisation en ET (double barre) ne devient validée que lorsque TOUTES ses étapes amont "
+                                    + "sont actives en même temps."
+                    ));
+                }
+            }
+        }
+
+        return List.copyOf(result);
     }
 
     /**

@@ -8,6 +8,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import tk.tahri.grafino.Handle;
+import tk.tahri.grafino.model.SfcValidationMessage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,10 +22,65 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
     protected Handle handle = Handle.NONE;
     protected final double radius = 12;
     protected int number;
+    private List<SfcValidationMessage> diagnosticMessages = List.of();
 
     protected StepAndTransitionCommonBehavior(GraphicsContext ctx) {
         super(ctx);
         this.setSelected(true);
+    }
+
+    public List<SfcValidationMessage> getDiagnosticMessages() {
+        return diagnosticMessages;
+    }
+
+    public void setDiagnosticMessages(List<SfcValidationMessage> messages) {
+        this.diagnosticMessages = (messages == null) ? List.of() : List.copyOf(messages);
+    }
+
+    public boolean hasDiagnosticError() {
+        return diagnosticMessages.stream().anyMatch(SfcValidationMessage::isError);
+    }
+
+    public boolean hasDiagnosticWarning() {
+        return !hasDiagnosticError() && diagnosticMessages.stream().anyMatch(SfcValidationMessage::isWarning);
+    }
+
+    @Override
+    public void drawComponent() {
+        super.drawComponent();
+        if (ctx != null && !diagnosticMessages.isEmpty()) {
+            drawDiagnosticBadge();
+        }
+    }
+
+    protected void drawDiagnosticBadge() {
+        boolean isErr = hasDiagnosticError();
+        Color badgeColor = isErr ? Color.rgb(217, 56, 30) : Color.rgb(245, 158, 11); // Rouge #D9381E ou Ambre #F59E0B
+
+        double badgeX;
+        double badgeY;
+        if (this instanceof Step) {
+            badgeX = getX() + 2;
+            badgeY = getY() + GAP + 2;
+        } else {
+            badgeX = getX() + UNIT_WIDTH / 4 - 28;
+            badgeY = getY() + UNIT_HEIGHT / 2 - 14;
+        }
+
+        double r = 8.5;
+        ctx.save();
+        ctx.setFill(badgeColor);
+        ctx.fillOval(badgeX - r, badgeY - r, r * 2, r * 2);
+        ctx.setStroke(Color.WHITE);
+        ctx.setLineWidth(1.6);
+        ctx.strokeOval(badgeX - r, badgeY - r, r * 2, r * 2);
+
+        ctx.setFill(Color.WHITE);
+        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11));
+        ctx.setTextAlign(TextAlignment.CENTER);
+        ctx.setTextBaseline(VPos.CENTER);
+        ctx.fillText(isErr ? "!" : "⚠", badgeX, badgeY + 0.5);
+        ctx.restore();
     }
 
     public double getX() {

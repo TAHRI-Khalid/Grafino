@@ -13,6 +13,7 @@ import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import tk.tahri.grafino.component.Variable;
 import tk.tahri.grafino.component.Step;
+import tk.tahri.grafino.model.SfcValidationMessage;
 import tk.tahri.grafino.simulation.GrafcetSimulator;
 import tk.tahri.grafino.simulation.SimulationState;
 import tk.tahri.grafino.simulation.SimulationStepResult;
@@ -55,6 +56,8 @@ public class SimulationPanel extends VBox {
     private final Map<String, Circle> outputLamps = new HashMap<>();
     private final Map<String, Label> outputStateLabels = new HashMap<>();
     private final Map<String, Label> counterValueLabels = new HashMap<>();
+    private final VBox runtimeAlertsContainer = new VBox(6);
+    private int lastRuntimeAlertsHash = 0;
 
     public SimulationPanel(GrafcetSimulator simulator,
                            Grafcet grafcet,
@@ -108,6 +111,9 @@ public class SimulationPanel extends VBox {
         if (!this.counterVariables.isEmpty() || !simulator.getState().getCounterVariables().isEmpty()) {
             scrollContent.getChildren().add(createCountersSection());
         }
+
+        // 7. Section Diagnostics & Comportement Temps Réel (conflits OU, Set/Reset, synchronisations ET)
+        scrollContent.getChildren().add(new CollapsibleSection("🩺", "Diagnostics d'Exécution", null, runtimeAlertsContainer, true));
 
         ScrollPane scrollPane = new ScrollPane(scrollContent);
         scrollPane.setFitToWidth(true);
@@ -534,6 +540,53 @@ public class SimulationPanel extends VBox {
         for (var entry : counterValueLabels.entrySet()) {
             int val = simulator.getState().getCounterValue(entry.getKey());
             entry.getValue().setText("Valeur : " + val);
+        }
+
+        // 6. Mise à jour des diagnostics dynamiques de simulation
+        refreshRuntimeDiagnostics();
+    }
+
+    private void refreshRuntimeDiagnostics() {
+        List<SfcValidationMessage> runtimeMsgs = simulator.getRuntimeDiagnostics();
+        int hash = runtimeMsgs.hashCode();
+        if (hash == lastRuntimeAlertsHash && !runtimeAlertsContainer.getChildren().isEmpty()) {
+            return;
+        }
+        lastRuntimeAlertsHash = hash;
+        runtimeAlertsContainer.getChildren().clear();
+
+        if (runtimeMsgs.isEmpty()) {
+            Label okLbl = new Label("✓ Aucun conflit d'exécution détecté (aiguillages OU, Set/Reset et synchronisations ET conformes).");
+            okLbl.setWrapText(true);
+            okLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + ";");
+            runtimeAlertsContainer.getChildren().add(okLbl);
+            return;
+        }
+
+        for (SfcValidationMessage msg : runtimeMsgs) {
+            VBox card = new VBox(4);
+            String border = msg.isError() ? AppTheme.RED_BORDER : (msg.isWarning() ? AppTheme.ORANGE_BORDER : "#BAE6FD");
+            String bg = msg.isError() ? AppTheme.RED_LIGHT_BG : (msg.isWarning() ? AppTheme.ORANGE_LIGHT_BG : "#F0F9FF");
+            card.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border +
+                    "; -fx-border-radius: 5px; -fx-background-radius: 5px; -fx-padding: 7px;");
+
+            Label ruleLbl = new Label((msg.isError() ? "✕ " : (msg.isWarning() ? "⚠ " : "ℹ ")) + msg.ruleReference());
+            ruleLbl.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " +
+                    (msg.isError() ? AppTheme.RED_DANGER : (msg.isWarning() ? AppTheme.ORANGE : "#0369A1")) + ";");
+
+            Label mLbl = new Label(msg.message());
+            mLbl.setWrapText(true);
+            mLbl.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+
+            card.getChildren().addAll(ruleLbl, mLbl);
+
+            if (msg.hasPedagogicalHint()) {
+                Label hintLbl = new Label("💡 " + msg.pedagogicalHint());
+                hintLbl.setWrapText(true);
+                hintLbl.setStyle("-fx-font-size: 10px; -fx-text-fill: #475569;");
+                card.getChildren().add(hintLbl);
+            }
+            runtimeAlertsContainer.getChildren().add(card);
         }
     }
 

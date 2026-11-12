@@ -10,11 +10,20 @@ import tk.tahri.grafino.ui.MainUI;
 public class App extends Application {
     @Override
     public void start(Stage stage) {
-        var scene = new Scene(new MainUI(), 800, 600);
+        MainUI mainUI = new MainUI();
+        var scene = new Scene(mainUI, 800, 600);
         scene.getStylesheets().add(String.valueOf(getClass().getResource("/css/style.css")));
         stage.setMaximized(true);
         stage.setTitle("Grafino — Nouveau Projet");
         stage.setScene(scene);
+
+        // Interception de l'opération de fermeture : vérifier modifications non enregistrées
+        stage.setOnCloseRequest(event -> {
+            if (!mainUI.confirmSaveOrDiscardBeforeClosing()) {
+                event.consume();
+            }
+        });
+
         stage.show();
     }
 

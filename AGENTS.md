@@ -30,10 +30,12 @@ Le nom **Grafino** symbolise la passerelle entre :
      - *Non validée* (trait sombre `#4B5563`, étapes amont inactives).
      - *Validée en attente* (trait ambré `#F59E0B`, pulsation et badge `[⏳ T<n>]`, étapes amont actives mais réceptivité fausse).
      - *Franchissable* (halo vert `#10B981`, flèche dynamique `▶` et badge `[✓ T<n>]`, prête au franchissement synchrone).
-   * **Inspection normative & Linting en direct** (`DiagnosticsPanel`) :
-     - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`).
-     - Détection continue des non-conformités (absence d'étape initiale, non-alternance, temporisations orphelines, compteurs sans qualificateur impulsionnel `P`).
-     - Bouton `[🔍 Localiser]` pour centrer et surligner instantanément l'élément fautif sur le Canvas.
+   * **Inspection normative & Diagnostic pédagogique des erreurs étudiantes** (`DiagnosticsPanel`, `SfcProgram.validate()` & `GrafcetSimulator.getRuntimeDiagnostics()`) :
+     - Badge toolbar dynamique (`✓ Conforme`, `⚠ Alertes`, `✕ Erreurs`) et pastilles visuelles (`!` / `⚠`) directement sur les étapes et transitions du Canvas avec infobulle pédagogique au survol.
+     - Fiches pédagogiques structurées avec référence normative (`📖 CEI 60848 / CEI 61131-3`), constat de l'erreur et encadré **« 💡 Comprendre & Corriger »** expliquant pourquoi il s'agit d'une anomalie afin que l'étudiant la corrige lui-même.
+     - Détection statique et topologique complète : absence d'étape initiale, doublons de numéros, violation d'alternance, étapes non initiales inatteignables, transitions sans amont ou en cul-de-sac, incohérences Divergence OU / Convergence ET (*Deadlock*) ou Divergence ET / Convergence OU, parenthèses et opérateurs ST invalides, écriture interdite sur entrée `%I`, sorties/capteurs non déclarés, asymétrie Set (`S`) / Reset (`R`), compteurs sans qualificateur impulsionnel `P` ou sans initialisation (`C := 0`).
+     - Diagnostics dynamiques en cours de simulation (`SimulationPanel`) : détection des conflits d'exclusivité sur aiguillage en OU (franchissement simultané), des conflits simultanés Set (`S`) / Reset (`R`) sur une même sortie, de l'extinction du marquage et de l'état d'attente des synchronisations en ET.
+     - Bouton `[🔍 Localiser]` pour centrer et sélectionner instantanément l'élément fautif sur le Canvas.
    * **Chronogramme d'Évolution Multi-voies interactif** (`TimingDiagramPanel`) :
      - Échantillonnage cyclique temps réel sans fuite mémoire (`TimingRecorder` et `TimingSample`).
      - Formes d'ondes digitales pour les étapes $X_n$, entrées $\%I$, sorties $\%Q$ avec remplissage translucide, et analogiques en escalier pour les compteurs $C_n$.

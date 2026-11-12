@@ -60,6 +60,48 @@ public class MainUI extends BorderPane {
     // Gestion du fichier actif (Axe 1 : Sécurisation du workflow)
     private File currentFile = null;
     private String currentProjectName = "Nouveau_Projet";
+    private SfcProgram lastSavedProgram = null;
+
+    public enum CloseChoice {
+        SAVE,
+        DISCARD,
+        CANCEL
+    }
+
+    @FunctionalInterface
+    public interface CloseConfirmationHandler {
+        CloseChoice prompt(String projectName);
+    }
+
+    // Fournisseurs configurables pour tests unitaires automatisés
+    private CloseConfirmationHandler closeConfirmationHandler = defaultCloseConfirmationHandler();
+    private java.util.function.Function<FileChooser, File> saveFileChooser = fc ->
+            fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+
+    private CloseConfirmationHandler defaultCloseConfirmationHandler() {
+        return projectName -> {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Fermeture de Grafino");
+            alert.setHeaderText("Enregistrer les modifications apportées au projet '" + projectName + "' ?");
+            alert.setContentText("Des modifications n'ont pas été enregistrées.\n"
+                    + "Voulez-vous enregistrer les changements avant de fermer, ou abandonner les modifications ?");
+
+            ButtonType btnSave = new ButtonType("Enregistrer", ButtonBar.ButtonData.YES);
+            ButtonType btnDiscard = new ButtonType("Abandonner", ButtonBar.ButtonData.NO);
+            ButtonType btnCancel = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+            alert.getButtonTypes().setAll(btnSave, btnDiscard, btnCancel);
+
+            Optional<ButtonType> choice = alert.showAndWait();
+            if (choice.isEmpty() || choice.get() == btnCancel) {
+                return CloseChoice.CANCEL;
+            } else if (choice.get() == btnSave) {
+                return CloseChoice.SAVE;
+            } else {
+                return CloseChoice.DISCARD;
+            }
+        };
+    }
 
     public MainUI() {
         this.timingDiagramPanel = new TimingDiagramPanel(timingRecorder, this::onRestoreTimingState);
@@ -70,6 +112,7 @@ public class MainUI extends BorderPane {
         // 2. Initialisation du Grafcet
         grafcet.createInitialStep();
         grafcet.startRender();
+        this.lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
 
         // 3. Configuration de la vue partagée centrale (SplitPane Grafcet / Variables)
         setupCenterSplitPane();
@@ -92,10 +135,19 @@ public class MainUI extends BorderPane {
         variableTable.setOnValidationError(this::setStatusError);
         onVariablesUpdated();
 
-        // 9. Titre dynamique de fenêtre lié au fichier chargé
+        // 9. Titre dynamique de fenêtre lié au fichier chargé & interception fermeture
         this.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
-                newScene.windowProperty().addListener((wObs, oldW, newW) -> updateWindowTitle());
+                newScene.windowProperty().addListener((wObs, oldW, newW) -> {
+                    updateWindowTitle();
+                    if (newW instanceof Stage stage) {
+                        stage.setOnCloseRequest(event -> {
+                            if (!confirmSaveOrDiscardBeforeClosing()) {
+                                event.consume();
+                            }
+                        });
+                    }
+                });
             }
         });
 
@@ -249,6 +301,7 @@ public class MainUI extends BorderPane {
         menuBar.setOnSaveProject(event -> onSaveProject());
         menuBar.setOnSaveAsProject(event -> onSaveAsProject());
         menuBar.setOnExportPng(event -> onExportPng());
+        menuBar.setOnExit(event -> requestClose());
 
         grafcet.setStatusMessageConsumer(this::setStatus);
     }
@@ -332,6 +385,10 @@ public class MainUI extends BorderPane {
                     onExportPng();
                     event.consume();
                     return;
+                } else if (event.getCode() == KeyCode.Q) {
+                    requestClose();
+                    event.consume();
+                    return;
                 } else if (event.getCode() == KeyCode.K) {
                     switchBottomView(BottomViewMode.TIMING);
                     if (isTableCollapsed) {
@@ -351,6 +408,7 @@ public class MainUI extends BorderPane {
                     case RIGHT -> component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
                     default -> { return; }
                 }
+                refreshDiagnostics();
                 event.consume();
             });
         });
@@ -457,35 +515,102 @@ public class MainUI extends BorderPane {
     }
 
     // ==========================================
+    // GESTION DES MODIFICATIONS & FERMETURE (SÉCURISATION DU WORKFLOW)
+    // ==========================================
+
+    /**
+     * Vérifie si le diagramme ou les variables ont été modifiés depuis le dernier enregistrement.
+     */
+    public boolean isModified() {
+        SfcProgram current = grafcet.toProgram(currentProjectName, variableTable.getVariables());
+        if (lastSavedProgram == null) {
+            return !grafcet.isDiagramEmpty() || !variableTable.getVariables().isEmpty();
+        }
+        return !current.equals(lastSavedProgram);
+    }
+
+    /**
+     * Lors de l'opération de fermeture (fermeture de l'application, nouveau projet, ouverture),
+     * vérifie si les modifications sont enregistrées ou non.
+     * Si non, demande à l'utilisateur de choisir s'il veut enregistrer, abandonner ou annuler.
+     *
+     * @return true si l'opération peut continuer (fermeture acceptée), false si annulée.
+     */
+    public boolean confirmSaveOrDiscardBeforeClosing() {
+        if (!isModified()) {
+            return true;
+        }
+
+        CloseChoice choice = closeConfirmationHandler.prompt(currentProjectName);
+        if (choice == null || choice == CloseChoice.CANCEL) {
+            return false;
+        }
+
+        if (choice == CloseChoice.SAVE) {
+            boolean saved = onSaveProject();
+            if (saved && activeSimulationPanel != null) {
+                stopSimulation();
+            }
+            return saved;
+        }
+
+        if (choice == CloseChoice.DISCARD) {
+            if (activeSimulationPanel != null) {
+                stopSimulation();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Déclenche une demande de fermeture de l'application avec vérification des modifications.
+     */
+    public void requestClose() {
+        if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
+            javafx.stage.WindowEvent closeEvent = new javafx.stage.WindowEvent(stage, javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST);
+            stage.fireEvent(closeEvent);
+            if (closeEvent.isConsumed()) {
+                return;
+            }
+            if (stage.getOnCloseRequest() == null) {
+                if (!confirmSaveOrDiscardBeforeClosing()) {
+                    return;
+                }
+            }
+            stage.close();
+        } else {
+            if (confirmSaveOrDiscardBeforeClosing()) {
+                javafx.application.Platform.exit();
+            }
+        }
+    }
+
+    // ==========================================
     // PERSISTANCE & MENU FICHIER (AXE 1)
     // ==========================================
 
     public void onNewProject() {
-        if (!grafcet.isDiagramEmpty() || !variableTable.getVariables().isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("Nouveau Projet SFC");
-            alert.setHeaderText("Créer un nouveau diagramme ?");
-            alert.setContentText("Le diagramme actuel sera réinitialisé. Pensez à enregistrer votre travail de TP.");
-            ButtonType btnYes = new ButtonType("Créer nouveau", ButtonBar.ButtonData.OK_DONE);
-            ButtonType btnCancel = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-            alert.getButtonTypes().setAll(btnYes, btnCancel);
-
-            Optional<ButtonType> result = alert.showAndWait();
-            if (result.isEmpty() || result.get() != btnYes) {
-                return;
-            }
+        if (!confirmSaveOrDiscardBeforeClosing()) {
+            return;
         }
 
         currentFile = null;
         currentProjectName = "Nouveau_Projet";
         grafcet.clearDiagram();
         variableTable.clear();
+        lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
         updateWindowTitle();
         refreshDiagnostics();
         setStatus("Nouveau projet initialisé");
     }
 
     public void onOpenProject() {
+        if (!confirmSaveOrDiscardBeforeClosing()) {
+            return;
+        }
+
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Ouvrir un programme Grafcet / SFC");
         fileChooser.getExtensionFilters().addAll(
@@ -513,6 +638,7 @@ public class MainUI extends BorderPane {
 
                 currentFile = file;
                 currentProjectName = loaded.programName();
+                lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
                 updateWindowTitle();
                 refreshDiagnostics();
                 setStatus("Programme chargé avec succès : " + file.getName());
@@ -527,15 +653,15 @@ public class MainUI extends BorderPane {
         }
     }
 
-    public void onSaveProject() {
+    public boolean onSaveProject() {
         if (currentFile == null) {
-            onSaveAsProject();
+            return onSaveAsProject();
         } else {
-            doSave(currentFile);
+            return doSave(currentFile);
         }
     }
 
-    public void onSaveAsProject() {
+    public boolean onSaveAsProject() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Enregistrer le programme Grafcet / SFC");
         fileChooser.getExtensionFilters().addAll(
@@ -553,13 +679,14 @@ public class MainUI extends BorderPane {
             fileChooser.setInitialDirectory(currentFile.getParentFile());
         }
 
-        File file = fileChooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+        File file = saveFileChooser.apply(fileChooser);
         if (file != null) {
-            doSave(file);
+            return doSave(file);
         }
+        return false;
     }
 
-    private void doSave(File targetFile) {
+    public boolean doSave(File targetFile) {
         try {
             String baseName = targetFile.getName();
             if (baseName.contains(".")) {
@@ -571,8 +698,10 @@ public class MainUI extends BorderPane {
             SfcStorage.save(program, targetFile);
 
             currentFile = targetFile;
+            lastSavedProgram = program;
             updateWindowTitle();
             setStatus("Programme enregistré : " + targetFile.getName());
+            return true;
         } catch (Exception ex) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Erreur d'enregistrement");
@@ -580,6 +709,7 @@ public class MainUI extends BorderPane {
             alert.setContentText("Détail de l'erreur : " + ex.getMessage());
             alert.showAndWait();
             setStatusError("Échec de l'enregistrement : " + ex.getMessage());
+            return false;
         }
     }
 
@@ -612,13 +742,68 @@ public class MainUI extends BorderPane {
         }
     }
 
-    private void updateWindowTitle() {
+    public void updateWindowTitle() {
         if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
+            String dirtyMarker = isModified() ? " *" : "";
             String display = (currentFile != null)
-                    ? currentFile.getName()
-                    : (currentProjectName + " (non enregistré)");
+                    ? (currentFile.getName() + dirtyMarker)
+                    : (currentProjectName + dirtyMarker + " (non enregistré)");
             stage.setTitle("Grafino — " + display);
         }
+    }
+
+    public SfcProgram getLastSavedProgram() {
+        return lastSavedProgram;
+    }
+
+    public void setLastSavedProgram(SfcProgram lastSavedProgram) {
+        this.lastSavedProgram = lastSavedProgram;
+        updateWindowTitle();
+    }
+
+    public Grafcet getGrafcet() {
+        return grafcet;
+    }
+
+    public VariableTable getVariableTable() {
+        return variableTable;
+    }
+
+    public AppMenuBar getAppMenuBar() {
+        return menuBar;
+    }
+
+    public File getCurrentFile() {
+        return currentFile;
+    }
+
+    public void setCurrentFile(File currentFile) {
+        this.currentFile = currentFile;
+        updateWindowTitle();
+    }
+
+    public String getCurrentProjectName() {
+        return currentProjectName;
+    }
+
+    public void setCurrentProjectName(String currentProjectName) {
+        this.currentProjectName = (currentProjectName != null && !currentProjectName.isBlank())
+                ? currentProjectName
+                : "Nouveau_Projet";
+        updateWindowTitle();
+    }
+
+    public void setCloseConfirmationHandler(CloseConfirmationHandler handler) {
+        this.closeConfirmationHandler = (handler != null) ? handler : defaultCloseConfirmationHandler();
+    }
+
+    public CloseConfirmationHandler getCloseConfirmationHandler() {
+        return closeConfirmationHandler;
+    }
+
+    void setSaveFileChooser(java.util.function.Function<FileChooser, File> saveFileChooser) {
+        this.saveFileChooser = (saveFileChooser != null) ? saveFileChooser : fc ->
+                fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
     }
 
     // ==========================================
@@ -762,12 +947,14 @@ public class MainUI extends BorderPane {
     }
 
     public void refreshDiagnostics() {
+        updateWindowTitle();
         try {
             SfcProgram program = grafcet.toProgram(currentProjectName, variableTable.getVariables());
             List<SfcValidationMessage> messages = program.validate();
             long errorCount = messages.stream().filter(SfcValidationMessage::isError).count();
             long warningCount = messages.stream().filter(SfcValidationMessage::isWarning).count();
             menuBar.setDiagnosticsStatus(errorCount, warningCount);
+            grafcet.updateDiagnosticsVisuals(messages);
             if (diagnosticsPanel != null) {
                 diagnosticsPanel.setMessages(messages);
             }

@@ -60,6 +60,8 @@ public class Grafcet extends Pane {
 
     // Éditeur in-place actif
     private TextField activeInlineEditor = null;
+    private Point2D dragStartPos = null;
+    private StepAndTransitionCommonBehavior hoveredComponent = null;
 
     private Consumer<Optional<StepAndTransitionCommonBehavior>> selectedComponent;
     private Consumer<String> statusMessageConsumer;
@@ -182,10 +184,14 @@ public class Grafcet extends Pane {
                             operation = Operation.PRESSED_TO_BOTTOM_LINK;
                         } else {
                             operation = Operation.PRESSED_TO_MOVE;
+                            dragStartPos = new Point2D(component.getX(), component.getY());
                         }
                         pressedH = diagPt.getX() - component.getX();
                         pressedV = diagPt.getY() - component.getY();
-                    }, () -> fireSelectionChange(Optional.empty()));
+                    }, () -> {
+                        dragStartPos = null;
+                        fireSelectionChange(Optional.empty());
+                    });
 
             // Détection du lien cliqué
             if (getSelectedComponent().isEmpty()) {
@@ -259,7 +265,17 @@ public class Grafcet extends Pane {
             if (operation == Operation.PANNING) {
                 this.setCursor(Cursor.DEFAULT);
                 operation = Operation.PRESSED_TO_MOVE;
+                dragStartPos = null;
                 return;
+            }
+
+            if (operation == Operation.PRESSED_TO_MOVE && dragStartPos != null) {
+                getSelectedComponent().ifPresent(comp -> {
+                    if (comp.getX() != dragStartPos.getX() || comp.getY() != dragStartPos.getY()) {
+                        notifyStructureChanged();
+                    }
+                });
+                dragStartPos = null;
             }
 
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
@@ -291,10 +307,15 @@ public class Grafcet extends Pane {
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
             components.forEach(component -> component.setHandle(Handle.NONE));
 
-            components.stream()
+            var hovered = components.stream()
                     .filter(component -> component.isPointOnTheComponent(diagPt))
                     .findFirst()
-                    .ifPresent(component -> component.setHandle(Handle.BOTH));
+                    .orElse(null);
+
+            this.hoveredComponent = hovered;
+            if (hovered != null) {
+                hovered.setHandle(Handle.BOTH);
+            }
         });
 
         // Zoom à la molette centré sur la souris
@@ -517,6 +538,7 @@ public class Grafcet extends Pane {
                 .forEach(Link::update);
 
         notifyStatus("Schéma réaligné automatiquement selon les normes CEI 60848.");
+        notifyStructureChanged();
         redraw();
     }
 
@@ -570,6 +592,70 @@ public class Grafcet extends Pane {
         }
 
         ctx.restore();
+
+        // Infobulle pédagogique flottante au survol d'un élément comportant une erreur ou un avertissement
+        if (hoveredComponent != null && !hoveredComponent.getDiagnosticMessages().isEmpty()) {
+            drawHoveredDiagnosticOverlay(hoveredComponent);
+        }
+    }
+
+    private void drawHoveredDiagnosticOverlay(StepAndTransitionCommonBehavior comp) {
+        if (ctx == null || canvas == null) return;
+        List<SfcValidationMessage> msgs = comp.getDiagnosticMessages();
+        if (msgs.isEmpty()) return;
+
+        SfcValidationMessage primary = msgs.stream()
+                .filter(SfcValidationMessage::isError)
+                .findFirst()
+                .orElse(msgs.getFirst());
+
+        boolean isErr = primary.isError();
+        String badgeText = isErr ? "✕ ERREUR — " + primary.ruleReference() : "⚠ AVERTISSEMENT — " + primary.ruleReference();
+        String mainText = primary.message();
+        String hintText = primary.hasPedagogicalHint() ? ("💡 " + primary.pedagogicalHint()) : "";
+
+        double boxWidth = Math.min(440, Math.max(260, canvas.getWidth() - 32));
+        Point2D screenAnchor = diagramToScreen(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() - 10);
+        double boxX = Math.clamp(screenAnchor.getX() - boxWidth / 2, 12, Math.max(12, canvas.getWidth() - boxWidth - 12));
+        double boxH = hintText.isEmpty() ? 54 : 84;
+        double boxY = screenAnchor.getY() - boxH - 8;
+        if (boxY < 10) {
+            Point2D bottomAnchor = diagramToScreen(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT + 16);
+            boxY = Math.min(canvas.getHeight() - boxH - 10, bottomAnchor.getY());
+        }
+
+        ctx.save();
+        ctx.setFill(isErr ? Color.rgb(254, 242, 242, 0.97) : Color.rgb(255, 251, 235, 0.97));
+        ctx.setStroke(isErr ? Color.rgb(217, 56, 30) : Color.rgb(245, 158, 11));
+        ctx.setLineWidth(1.5);
+        ctx.fillRoundRect(boxX, boxY, boxWidth, boxH, 8, 8);
+        ctx.strokeRoundRect(boxX, boxY, boxWidth, boxH, 8, 8);
+
+        ctx.setFill(isErr ? Color.rgb(185, 28, 28) : Color.rgb(180, 83, 9));
+        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11));
+        ctx.setTextAlign(javafx.scene.text.TextAlignment.LEFT);
+        ctx.setTextBaseline(javafx.geometry.VPos.TOP);
+        ctx.fillText(truncateText(badgeText, 62), boxX + 10, boxY + 8);
+
+        ctx.setFill(Color.rgb(30, 41, 59));
+        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11.5));
+        ctx.fillText(truncateText(mainText, 64), boxX + 10, boxY + 26);
+
+        if (!hintText.isEmpty()) {
+            ctx.setFill(Color.rgb(71, 85, 105));
+            ctx.setFont(Font.font("SansSerif", FontWeight.NORMAL, 10.5));
+            String line1 = truncateText(hintText, 72);
+            ctx.fillText(line1, boxX + 10, boxY + 46);
+            if (hintText.length() > 72) {
+                ctx.fillText(truncateText(hintText.substring(72).trim(), 72), boxX + 10, boxY + 62);
+            }
+        }
+        ctx.restore();
+    }
+
+    private String truncateText(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, maxLen - 1) + "…";
     }
 
     private void drawBackgroundGrid() {
@@ -944,32 +1030,81 @@ public class Grafcet extends Pane {
     }
 
     /**
-     * Sélectionne et met en surbrillance un composant à partir d'une référence (ex: "s1", "t2", "Step1").
+     * Met à jour en direct les pastilles d'erreurs et d'avertissements sur les étapes et transitions du Canvas.
      */
-    public boolean selectComponentByReference(String ref) {
-        if (ref == null || ref.isBlank()) return false;
+    public void updateDiagnosticsVisuals(List<SfcValidationMessage> messages) {
+        for (StepAndTransitionCommonBehavior comp : components) {
+            comp.setDiagnosticMessages(List.of());
+        }
+        if (messages == null || messages.isEmpty()) {
+            redraw();
+            return;
+        }
+
+        Map<StepAndTransitionCommonBehavior, List<SfcValidationMessage>> perComponent = new HashMap<>();
+        for (SfcValidationMessage msg : messages) {
+            String ref = msg.elementId();
+            if (ref == null || ref.isBlank()) {
+                // Message global (ex: absence d'étape initiale) -> attacher à la première étape si existante
+                components.stream()
+                        .filter(Step.class::isInstance)
+                        .findFirst()
+                        .ifPresent(firstStep -> perComponent.computeIfAbsent(firstStep, k -> new ArrayList<>()).add(msg));
+                continue;
+            }
+
+            findComponentByRef(ref).ifPresent(comp ->
+                    perComponent.computeIfAbsent(comp, k -> new ArrayList<>()).add(msg)
+            );
+        }
+
+        for (var entry : perComponent.entrySet()) {
+            entry.getKey().setDiagnosticMessages(entry.getValue());
+        }
+        redraw();
+    }
+
+    private Optional<StepAndTransitionCommonBehavior> findComponentByRef(String ref) {
+        if (ref == null || ref.isBlank()) return Optional.empty();
         String clean = ref.trim().toLowerCase(Locale.ROOT);
+        if (clean.startsWith("l_")) {
+            String[] parts = clean.split("_");
+            if (parts.length >= 2) {
+                clean = parts[1];
+            }
+        }
         String digits = clean.replaceAll("[^0-9]", "");
         int targetNum = digits.isEmpty() ? -1 : Integer.parseInt(digits);
 
         for (StepAndTransitionCommonBehavior comp : components) {
-            boolean match = false;
             if (comp instanceof Step s) {
-                if (clean.startsWith("s") && (s.getNumber() == targetNum || ("s" + s.getNumber()).equalsIgnoreCase(clean) || ("step" + s.getNumber()).equalsIgnoreCase(clean))) {
-                    match = true;
+                if (clean.startsWith("s") && (s.getNumber() == targetNum
+                        || ("s" + s.getNumber()).equalsIgnoreCase(clean)
+                        || ("step" + s.getNumber()).equalsIgnoreCase(clean))) {
+                    return Optional.of(comp);
                 }
             } else if (comp instanceof Transition t) {
-                if (clean.startsWith("t") && (t.getNumber() == targetNum || ("t" + t.getNumber()).equalsIgnoreCase(clean))) {
-                    match = true;
+                if (clean.startsWith("t") && (t.getNumber() == targetNum
+                        || ("t" + t.getNumber()).equalsIgnoreCase(clean))) {
+                    return Optional.of(comp);
                 }
             }
-            if (match) {
-                components.forEach(c -> c.setSelected(false));
-                comp.setSelected(true);
-                fireSelectionChange(Optional.of(comp));
-                redraw();
-                return true;
-            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Sélectionne et met en surbrillance un composant à partir d'une référence (ex: "s1", "t2", "Step1", "l_s1_t2").
+     */
+    public boolean selectComponentByReference(String ref) {
+        Optional<StepAndTransitionCommonBehavior> found = findComponentByRef(ref);
+        if (found.isPresent()) {
+            StepAndTransitionCommonBehavior comp = found.get();
+            components.forEach(c -> c.setSelected(false));
+            comp.setSelected(true);
+            fireSelectionChange(Optional.of(comp));
+            redraw();
+            return true;
         }
         return false;
     }
@@ -1323,11 +1458,14 @@ public class Grafcet extends Pane {
             }
         }
 
-        // Désactivation temporaire de la sélection
+        // Désactivation temporaire de la sélection et des badges de diagnostic
         Map<Component, Boolean> originalSelection = new HashMap<>();
+        Map<StepAndTransitionCommonBehavior, List<SfcValidationMessage>> originalDiagnostics = new HashMap<>();
         for (StepAndTransitionCommonBehavior comp : components) {
             originalSelection.put(comp, comp.isSelected());
+            originalDiagnostics.put(comp, comp.getDiagnosticMessages());
             comp.setSelected(false);
+            comp.setDiagnosticMessages(List.of());
             for (Link link : comp.getLinksToChildren()) {
                 originalSelection.put(link, link.isSelected());
                 link.setSelected(false);
@@ -1349,6 +1487,9 @@ public class Grafcet extends Pane {
             }
             for (var entry : originalSelection.entrySet()) {
                 entry.getKey().setSelected(entry.getValue());
+            }
+            for (var entry : originalDiagnostics.entrySet()) {
+                entry.getKey().setDiagnosticMessages(entry.getValue());
             }
             g.restore();
         }

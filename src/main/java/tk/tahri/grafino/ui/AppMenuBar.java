@@ -187,6 +187,14 @@ public class AppMenuBar extends MenuBar {
         this.exportPngItem.setOnAction(event);
     }
 
+    public void setOnExit(EventHandler<ActionEvent> event) {
+        this.exitItem.setOnAction(event);
+    }
+
+    public MenuItem getExitItem() {
+        return exitItem;
+    }
+
     public void setDiagnosticsStatus(long errorCount, long warningCount) {
         if (errorCount > 0) {
             toggleDiagnosticsItem.setText("🔍 Inspection normatif (✕ " + errorCount + " Erreur(s))");

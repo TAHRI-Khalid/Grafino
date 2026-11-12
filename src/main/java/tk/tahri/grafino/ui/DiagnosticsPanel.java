@@ -89,10 +89,11 @@ public class DiagnosticsPanel extends VBox {
             okTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + "; -fx-font-size: 13px;");
 
             var okDesc = new Label("Toutes les règles fondamentales sont respectées :\n" +
-                    " • Étape initiale unique présente\n" +
-                    " • Alternance stricte Étape-Transition\n" +
-                    " • Temporisations t/Xi/d associées à des étapes valides\n" +
-                    " • Qualificateurs de compteurs (P) conformes");
+                    " • Étape initiale présente (Règle 1 CEI 60848)\n" +
+                    " • Alternance stricte Étape-Transition & continuité\n" +
+                    " • Cohérence des divergences/convergences ET & OU\n" +
+                    " • Syntaxe ST, temporisations t/Xi/d et variables E/S\n" +
+                    " • Symétrie Set/Reset et qualificateur P sur compteurs");
             okDesc.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-line-spacing: 2px;");
 
             okCard.getChildren().addAll(okTitle, okDesc);
@@ -120,9 +121,11 @@ public class DiagnosticsPanel extends VBox {
 
     private VBox createMessageCard(SfcValidationMessage msg) {
         var card = new VBox(6);
-        card.setStyle(AppTheme.CARD_STYLE);
+        String borderColor = msg.isError() ? AppTheme.RED_BORDER : AppTheme.ORANGE_BORDER;
+        card.setStyle("-fx-background-color: #FFFFFF; -fx-border-color: " + borderColor +
+                "; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 10px;");
 
-        var topRow = new HBox(8);
+        var topRow = new HBox(6);
         topRow.setAlignment(Pos.CENTER_LEFT);
 
         Label levelBadge = new Label(msg.isError() ? "✕ ERREUR" : "⚠ AVERTISSEMENT");
@@ -136,7 +139,7 @@ public class DiagnosticsPanel extends VBox {
 
         if (msg.elementId() != null && !msg.elementId().isBlank()) {
             Label elemBadge = new Label(formatElementRef(msg.elementId()));
-            elemBadge.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+            elemBadge.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
             topRow.getChildren().add(elemBadge);
         }
 
@@ -145,9 +148,10 @@ public class DiagnosticsPanel extends VBox {
         topRow.getChildren().add(spacer);
 
         if (msg.elementId() != null && !msg.elementId().isBlank()) {
-            Button inspectBtn = new Button("🔍 Voir");
-            inspectBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + "; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 1 4 1 4;");
-            inspectBtn.setTooltip(new Tooltip("Localiser et sélectionner cet élément sur le Canvas"));
+            Button inspectBtn = new Button("🔍 Localiser");
+            inspectBtn.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-text-fill: " + AppTheme.PRIMARY_TEAL +
+                    "; -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 2 7 2 7; -fx-background-radius: 4px;");
+            inspectBtn.setTooltip(new Tooltip("Sélectionner cet élément sur le Canvas pour le modifier"));
             inspectBtn.setOnAction(e -> {
                 if (onSelectElement != null) {
                     onSelectElement.accept(msg.elementId());
@@ -156,19 +160,46 @@ public class DiagnosticsPanel extends VBox {
             topRow.getChildren().add(inspectBtn);
         }
 
+        card.getChildren().add(topRow);
+
+        // Référence de la règle normative (ex: CEI 60848 — Règle 1)
+        if (msg.ruleReference() != null && !msg.ruleReference().isBlank()) {
+            Label ruleLbl = new Label("📖 " + msg.ruleReference());
+            ruleLbl.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+            card.getChildren().add(ruleLbl);
+        }
+
+        // Constat de l'erreur
         Label desc = new Label(msg.message());
         desc.setWrapText(true);
-        desc.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 1.5px;");
+        desc.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 1.5px;");
+        card.getChildren().add(desc);
 
-        card.getChildren().addAll(topRow, desc);
+        // Explication pédagogique ("Pourquoi est-ce une erreur & Comment la résoudre soi-même")
+        if (msg.hasPedagogicalHint()) {
+            VBox hintBox = new VBox(3);
+            hintBox.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-radius: 4px; -fx-background-radius: 4px; -fx-padding: 6px 8px;");
+
+            Label hintTitle = new Label("💡 Comprendre & Corriger :");
+            hintTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #0F766E;");
+
+            Label hintText = new Label(msg.pedagogicalHint());
+            hintText.setWrapText(true);
+            hintText.setStyle("-fx-font-size: 10.5px; -fx-text-fill: #475569; -fx-line-spacing: 1.2px;");
+
+            hintBox.getChildren().addAll(hintTitle, hintText);
+            card.getChildren().add(hintBox);
+        }
+
         return card;
     }
 
     private String formatElementRef(String elementId) {
         if (elementId == null) return "";
         String lower = elementId.toLowerCase();
-        if (lower.startsWith("s")) return "Étape " + elementId;
-        if (lower.startsWith("t")) return "Transition " + elementId;
+        if (lower.startsWith("l_")) return "Liaison " + elementId.substring(2);
+        if (lower.startsWith("s")) return "Étape S" + elementId.replaceAll("[^0-9]", "");
+        if (lower.startsWith("t")) return "Transition T" + elementId.replaceAll("[^0-9]", "");
         if (lower.startsWith("l")) return "Liaison " + elementId;
         return elementId;
     }
