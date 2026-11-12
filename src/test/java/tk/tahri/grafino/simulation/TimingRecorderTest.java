@@ -158,4 +158,40 @@ class TimingRecorderTest {
         assertEquals(0, recorder.getSampleCount());
         assertEquals(0L, recorder.getTotalDurationMs());
     }
+
+    @Test
+    @DisplayName("Fenêtrage temporel rapide (getSamplesInWindow) et monotonie après resetStartTime")
+    void testWindowedQueryAndResetStartTime() {
+        TimingRecorder recorder = new TimingRecorder(5000);
+        SimulationState state = new SimulationState();
+        state.setStepActive("s0", true, 0L);
+
+        // Simuler 2000 ticks de 100 ms (200 secondes)
+        for (int i = 0; i < 2000; i++) {
+            recorder.recordTick(
+                    10_000L + (i * 100L),
+                    state,
+                    SimulationStepResult.noEvolution(i, Set.of()),
+                    List.of("X0"),
+                    List.of("dcy"),
+                    List.of("KM1"),
+                    List.of()
+            );
+        }
+
+        assertEquals(2000, recorder.getSampleCount());
+        // Extraire uniquement la fenêtre [50s, 60s] (50_000 ms à 60_000 ms)
+        List<TimingSample> window = recorder.getSamplesInWindow(50_000L, 60_000L);
+        assertFalse(window.isEmpty());
+        assertTrue(window.size() <= 105, "Seuls les échantillons de la fenêtre visible doivent être extraits");
+        assertTrue(window.getFirst().timestampMs() <= 50_000L);
+        assertTrue(window.getLast().timestampMs() >= 60_000L);
+
+        // Vérifier que resetStartTime vide bien les anciens échantillons pour garantir la monotonie temporelle
+        recorder.resetStartTime();
+        assertEquals(0, recorder.getSampleCount());
+        recorder.recordTick(500_000L, state, null, List.of("X0"), List.of(), List.of(), List.of());
+        assertEquals(1, recorder.getSampleCount());
+        assertEquals(0L, recorder.getTotalDurationMs());
+    }
 }

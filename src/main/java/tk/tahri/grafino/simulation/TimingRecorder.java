@@ -104,6 +104,7 @@ public class TimingRecorder {
     }
 
     public synchronized void resetStartTime() {
+        samples.clear();
         simulationStartTimeMs = -1;
     }
 
@@ -117,6 +118,57 @@ public class TimingRecorder {
 
     public synchronized List<TimingSample> getSamples() {
         return List.copyOf(samples);
+    }
+
+    /**
+     * Retourne uniquement la sous-liste d'échantillons couvrant la fenêtre temporelle [startTimeMs, endTimeMs],
+     * incluant l'échantillon immédiatement précédent et suivant pour assurer la continuité du tracé sans copier tout l'historique.
+     */
+    public synchronized List<TimingSample> getSamplesInWindow(long startTimeMs, long endTimeMs) {
+        if (samples.isEmpty()) {
+            return List.of();
+        }
+        int n = samples.size();
+        int fromIdx = findFloorIndex(startTimeMs);
+        int toIdx = findCeilingIndex(endTimeMs);
+        fromIdx = Math.max(0, fromIdx);
+        toIdx = Math.min(n, toIdx + 1);
+        if (fromIdx >= toIdx) {
+            return List.of(samples.getLast());
+        }
+        return List.copyOf(samples.subList(fromIdx, toIdx));
+    }
+
+    private int findFloorIndex(long targetTimeMs) {
+        int low = 0;
+        int high = samples.size() - 1;
+        int result = 0;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            if (samples.get(mid).timestampMs() <= targetTimeMs) {
+                result = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return result;
+    }
+
+    private int findCeilingIndex(long targetTimeMs) {
+        int low = 0;
+        int high = samples.size() - 1;
+        int result = high;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            if (samples.get(mid).timestampMs() >= targetTimeMs) {
+                result = mid;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+        return result;
     }
 
     public synchronized int getSampleCount() {

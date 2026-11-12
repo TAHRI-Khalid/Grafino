@@ -104,13 +104,30 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
         drawNormalComponent();
     }
 
+    private static final Font ACTION_FONT = Font.font("", FontWeight.BOLD, 14);
+    private static final Font QUALIFIER_FONT = Font.font("", FontWeight.BOLD, 12);
+    private static final Text TEXT_MEASURER = new Text();
+    private static final java.util.Map<String, Double> WIDTH_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static double measureTextWidth(String str, Font font) {
+        if (str == null || str.isEmpty()) return 0.0;
+        String key = font.getSize() + ":" + str;
+        return WIDTH_CACHE.computeIfAbsent(key, k -> {
+            synchronized (TEXT_MEASURER) {
+                TEXT_MEASURER.setFont(font);
+                TEXT_MEASURER.setText(str);
+                return TEXT_MEASURER.getLayoutBounds().getWidth();
+            }
+        });
+    }
+
     protected void drawActions() {
         if (this.actions.isEmpty()) {
             return;
         }
 
-        var font = Font.font("", FontWeight.BOLD, 14);
-        var qualFont = Font.font("", FontWeight.BOLD, 12);
+        var font = ACTION_FONT;
+        var qualFont = QUALIFIER_FONT;
 
         // Ligne de liaison horizontale vers le premier bloc action
         ctx.strokeLine(getX() + UNIT_WIDTH, getY() + UNIT_HEIGHT / 2, getX() + UNIT_WIDTH + GAP, getY() + UNIT_HEIGHT / 2);
@@ -126,12 +143,10 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
                 qual += " " + action.parameter();
             }
 
-            final Text text = new Text(varName);
-            text.setFont(font);
-            final double textWidth = Math.max(30, text.getLayoutBounds().getWidth());
+            final double textWidth = Math.max(30, measureTextWidth(varName, font));
 
             boolean showQualifier = !qual.equalsIgnoreCase("Normal") && !qual.equalsIgnoreCase("N") && !qual.isEmpty();
-            double qualWidth = showQualifier ? Math.max(26, new Text(qual).getLayoutBounds().getWidth() + 10) : 0;
+            double qualWidth = showQualifier ? Math.max(26, measureTextWidth(qual, qualFont) + 10) : 0;
             double totalWidth = qualWidth + textWidth + 2 * GAP + 12;
 
             // Déterminer si l'action est active (allumée)

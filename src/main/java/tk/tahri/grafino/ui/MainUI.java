@@ -483,6 +483,9 @@ public class MainUI extends BorderPane {
             splitPane.setDividerPositions(lastDividerPosition > 0.1 && lastDividerPosition < 0.95 ? lastDividerPosition : 0.68);
             toggleTableBtn.setText("▼ Réduire");
             isTableCollapsed = false;
+            if (currentBottomView == BottomViewMode.TIMING) {
+                timingDiagramPanel.redraw();
+            }
         }
     }
 
@@ -889,7 +892,7 @@ public class MainUI extends BorderPane {
         grafcet.getComponents().forEach(c -> c.setSelected(false));
         grafcet.fireSelectionChange(Optional.empty());
 
-        // Créer le pupitre de commande interactif avec liaison au chronogramme
+        // Créer le pupitre de commande interactif avec liaison au chronogramme (rafraîchi uniquement si visible)
         activeSimulationPanel = new SimulationPanel(
                 simulator,
                 grafcet,
@@ -897,7 +900,11 @@ public class MainUI extends BorderPane {
                 variableTable.getOutputVariables(),
                 variableTable.getCounterVariables(),
                 timingRecorder,
-                timingDiagramPanel::redraw,
+                () -> {
+                    if (!isTableCollapsed && currentBottomView == BottomViewMode.TIMING) {
+                        timingDiagramPanel.redraw();
+                    }
+                },
                 this::stopSimulation
         );
 

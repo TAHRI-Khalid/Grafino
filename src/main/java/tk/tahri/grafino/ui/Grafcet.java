@@ -57,6 +57,7 @@ public class Grafcet extends Pane {
     private double zoomFactor = 1.0;
     private double panX = 0;
     private double panY = 0;
+    private long lastRenderNanos = 0;
 
     // Éditeur in-place actif
     private TextField activeInlineEditor = null;
@@ -105,13 +106,10 @@ public class Grafcet extends Pane {
 
             // Boucle de rendu
             animationTimer = new AnimationTimer() {
-                private long lastUpdate = 0;
-
                 @Override
                 public void handle(long now) {
-                    if (now - lastUpdate >= 40_000_000) {
+                    if (now - lastRenderNanos >= 40_000_000) {
                         render();
-                        lastUpdate = now;
                     }
                 }
             };
@@ -551,6 +549,7 @@ public class Grafcet extends Pane {
         double w = canvas.getWidth();
         double h = canvas.getHeight();
         if (w <= 0 || h <= 0) return;
+        lastRenderNanos = System.nanoTime();
 
         ctx.save();
         ctx.setFill(Color.WHITE);
@@ -666,10 +665,8 @@ public class Grafcet extends Pane {
         if (gridSize < 10) return;
 
         ctx.setFill(Color.rgb(215, 222, 228, 0.55));
-        double startX = panX % gridSize;
-        while (startX < 0) startX += gridSize;
-        double startY = panY % gridSize;
-        while (startY < 0) startY += gridSize;
+        double startX = Double.isFinite(panX) ? ((panX % gridSize) + gridSize) % gridSize : 0.0;
+        double startY = Double.isFinite(panY) ? ((panY % gridSize) + gridSize) % gridSize : 0.0;
 
         for (double x = startX; x < w; x += gridSize) {
             for (double y = startY; y < h; y += gridSize) {

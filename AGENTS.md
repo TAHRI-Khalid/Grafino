@@ -37,12 +37,13 @@ Le nom **Grafino** symbolise la passerelle entre :
      - Diagnostics dynamiques en cours de simulation (`SimulationPanel`) : détection des conflits d'exclusivité sur aiguillage en OU (franchissement simultané), des conflits simultanés Set (`S`) / Reset (`R`) sur une même sortie, de l'extinction du marquage et de l'état d'attente des synchronisations en ET.
      - Bouton `[🔍 Localiser]` pour centrer et sélectionner instantanément l'élément fautif sur le Canvas.
    * **Chronogramme d'Évolution Multi-voies interactif** (`TimingDiagramPanel`) :
-     - Échantillonnage cyclique temps réel sans fuite mémoire (`TimingRecorder` et `TimingSample`).
-     - Formes d'ondes digitales pour les étapes $X_n$, entrées $\%I$, sorties $\%Q$ avec remplissage translucide, et analogiques en escalier pour les compteurs $C_n$.
+     - Échantillonnage cyclique temps réel sans fuite mémoire (`TimingRecorder` et `TimingSample`) avec extraction de fenêtre temporelle par dichotomie (`getSamplesInWindow`).
+     - Fenêtre temporelle glissante (*sliding window* type oscilloscope avec suivi temps réel automatique `autoFollowLive`) et largeur de `Canvas` bornée (`MAX_CANVAS_WIDTH = 2048 px`) évitant toute réallocation continue ou dépassement de texture GPU VRAM lors des simulations longues.
+     - Formes d'ondes digitales pour les étapes $X_n$, entrées $\%I$, sorties $\%Q$ avec fusion des segments horizontaux consécutifs et remplissage translucide, et analogiques en escalier pour les compteurs $C_n$.
      - Marqueurs ambrés de franchissement de transitions ($T_n$).
      - Curseur d'inspection avec restauration d'état sur le Grafcet (*Time Travel* pédagogique).
      - Curseur de mesure différentielle $\Delta t$ et exportation des relevés au format CSV pour les comptes-rendus de TP.
-4. **Simulation synchrone interactive** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` avec lampes témoins industrielles et compteurs INT, déduplication insensible à la casse des variables pour éviter les artefacts d'affichage).
+4. **Simulation synchrone interactive haute performance** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` avec lampes témoins industrielles et compteurs INT, déduplication insensible à la casse des variables, mise en cache différentielle des états visuels et mutualisation des effets `DropShadow` pour zéro surcharge CSS/GPU).
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
 ---
@@ -155,6 +156,9 @@ tk.tahri.grafino/
 * **Indépendance UI** : Le paquet `tk.tahri.grafino.model` n'importe aucune classe JavaFX, permettant l'exécution de simulations et de tests unitaires ultra-rapides en mode headless.
 * **Smart Alignment** : Algorithme `computeSmartSnap` avec tolérance dynamique de $\pm 14\text{ px}$ et détection prioritaire des relations de parenté.
 * **Auto-Layout BFS** : Algorithme de placement hiérarchique régulier ordonnant les couches en tenant compte des divergences et convergences sans chevauchement.
+* **Fluidité Temps Réel & Sécurité GPU en Simulation** :
+  - Rendu fenêtré en $O(\log N)$ du chronogramme (`TimingRecorder.getSamplesInWindow`) sur un `Canvas` à largeur bornée (`MAX_CANVAS_WIDTH = 2048 px`), rafraîchi uniquement lorsque le panneau est déplié et visible.
+  - Mise en cache différentielle des états dans `SimulationPanel` et des largeurs de texte dans `Step.drawActions()`, évitant les invalidations CSS et réallocations de nœuds/effets JavaFX à chaque cycle de `100 ms`.
 
 ---
 

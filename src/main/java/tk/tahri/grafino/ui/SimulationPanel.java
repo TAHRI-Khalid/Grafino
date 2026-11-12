@@ -51,6 +51,8 @@ public class SimulationPanel extends VBox {
     private final Label cycleLabel = new Label("Cycle : 0");
 
     // Registres de composants visuels pour mise à jour rapide
+    private static final DropShadow ACTIVE_LAMP_GLOW = new DropShadow(12, Color.rgb(2, 132, 199, 0.85));
+
     private final Map<String, ToggleButton> toggleButtons = new HashMap<>();
     private final Map<String, Label> inputLedIndicators = new HashMap<>();
     private final Map<String, Circle> outputLamps = new HashMap<>();
@@ -58,6 +60,23 @@ public class SimulationPanel extends VBox {
     private final Map<String, Label> counterValueLabels = new HashMap<>();
     private final VBox runtimeAlertsContainer = new VBox(6);
     private int lastRuntimeAlertsHash = 0;
+
+    // Cache d'état visuel pour éviter les invalidations CSS et redessins inutiles à chaque tick
+    private final Map<String, Boolean> lastInputStates = new HashMap<>();
+    private final Map<String, Boolean> lastOutputStates = new HashMap<>();
+    private final Map<String, Integer> lastCounterValues = new HashMap<>();
+    private long lastCycleCount = -1;
+    private Set<String> lastActiveSteps = null;
+    private Set<String> lastActiveOutputs = null;
+    private Set<String> lastValidatedTrans = null;
+    private Set<String> lastTrueRecTrans = null;
+    private Set<String> lastFireableTrans = null;
+
+    // Listes de noms précalculées pour le TimingRecorder
+    private final List<String> cachedStepNames;
+    private final List<String> cachedInNames;
+    private final List<String> cachedOutNames;
+    private final List<String> cachedCountNames;
 
     public SimulationPanel(GrafcetSimulator simulator,
                            Grafcet grafcet,
@@ -84,6 +103,17 @@ public class SimulationPanel extends VBox {
         this.timingRecorder = timingRecorder;
         this.onTimingTick = onTimingTick;
         this.onClose = onClose;
+
+        List<String> sNames = new ArrayList<>();
+        for (var comp : grafcet.getComponents()) {
+            if (comp instanceof Step step) {
+                sNames.add("X" + step.getNumber());
+            }
+        }
+        this.cachedStepNames = List.copyOf(sNames);
+        this.cachedInNames = this.inputVariables.stream().map(Variable::getName).toList();
+        this.cachedOutNames = this.outputVariables.stream().map(Variable::getName).toList();
+        this.cachedCountNames = this.counterVariables.stream().map(Variable::getName).toList();
 
         this.setPrefWidth(380);
         this.setMinWidth(340);
@@ -184,7 +214,11 @@ public class SimulationPanel extends VBox {
                 tb.setStyle("-fx-background-color: #F1F5F9; -fx-text-fill: #475569; -fx-font-size: 11px; " +
                         "-fx-cursor: hand; -fx-padding: 4 10 4 10; -fx-background-radius: 4px; -fx-border-color: #CBD5E1; -fx-border-radius: 4px;");
             }
+            invalidateVisualCache();
             refreshVisuals();
+            if (onTimingTick != null) {
+                onTimingTick.run();
+            }
         });
 
         Button stopSimBtn = new Button("⏹ Arrêter");
@@ -460,25 +494,15 @@ public class SimulationPanel extends VBox {
         SimulationStepResult result = simulator.step();
         refreshVisuals();
 
-        if (timingRecorder != null) {
-            List<String> stepNames = new ArrayList<>();
-            for (var comp : grafcet.getComponents()) {
-                if (comp instanceof Step step) {
-                    stepNames.add("X" + step.getNumber());
-                }
-            }
-            List<String> inNames = inputVariables.stream().map(Variable::getName).toList();
-            List<String> outNames = outputVariables.stream().map(Variable::getName).toList();
-            List<String> countNames = counterVariables.stream().map(Variable::getName).toList();
-
+        if (timingRecorder != null && timingRecorder.isRecording()) {
             timingRecorder.recordTick(
                     System.currentTimeMillis(),
                     simulator.getState(),
                     result,
-                    stepNames,
-                    inNames,
-                    outNames,
-                    countNames
+                    cachedStepNames,
+                    cachedInNames,
+                    cachedOutNames,
+                    cachedCountNames
             );
 
             if (onTimingTick != null) {
@@ -487,39 +511,75 @@ public class SimulationPanel extends VBox {
         }
     }
 
+    private void invalidateVisualCache() {
+        lastInputStates.clear();
+        lastOutputStates.clear();
+        lastCounterValues.clear();
+        lastCycleCount = -1;
+        lastActiveSteps = null;
+        lastActiveOutputs = null;
+        lastValidatedTrans = null;
+        lastTrueRecTrans = null;
+        lastFireableTrans = null;
+        lastRuntimeAlertsHash = 0;
+    }
+
     public void refreshVisuals() {
-        // 1. Rafraîchissement du canvas Grafcet (marquage des étapes, actions et franchissabilité des transitions)
+        // 1. Rafraîchissement du canvas Grafcet uniquement si l'un des états logiques a évolué
         var activeSteps = simulator.getState().getActiveStepIds();
         var activeOutputs = simulator.getState().getActiveOutputs();
         var validatedTrans = simulator.getValidatedTransitions();
         var trueRecTrans = simulator.getTrueReceptivityTransitions();
         var fireableTrans = simulator.getFireableTransitions();
-        grafcet.updateSimulationVisuals(activeSteps, activeOutputs, validatedTrans, trueRecTrans, fireableTrans);
 
-        // 2. Mise à jour du compteur de cycles
-        cycleLabel.setText("Cycle : " + simulator.getState().getCycleCount());
+        if (!Objects.equals(activeSteps, lastActiveSteps)
+                || !Objects.equals(activeOutputs, lastActiveOutputs)
+                || !Objects.equals(validatedTrans, lastValidatedTrans)
+                || !Objects.equals(trueRecTrans, lastTrueRecTrans)
+                || !Objects.equals(fireableTrans, lastFireableTrans)) {
+            lastActiveSteps = Set.copyOf(activeSteps);
+            lastActiveOutputs = Set.copyOf(activeOutputs);
+            lastValidatedTrans = Set.copyOf(validatedTrans);
+            lastTrueRecTrans = Set.copyOf(trueRecTrans);
+            lastFireableTrans = Set.copyOf(fireableTrans);
+            grafcet.updateSimulationVisuals(activeSteps, activeOutputs, validatedTrans, trueRecTrans, fireableTrans);
+        }
 
-        // 3. Mise à jour des voyants LED d'entrées
+        // 2. Mise à jour du compteur de cycles uniquement sur changement
+        long currentCycle = simulator.getState().getCycleCount();
+        if (currentCycle != lastCycleCount) {
+            lastCycleCount = currentCycle;
+            cycleLabel.setText("Cycle : " + currentCycle);
+        }
+
+        // 3. Mise à jour des voyants LED d'entrées uniquement sur changement d'état
         for (var entry : inputLedIndicators.entrySet()) {
             String key = entry.getKey();
             boolean val = simulator.getInput(key);
-            Label led = entry.getValue();
-            led.setText(val ? "1" : "0");
-            led.setStyle(getLedStyle(val));
+            Boolean prev = lastInputStates.put(key, val);
+            if (prev == null || prev != val) {
+                Label led = entry.getValue();
+                led.setText(val ? "1" : "0");
+                led.setStyle(getLedStyle(val));
+            }
         }
 
-        // 4. Mise à jour des lampes témoins de sorties
+        // 4. Mise à jour des lampes témoins de sorties uniquement sur changement d'état
         for (var entry : outputLamps.entrySet()) {
             String key = entry.getKey();
             boolean active = simulator.isOutputActive(key);
+            Boolean prev = lastOutputStates.put(key, active);
+            if (prev != null && prev == active) {
+                continue;
+            }
             Circle lamp = entry.getValue();
             Label stateLbl = outputStateLabels.get(key);
 
             if (active) {
-                // Lampe ALLUMÉE : Cyan éclatant avec effet de halo lumineux (glow)
+                // Lampe ALLUMÉE : Cyan éclatant avec effet de halo lumineux partagé
                 lamp.setFill(Color.rgb(2, 132, 199)); // #0284C7
                 lamp.setStroke(Color.rgb(56, 189, 248)); // #38BDF8
-                lamp.setEffect(new DropShadow(12, Color.rgb(2, 132, 199, 0.85)));
+                lamp.setEffect(ACTIVE_LAMP_GLOW);
                 if (stateLbl != null) {
                     stateLbl.setText("ALLUMÉE ●");
                     stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #0284C7;");
@@ -536,10 +596,14 @@ public class SimulationPanel extends VBox {
             }
         }
 
-        // 5. Mise à jour des compteurs
+        // 5. Mise à jour des compteurs uniquement sur changement de valeur
         for (var entry : counterValueLabels.entrySet()) {
-            int val = simulator.getState().getCounterValue(entry.getKey());
-            entry.getValue().setText("Valeur : " + val);
+            String key = entry.getKey();
+            int val = simulator.getState().getCounterValue(key);
+            Integer prev = lastCounterValues.put(key, val);
+            if (prev == null || prev != val) {
+                entry.getValue().setText("Valeur : " + val);
+            }
         }
 
         // 6. Mise à jour des diagnostics dynamiques de simulation

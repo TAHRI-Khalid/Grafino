@@ -49,9 +49,14 @@ public class TimingDiagramPanel extends VBox {
     private double pixelsPerSecond = 100.0; // 100 pixels = 1 seconde
     private static final double MIN_PIXELS_PER_SEC = 20.0;
     private static final double MAX_PIXELS_PER_SEC = 500.0;
+    private static final double MAX_CANVAS_WIDTH = 2048.0;
     private static final double CHANNEL_HEIGHT = 32.0;
     private static final double HEADER_HEIGHT = 28.0;
     private static final double LABEL_COLUMN_WIDTH = 130.0;
+
+    // Fenêtre temporelle glissante (évite d'agrandir le Canvas à l'infini et de saturer la VRAM GPU)
+    private double timeOffsetSec = 0.0;
+    private boolean autoFollowLive = true;
 
     // Curseurs interactifs
     private double cursorTimeSec = -1.0; // Curseur principal rouge (-1 = suit le direct)
@@ -113,6 +118,8 @@ public class TimingDiagramPanel extends VBox {
             recorder.clear();
             cursorTimeSec = -1.0;
             measureCursorTimeSec = -1.0;
+            timeOffsetSec = 0.0;
+            autoFollowLive = true;
             redraw();
         });
 
@@ -125,9 +132,13 @@ public class TimingDiagramPanel extends VBox {
         zoomOutBtn.setOnAction(e -> zoom(0.8));
 
         resetZoomBtn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
-        resetZoomBtn.setTooltip(new Tooltip("Échelle standard (100 px = 1 seconde)"));
+        resetZoomBtn.setTooltip(new Tooltip("Échelle standard (100 px = 1 seconde) et suivi temps réel"));
         resetZoomBtn.setOnAction(e -> {
             pixelsPerSecond = 100.0;
+            cursorTimeSec = -1.0;
+            autoFollowLive = true;
+            restoreBtn.setVisible(false);
+            restoreBtn.setManaged(false);
             redraw();
         });
 
@@ -181,16 +192,17 @@ public class TimingDiagramPanel extends VBox {
 
         scrollPane.setContent(canvasContainer);
         scrollPane.setFitToHeight(true);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setStyle("-fx-background: #FFFFFF; -fx-background-color: transparent; -fx-padding: 0;");
 
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
         this.getChildren().add(scrollPane);
 
-        // Ajuster la taille du canvas lors du redimensionnement de la fenêtre
-        this.widthProperty().addListener((obs, oldW, newW) -> updateCanvasDimensions());
-        this.heightProperty().addListener((obs, oldH, newH) -> updateCanvasDimensions());
+        // Ajuster la taille du canvas uniquement lors du redimensionnement réel du panneau
+        this.widthProperty().addListener((obs, oldW, newW) -> redraw());
+        this.heightProperty().addListener((obs, oldH, newH) -> redraw());
     }
 
     private void setupMouseInteractions() {
@@ -200,13 +212,13 @@ public class TimingDiagramPanel extends VBox {
             double mouseX = e.getX();
             if (mouseX < LABEL_COLUMN_WIDTH) return;
 
-            double timeSec = (mouseX - LABEL_COLUMN_WIDTH) / pixelsPerSecond;
+            double timeSec = xToTime(mouseX);
             double maxTimeSec = recorder.getTotalDurationMs() / 1000.0;
             timeSec = Math.max(0.0, Math.min(timeSec, maxTimeSec));
 
             if (measureModeActive && measureCursorTimeSec >= 0) {
-                double distCursor = Math.abs((LABEL_COLUMN_WIDTH + cursorTimeSec * pixelsPerSecond) - mouseX);
-                double distMeasure = Math.abs((LABEL_COLUMN_WIDTH + measureCursorTimeSec * pixelsPerSecond) - mouseX);
+                double distCursor = Math.abs(cx(cursorTimeSec >= 0 ? cursorTimeSec : maxTimeSec) - mouseX);
+                double distMeasure = Math.abs(cx(measureCursorTimeSec) - mouseX);
                 if (distMeasure < distCursor && distMeasure <= 12) {
                     isDraggingMeasureCursor = true;
                     measureCursorTimeSec = timeSec;
@@ -217,6 +229,7 @@ public class TimingDiagramPanel extends VBox {
             }
 
             isDraggingCursor = true;
+            autoFollowLive = false;
             cursorTimeSec = timeSec;
             restoreBtn.setVisible(true);
             restoreBtn.setManaged(true);
@@ -227,7 +240,7 @@ public class TimingDiagramPanel extends VBox {
         canvas.setOnMouseDragged(e -> {
             if (isDraggingCursor || isDraggingMeasureCursor) {
                 double mouseX = e.getX();
-                double timeSec = Math.max(0.0, (mouseX - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
+                double timeSec = Math.max(0.0, xToTime(mouseX));
                 double maxTimeSec = recorder.getTotalDurationMs() / 1000.0;
                 timeSec = Math.min(timeSec, maxTimeSec);
 
@@ -246,11 +259,21 @@ public class TimingDiagramPanel extends VBox {
             isDraggingMeasureCursor = false;
         });
 
-        // Molette : Zoom avec Ctrl, Scroll horizontal sans Ctrl
+        // Molette : Zoom avec Ctrl, Défilement temporel horizontal sans Ctrl
         canvas.setOnScroll(e -> {
             if (e.isControlDown()) {
                 double factor = e.getDeltaY() > 0 ? 1.15 : 0.85;
                 zoom(factor);
+                e.consume();
+            } else if (Math.abs(e.getDeltaX()) > 0.1 || Math.abs(e.getDeltaY()) > 0.1) {
+                double delta = (Math.abs(e.getDeltaX()) > Math.abs(e.getDeltaY())) ? e.getDeltaX() : e.getDeltaY();
+                double shiftSec = -delta / pixelsPerSecond;
+                double maxTimeSec = recorder.getTotalDurationMs() / 1000.0;
+                double visibleSpanSec = Math.max(1.0, (canvas.getWidth() - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
+                double maxOffset = Math.max(0.0, maxTimeSec - visibleSpanSec * 0.5);
+                timeOffsetSec = Math.max(0.0, Math.min(maxOffset, timeOffsetSec + shiftSec));
+                autoFollowLive = (timeOffsetSec >= maxOffset - 0.1);
+                redraw();
                 e.consume();
             }
         });
@@ -262,14 +285,20 @@ public class TimingDiagramPanel extends VBox {
     }
 
     private void updateCanvasDimensions() {
-        double durationSec = Math.max(10.0, recorder.getTotalDurationMs() / 1000.0);
-        double reqWidth = LABEL_COLUMN_WIDTH + (durationSec * pixelsPerSecond) + 80.0;
-        double viewWidth = scrollPane.getViewportBounds() != null ? scrollPane.getViewportBounds().getWidth() : 800;
-        canvas.setWidth(Math.max(reqWidth, viewWidth - 5));
+        double viewWidth = scrollPane.getViewportBounds() != null && scrollPane.getViewportBounds().getWidth() > 100
+                ? scrollPane.getViewportBounds().getWidth()
+                : (getWidth() > 100 ? getWidth() - 24 : 800);
+        double targetWidth = Math.min(MAX_CANVAS_WIDTH, Math.max(400.0, viewWidth - 4));
+        if (Math.abs(canvas.getWidth() - targetWidth) > 1.5) {
+            canvas.setWidth(targetWidth);
+        }
 
         refreshChannelsList();
         double reqHeight = HEADER_HEIGHT + (activeChannels.size() * CHANNEL_HEIGHT) + 20.0;
-        canvas.setHeight(Math.max(reqHeight, 200.0));
+        double targetHeight = Math.max(reqHeight, 200.0);
+        if (Math.abs(canvas.getHeight() - targetHeight) > 1.5) {
+            canvas.setHeight(targetHeight);
+        }
     }
 
     private void refreshChannelsList() {
@@ -293,43 +322,72 @@ public class TimingDiagramPanel extends VBox {
     }
 
     /**
-     * Rafraîchissement complet du tracé graphique vectoriel.
+     * Rafraîchissement complet du tracé graphique vectoriel (fenêtré sur la zone visible).
      */
     public void redraw() {
         updateCanvasDimensions();
 
         double w = canvas.getWidth();
         double h = canvas.getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        double totalDurationSec = recorder.getTotalDurationMs() / 1000.0;
+        double plotWidth = Math.max(100.0, w - LABEL_COLUMN_WIDTH);
+        double visibleSpanSec = plotWidth / pixelsPerSecond;
+
+        // Suivi automatique du front temps réel (comme un oscilloscope / analyseur logique)
+        if (autoFollowLive && cursorTimeSec < 0) {
+            if (totalDurationSec > visibleSpanSec * 0.88) {
+                timeOffsetSec = totalDurationSec - visibleSpanSec * 0.88;
+            } else {
+                timeOffsetSec = 0.0;
+            }
+        }
 
         // Fond blanc pur
         ctx.setFill(Color.WHITE);
         ctx.fillRect(0, 0, w, h);
 
-        List<TimingSample> samples = recorder.getSamples();
-        double totalDurationSec = recorder.getTotalDurationMs() / 1000.0;
+        // Récupérer uniquement la tranche d'échantillons visible dans la fenêtre temporelle [timeOffsetSec, timeOffsetSec + visibleSpanSec]
+        long winStartMs = Math.max(0L, (long) (timeOffsetSec * 1000.0));
+        long winEndMs = (long) ((timeOffsetSec + visibleSpanSec + 1.0) * 1000.0);
+        List<TimingSample> visibleSamples = recorder.getSamplesInWindow(winStartMs, winEndMs);
+
+        // Clipping sur la zone de tracé à droite de la colonne des noms de voies
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(LABEL_COLUMN_WIDTH, 0, w - LABEL_COLUMN_WIDTH, h);
+        ctx.clip();
 
         // 1. Grille temporelle et graduation (Règle des secondes)
-        drawTimeGrid(w, h, totalDurationSec);
+        drawTimeGrid(w, h, visibleSpanSec);
 
         // 2. Marqueurs verticaux de franchissement de transitions
-        drawTransitionFiredMarkers(samples, h);
+        drawTransitionFiredMarkers(visibleSamples, h);
 
         // 3. Tracé des formes d'ondes pour chaque canal
         double currentY = HEADER_HEIGHT;
         for (int i = 0; i < activeChannels.size(); i++) {
             Channel ch = activeChannels.get(i);
-            drawWaveform(ch, samples, currentY, CHANNEL_HEIGHT);
+            drawWaveform(ch, visibleSamples, currentY, CHANNEL_HEIGHT, totalDurationSec);
             currentY += CHANNEL_HEIGHT;
         }
 
-        // 4. Colonne de gauche fixe avec badges des voies
+        // 4. Curseurs interactifs
+        drawCursors(h);
+
+        ctx.restore();
+
+        // 5. Colonne de gauche fixe avec badges des voies
         drawChannelsHeaderColumn(h);
 
-        // 5. Curseurs interactifs
-        drawCursors(h);
+        // 6. Mise à jour du bandeau d'information en direct
+        if (!isDraggingCursor && !isDraggingMeasureCursor) {
+            updateInfoLabel();
+        }
     }
 
-    private void drawTimeGrid(double w, double h, double totalDurationSec) {
+    private void drawTimeGrid(double w, double h, double visibleSpanSec) {
         ctx.setLineWidth(1.0);
         ctx.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
 
@@ -339,7 +397,8 @@ public class TimingDiagramPanel extends VBox {
         else if (pixelsPerSecond >= 120) timeStep = 0.5;
         else if (pixelsPerSecond <= 40) timeStep = 2.0;
 
-        double maxTime = Math.max(totalDurationSec + 2.0, (w - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
+        double firstTick = Math.floor(timeOffsetSec / timeStep) * timeStep;
+        double maxTime = timeOffsetSec + visibleSpanSec + timeStep;
 
         // Bandeau d'en-tête temporel
         ctx.setFill(Color.web(AppTheme.PANEL_BG));
@@ -347,9 +406,10 @@ public class TimingDiagramPanel extends VBox {
         ctx.setStroke(Color.web(AppTheme.BORDER_COLOR));
         ctx.strokeLine(LABEL_COLUMN_WIDTH, HEADER_HEIGHT, w, HEADER_HEIGHT);
 
-        for (double t = 0.0; t <= maxTime; t += timeStep) {
-            double x = LABEL_COLUMN_WIDTH + (t * pixelsPerSecond);
-            if (x > w) break;
+        for (double t = Math.max(0.0, firstTick); t <= maxTime; t += timeStep) {
+            double x = cx(t);
+            if (x < LABEL_COLUMN_WIDTH - 20) continue;
+            if (x > w + 20) break;
 
             // Ligne verticale de grille
             ctx.setStroke(Color.web("#F1F5F9")); // Gris très doux
@@ -371,9 +431,10 @@ public class TimingDiagramPanel extends VBox {
         ctx.setLineWidth(1.0);
         for (TimingSample s : samples) {
             if (!s.firedTransitions().isEmpty()) {
-                double x = LABEL_COLUMN_WIDTH + ((s.timestampMs() / 1000.0) * pixelsPerSecond);
+                double x = cx(s.timestampMs() / 1000.0);
+                if (x < LABEL_COLUMN_WIDTH || x > canvas.getWidth()) continue;
 
-                // Ligne ambrée pointillée
+                // Ligne ambrée
                 ctx.setStroke(Color.web("#F59E0B", 0.6)); // Ambre
                 ctx.strokeLine(x, HEADER_HEIGHT, x, h);
 
@@ -391,7 +452,7 @@ public class TimingDiagramPanel extends VBox {
         }
     }
 
-    private void drawWaveform(Channel ch, List<TimingSample> samples, double yBase, double rowHeight) {
+    private void drawWaveform(Channel ch, List<TimingSample> samples, double yBase, double rowHeight, double totalDurationSec) {
         double lowY = yBase + rowHeight - 6.0;
         double highY = yBase + 8.0;
 
@@ -414,66 +475,67 @@ public class TimingDiagramPanel extends VBox {
             }
             double valSpan = Math.max(1, maxVal - minVal);
 
-            double prevX = LABEL_COLUMN_WIDTH + ((samples.getFirst().timestampMs() / 1000.0) * pixelsPerSecond);
+            double segStartX = cx(samples.getFirst().timestampMs() / 1000.0);
             int prevVal = samples.getFirst().getCounterValue(ch.name());
             double prevY = lowY - ((prevVal - minVal) / valSpan) * (rowHeight - 14.0);
 
             for (int i = 1; i < samples.size(); i++) {
                 TimingSample cur = samples.get(i);
-                double curX = LABEL_COLUMN_WIDTH + ((cur.timestampMs() / 1000.0) * pixelsPerSecond);
+                double curX = cx(cur.timestampMs() / 1000.0);
                 int curVal = cur.getCounterValue(ch.name());
-                double curY = lowY - ((curVal - minVal) / valSpan) * (rowHeight - 14.0);
-
-                ctx.strokeLine(prevX, prevY, curX, prevY);
                 if (curVal != prevVal) {
+                    double curY = lowY - ((curVal - minVal) / valSpan) * (rowHeight - 14.0);
+                    ctx.strokeLine(segStartX, prevY, curX, prevY);
                     ctx.strokeLine(curX, prevY, curX, curY);
-                    // Libellé de la valeur
                     ctx.setFill(ch.color());
                     ctx.setFont(Font.font("Consolas", FontWeight.BOLD, 9));
                     ctx.fillText(String.valueOf(curVal), curX + 2, curY - 2);
+                    segStartX = curX;
+                    prevY = curY;
+                    prevVal = curVal;
                 }
-                prevX = curX;
-                prevY = curY;
-                prevVal = curVal;
+            }
+            double lastX = cx(samples.getLast().timestampMs() / 1000.0);
+            if (lastX > segStartX) {
+                ctx.strokeLine(segStartX, prevY, lastX, prevY);
             }
             return;
         }
 
-        // Signaux digitaux (0 ou 1) : dessin rectangulaire avec remplissage translucide
-        double prevX = LABEL_COLUMN_WIDTH + ((samples.getFirst().timestampMs() / 1000.0) * pixelsPerSecond);
+        // Signaux digitaux (0 ou 1) : fusion des segments horizontaux consécutifs de même niveau logique
+        Color fillHigh = Color.color(ch.color().getRed(), ch.color().getGreen(), ch.color().getBlue(), 0.18);
+        double segStartX = cx(samples.getFirst().timestampMs() / 1000.0);
         boolean prevVal = getChannelValue(ch, samples.getFirst());
         double prevY = prevVal ? highY : lowY;
 
         for (int i = 1; i < samples.size(); i++) {
             TimingSample cur = samples.get(i);
-            double curX = LABEL_COLUMN_WIDTH + ((cur.timestampMs() / 1000.0) * pixelsPerSecond);
             boolean curVal = getChannelValue(ch, cur);
-            double curY = curVal ? highY : lowY;
-
-            // Remplissage translucide sous niveau haut
-            if (prevVal) {
-                ctx.setFill(Color.color(ch.color().getRed(), ch.color().getGreen(), ch.color().getBlue(), 0.18));
-                ctx.fillRect(prevX, highY, curX - prevX, lowY - highY);
-            }
-
-            // Segment horizontal
-            ctx.strokeLine(prevX, prevY, curX, prevY);
-
-            // Front vertical si changement d'état (montant ou descendant)
             if (curVal != prevVal) {
-                ctx.strokeLine(curX, prevY, curX, curY);
-            }
+                double curX = cx(cur.timestampMs() / 1000.0);
+                double curY = curVal ? highY : lowY;
 
-            prevX = curX;
-            prevY = curY;
-            prevVal = curVal;
+                if (prevVal && curX > segStartX) {
+                    ctx.setFill(fillHigh);
+                    ctx.fillRect(segStartX, highY, curX - segStartX, lowY - highY);
+                }
+                ctx.strokeLine(segStartX, prevY, curX, prevY);
+                ctx.strokeLine(curX, prevY, curX, curY);
+
+                segStartX = curX;
+                prevY = curY;
+                prevVal = curVal;
+            }
         }
 
-        // Dernier remplissage jusqu'au bord si actif
-        if (prevVal && samples.size() > 0) {
-            double lastX = LABEL_COLUMN_WIDTH + (recorder.getTotalDurationMs() / 1000.0 * pixelsPerSecond);
-            ctx.setFill(Color.color(ch.color().getRed(), ch.color().getGreen(), ch.color().getBlue(), 0.18));
-            ctx.fillRect(prevX, highY, Math.max(0, lastX - prevX), lowY - highY);
+        // Dernier segment horizontal jusqu'au dernier échantillon
+        double endX = cx(Math.max(samples.getLast().timestampMs() / 1000.0, totalDurationSec));
+        if (endX > segStartX) {
+            if (prevVal) {
+                ctx.setFill(fillHigh);
+                ctx.fillRect(segStartX, highY, endX - segStartX, lowY - highY);
+            }
+            ctx.strokeLine(segStartX, prevY, endX, prevY);
         }
     }
 
@@ -536,7 +598,7 @@ public class TimingDiagramPanel extends VBox {
         // 1. Curseur principal rouge (Inspection & Time Travel)
         double activeCursorSec = (cursorTimeSec >= 0) ? cursorTimeSec : maxTimeSec;
         if (activeCursorSec >= 0) {
-            double cx = LABEL_COLUMN_WIDTH + (activeCursorSec * pixelsPerSecond);
+            double cx = cx(activeCursorSec);
 
             ctx.setStroke(Color.web("#EF4444")); // Rouge vif
             ctx.setLineWidth(1.5);
@@ -551,7 +613,7 @@ public class TimingDiagramPanel extends VBox {
 
         // 2. Curseur bleu de mesure (Δt)
         if (measureModeActive && measureCursorTimeSec >= 0) {
-            double mx = LABEL_COLUMN_WIDTH + (measureCursorTimeSec * pixelsPerSecond);
+            double mx = cx(measureCursorTimeSec);
 
             ctx.setStroke(Color.web("#3B82F6")); // Bleu mesure
             ctx.setLineWidth(1.5);
@@ -583,7 +645,11 @@ public class TimingDiagramPanel extends VBox {
     }
 
     private double cx(double timeSec) {
-        return LABEL_COLUMN_WIDTH + (timeSec * pixelsPerSecond);
+        return LABEL_COLUMN_WIDTH + ((timeSec - timeOffsetSec) * pixelsPerSecond);
+    }
+
+    private double xToTime(double x) {
+        return timeOffsetSec + ((x - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
     }
 
     private void updateInfoLabel() {
