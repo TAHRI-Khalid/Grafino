@@ -1,20 +1,7 @@
 name: Continuous Integration
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
+  workflow_dispatch:
 
 jobs:
   test-and-build:
