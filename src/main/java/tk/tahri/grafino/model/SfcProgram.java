@@ -462,19 +462,17 @@ public record SfcProgram(
             Map<String, Set<String>> downwardIntoStep,
             Map<String, Set<String>> downwardIntoTrans
     ) {
+        Set<String> flaggedConvTransIds = new HashSet<>();
+        Set<String> flaggedConvStepIds = new HashSet<>();
+
         // 1. Divergence en OU (Étape avec >= 2 transitions aval descendantes) fermée par une Convergence en ET (Transition avec >= 2 étapes amont)
         for (SfcStep divStep : steps) {
             List<String> branchTransIds = new ArrayList<>(downwardFromStep.getOrDefault(divStep.id(), Set.of()));
             if (branchTransIds.size() < 2) continue;
 
-            // Pour chaque branche issue de divStep, collecter les étapes atteignables en descendant sans traverser de divergence en ET
+            // Pour chaque branche issue de divStep, collecter les étapes atteignables en descendant
             List<Set<String>> branchReachableSteps = new ArrayList<>();
             for (String startTransId : branchTransIds) {
-                if (downwardFromTrans.getOrDefault(startTransId, Set.of()).size() > 1) {
-                    // C'est une divergence en ET immédiate, ne pas confondre
-                    branchReachableSteps.add(Set.of());
-                    continue;
-                }
                 Set<String> reachableSteps = collectReachableStepsWithoutAndDivergence(startTransId, downwardFromStep, downwardFromTrans);
                 branchReachableSteps.add(reachableSteps);
             }
@@ -490,6 +488,7 @@ public record SfcProgram(
                     }
                 }
                 if (matchedBranches >= 2) {
+                    flaggedConvTransIds.add(convTrans.id());
                     messages.add(SfcValidationMessage.error(
                             convTrans.id(),
                             "CEI 60848 — Incohérence Divergence OU / Convergence ET",
@@ -526,7 +525,8 @@ public record SfcProgram(
                     }
                 }
                 if (matchedBranches >= 2) {
-                    messages.add(SfcValidationMessage.warning(
+                    flaggedConvStepIds.add(convStep.id());
+                    messages.add(SfcValidationMessage.error(
                             convStep.id(),
                             "CEI 60848 — Incohérence Divergence ET / Convergence OU",
                             "Incohérence structurelle sur " + convStep.name() + " : des branches parallèles (divergence en ET sous "
@@ -538,6 +538,129 @@ public record SfcProgram(
                 }
             }
         }
+
+        // 3. Convergence sans divergence commune en amont (ex: fusion inter-diagrammes)
+        for (SfcTransition convTrans : transitions) {
+            Set<String> upSteps = downwardIntoTrans.getOrDefault(convTrans.id(), Set.of());
+            if (upSteps.size() < 2 || flaggedConvTransIds.contains(convTrans.id())) continue;
+            if (!hasCommonAndDivergenceAncestorModel(new ArrayList<>(upSteps), downwardFromStep, downwardFromTrans)) {
+                messages.add(SfcValidationMessage.error(
+                        convTrans.id(),
+                        "CEI 60848 — Convergence en ET sans divergence commune",
+                        "Convergence en ET non conforme sur " + convTrans.name() + " : les étapes amont ne proviennent pas d'une même divergence en ET.",
+                        "Une convergence en ET doit synchroniser des branches parallèles issues d'une même divergence en ET. "
+                                + "Vérifiez que les branches amont ne proviennent pas de diagrammes distincts."
+                ));
+            }
+        }
+
+        for (SfcStep convStep : steps) {
+            Set<String> upTrans = downwardIntoStep.getOrDefault(convStep.id(), Set.of());
+            if (upTrans.size() < 2 || flaggedConvStepIds.contains(convStep.id())) continue;
+            if (!hasCommonOrDivergenceAncestorModel(new ArrayList<>(upTrans), downwardFromStep, downwardFromTrans)) {
+                messages.add(SfcValidationMessage.error(
+                        convStep.id(),
+                        "CEI 60848 — Convergence en OU sans divergence commune",
+                        "Convergence en OU non conforme sur " + convStep.name() + " : les transitions amont ne proviennent pas d'une même divergence en OU.",
+                        "Une convergence en OU doit regrouper des séquences alternatives issues d'une même divergence en OU. "
+                                + "Vérifiez que les branches amont ne proviennent pas de diagrammes distincts."
+                ));
+            }
+        }
+    }
+
+    private boolean hasCommonAndDivergenceAncestorModel(
+            List<String> stepIds,
+            Map<String, Set<String>> downwardFromStep,
+            Map<String, Set<String>> downwardFromTrans
+    ) {
+        for (SfcTransition divTrans : transitions) {
+            List<String> branchSteps = new ArrayList<>(downwardFromTrans.getOrDefault(divTrans.id(), Set.of()));
+            if (branchSteps.size() < 2) continue;
+            List<Set<String>> branchSets = new ArrayList<>();
+            for (String startStepId : branchSteps) {
+                branchSets.add(collectAllReachableIds(startStepId, true, downwardFromStep, downwardFromTrans));
+            }
+            if (canAssignDistinctModelBranches(stepIds, branchSets)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCommonOrDivergenceAncestorModel(
+            List<String> transIds,
+            Map<String, Set<String>> downwardFromStep,
+            Map<String, Set<String>> downwardFromTrans
+    ) {
+        for (SfcStep divStep : steps) {
+            List<String> branchTrans = new ArrayList<>(downwardFromStep.getOrDefault(divStep.id(), Set.of()));
+            if (branchTrans.size() < 2) continue;
+            List<Set<String>> branchSets = new ArrayList<>();
+            for (String startTransId : branchTrans) {
+                branchSets.add(collectAllReachableIds(startTransId, false, downwardFromStep, downwardFromTrans));
+            }
+            if (canAssignDistinctModelBranches(transIds, branchSets)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<String> collectAllReachableIds(
+            String startId,
+            boolean collectSteps,
+            Map<String, Set<String>> downwardFromStep,
+            Map<String, Set<String>> downwardFromTrans
+    ) {
+        Set<String> result = new HashSet<>();
+        Queue<String> queue = new ArrayDeque<>();
+        Set<String> visited = new HashSet<>();
+        queue.add(startId);
+        visited.add(startId);
+        if (collectSteps) {
+            result.add(startId);
+        } else {
+            result.add(startId);
+        }
+        boolean currentIsStep = collectSteps;
+        // BFS alternating between steps and transitions
+        Queue<Boolean> kindQueue = new ArrayDeque<>();
+        kindQueue.add(currentIsStep);
+        while (!queue.isEmpty()) {
+            String cur = queue.poll();
+            boolean isStep = kindQueue.poll();
+            Set<String> nexts = isStep
+                    ? downwardFromStep.getOrDefault(cur, Set.of())
+                    : downwardFromTrans.getOrDefault(cur, Set.of());
+            for (String nxt : nexts) {
+                if (!isStep == collectSteps) {
+                    result.add(nxt);
+                }
+                if (visited.add(nxt)) {
+                    queue.add(nxt);
+                    kindQueue.add(!isStep);
+                }
+            }
+        }
+        return result;
+    }
+
+    private boolean canAssignDistinctModelBranches(List<String> elements, List<Set<String>> branchSets) {
+        return assignModelBranchesRecursive(elements, 0, branchSets, new boolean[branchSets.size()]);
+    }
+
+    private boolean assignModelBranchesRecursive(List<String> elements, int idx, List<Set<String>> branchSets, boolean[] used) {
+        if (idx == elements.size()) return true;
+        String elem = elements.get(idx);
+        for (int b = 0; b < branchSets.size(); b++) {
+            if (!used[b] && branchSets.get(b).contains(elem)) {
+                used[b] = true;
+                if (assignModelBranchesRecursive(elements, idx + 1, branchSets, used)) return true;
+                used[b] = false;
+            }
+        }
+        return false;
     }
 
     private Set<String> collectReachableStepsWithoutAndDivergence(
@@ -554,10 +677,6 @@ public record SfcProgram(
         while (!queueTrans.isEmpty()) {
             String tId = queueTrans.poll();
             Set<String> nextSteps = downwardFromTrans.getOrDefault(tId, Set.of());
-            if (nextSteps.size() > 1) {
-                // Divergence en ET rencontrée : ne pas propager comme simple branche OU
-                continue;
-            }
             for (String sId : nextSteps) {
                 if (visitedSteps.add(sId)) {
                     for (String nextT : downwardFromStep.getOrDefault(sId, Set.of())) {

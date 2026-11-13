@@ -298,4 +298,175 @@ class ActionBarAndUxOperationsTest {
         assertTrue(grafcet.findConvergenceCandidateTransitions(t2).isEmpty(),
                 "Aucune transition candidate en OU ne doit être proposée pour fermer une divergence en ET non synchronisée");
     }
+
+    @Test
+    @DisplayName("Mode SFC sans sélection : la barre d'actions ne contient que le bouton ＋ qui crée une nouvelle étape initiale secondaire")
+    void testSfcNoSelectionActionBarCreatesSecondaryInitialStep() {
+        Grafcet grafcet = new Grafcet(true);
+        grafcet.createInitialStep();
+        Step s1 = (Step) grafcet.getComponents().getFirst();
+
+        // Tout désélectionner pour passer en mode SFC sans sélection
+        grafcet.getComponents().forEach(c -> c.setSelected(false));
+        grafcet.refreshActionBar();
+
+        ActionBar bar = grafcet.getActionBar();
+        var buttons = bar.getAllActionButtons();
+        assertEquals(1, buttons.size(), "En mode SFC sans sélection, la barre d'actions ne doit contenir que le bouton ＋");
+        var addBtn = assertInstanceOf(javafx.scene.control.Button.class, buttons.getFirst());
+        assertEquals("＋", addBtn.getText());
+
+        // Cliquer sur le bouton ＋ crée une nouvelle étape initiale pour un diagramme secondaire
+        addBtn.fire();
+
+        assertEquals(2, grafcet.getComponents().size(), "Une seconde étape initiale doit être ajoutée");
+        var s2 = assertInstanceOf(Step.class, grafcet.getComponents().get(1));
+        assertTrue(s2.isInitial(), "La nouvelle étape créée doit être une étape initiale");
+        assertTrue(s2.isSelected(), "La nouvelle étape initiale doit être sélectionnée");
+        assertFalse(s1.isSelected(), "L'ancienne étape ne doit pas être sélectionnée");
+        assertTrue(s2.getX() > s1.getX(), "La nouvelle étape initiale secondaire doit être décalée à droite sans chevauchement");
+        assertEquals(s1.getY(), s2.getY(), 0.01, "La nouvelle étape initiale doit être alignée en haut avec la première");
+    }
+
+    @Test
+    @DisplayName("Verrouillage CEI 60848 : refus des convergences non conformes (OU→ET, ET→OU, éléments déjà reliés, inter-diagrammes)")
+    void testNonCompliantConvergencesAreRejected() {
+        Grafcet grafcet = new Grafcet(true);
+        grafcet.createInitialStep();
+        Step s1 = (Step) grafcet.getComponents().getFirst();
+
+        // 1. Divergence en OU sous S1 -> T1->S2 et T2->S3 : createAndConvergence(S2, S3) doit être refusé
+        grafcet.createOrBranch(s1);
+        Transition t1 = (Transition) s1.getLinksToChildren().get(0).getChildComponent();
+        Transition t2 = (Transition) s1.getLinksToChildren().get(1).getChildComponent();
+        grafcet.createStep(t1);
+        Step s2 = (Step) t1.getLinksToChildren().getFirst().getChildComponent();
+        grafcet.createStep(t2);
+        Step s3 = (Step) t2.getLinksToChildren().getFirst().getChildComponent();
+
+        assertNull(grafcet.createAndConvergence(List.of(s2, s3)),
+                "createAndConvergence doit refuser de fermer une divergence en OU (Deadlock CEI 60848)");
+
+        // 2. Même via raccordement manuel (glisser-déposer), relier S3 vers une transition déjà parente de S2 doit être bloqué
+        grafcet.createTransition(s2);
+        Transition t3 = (Transition) s2.getLinksToChildren().getFirst().getChildComponent();
+        assertTrue(grafcet.validateManualConvergenceLink(s3, t3).isPresent(),
+                "validateManualConvergenceLink doit bloquer le raccordement manuel créant une convergence OU→ET");
+
+        // 3. Refus si un élément a déjà une liaison descendante (S2 a déjà T3)
+        assertTrue(grafcet.validateAndConvergence(List.of(s2, s3)).isPresent());
+
+        // 4. Refus de convergence inter-diagrammes (diagramme secondaire)
+        grafcet.createInitialStep();
+        Step sInit2 = (Step) grafcet.getComponents().getLast();
+        Step sSecondaryEnd = grafcet.createTransitionAndStepPair(sInit2);
+        assertNull(grafcet.createAndConvergence(List.of(s3, sSecondaryEnd)),
+                "Deux étapes issues de diagrammes indépendants ne doivent pas pouvoir converger en ET");
+        assertTrue(grafcet.findConvergenceCandidateSteps(s3).isEmpty(),
+                "findConvergenceCandidateSteps ne doit pas proposer d'étape d'un diagramme secondaire");
+    }
+
+    @Test
+    @DisplayName("Validation modèle SfcProgram : ET→OU en ERREUR, convergence inter-diagramme en ERREUR et export SfcBranch")
+    void testSfcProgramBranchValidationAndExport() {
+        Grafcet grafcet = new Grafcet();
+        grafcet.createInitialStep();
+        Step s1 = (Step) grafcet.getComponents().getFirst();
+        grafcet.createTransition(s1);
+        Transition t1 = (Transition) s1.getLinksToChildren().getFirst().getChildComponent();
+
+        // Divergence en ET sous T1 -> S2->T2 et S3->T3
+        grafcet.createAndBranch(t1);
+        Step s2 = (Step) t1.getLinksToChildren().get(0).getChildComponent();
+        Step s3 = (Step) t1.getLinksToChildren().get(1).getChildComponent();
+        grafcet.createTransition(s2);
+        Transition t2 = (Transition) s2.getLinksToChildren().getFirst().getChildComponent();
+        grafcet.createTransition(s3);
+        Transition t3 = (Transition) s3.getLinksToChildren().getFirst().getChildComponent();
+
+        // Refus de createOrConvergence(T2, T3) côté UI
+        assertNull(grafcet.createOrConvergence(List.of(t2, t3)),
+                "createOrConvergence doit refuser de fermer une divergence en ET sans synchronisation");
+        grafcet.createStep(t2);
+        Step s4 = (Step) t2.getLinksToChildren().getFirst().getChildComponent();
+        assertTrue(grafcet.validateManualConvergenceLink(t3, s4).isPresent(),
+                "validateManualConvergenceLink doit bloquer la fermeture d'une divergence ET par une convergence OU");
+
+        // Export SfcBranch pour une convergence ET conforme
+        Grafcet validGrafcet = new Grafcet();
+        validGrafcet.createInitialStep();
+        Step vs1 = (Step) validGrafcet.getComponents().getFirst();
+        validGrafcet.createTransition(vs1);
+        Transition vt1 = (Transition) vs1.getLinksToChildren().getFirst().getChildComponent();
+        validGrafcet.createAndBranch(vt1);
+        Step vs2 = (Step) vt1.getLinksToChildren().get(0).getChildComponent();
+        Step vs3 = (Step) vt1.getLinksToChildren().get(1).getChildComponent();
+        Transition tSync = validGrafcet.createAndConvergence(List.of(vs2, vs3));
+        assertNotNull(tSync);
+        SfcProgram exported = validGrafcet.toProgram("TestBranches", List.of());
+        assertTrue(exported.branches().stream().anyMatch(b -> b.type() == tk.tahri.grafino.model.SfcBranchType.DIVERGENCE_AND),
+                "toProgram doit exporter explicitement la divergence en ET");
+        assertTrue(exported.branches().stream().anyMatch(b -> b.type() == tk.tahri.grafino.model.SfcBranchType.CONVERGENCE_AND),
+                "toProgram doit exporter explicitement la convergence en ET");
+
+        // Modèle SfcProgram direct avec ET -> OU : doit produire une ERREUR (pas un simple warning)
+        var ms0 = new tk.tahri.grafino.model.SfcStep("s0", "Step0", 0, true, 400, 40);
+        var mt1 = new tk.tahri.grafino.model.SfcTransition("t1", "T1", 1, "1", 400, 120);
+        var ms1 = new tk.tahri.grafino.model.SfcStep("s1", "Step1", 1, false, 300, 200);
+        var ms2 = new tk.tahri.grafino.model.SfcStep("s2", "Step2", 2, false, 500, 200);
+        var mt2 = new tk.tahri.grafino.model.SfcTransition("t2", "T2", 2, "1", 300, 280);
+        var mt3 = new tk.tahri.grafino.model.SfcTransition("t3", "T3", 3, "1", 500, 280);
+        var ms3 = new tk.tahri.grafino.model.SfcStep("s3", "Step3", 3, false, 400, 360);
+        var badLinks = List.of(
+                new tk.tahri.grafino.model.SfcLink("l1", "s0", "t1"),
+                new tk.tahri.grafino.model.SfcLink("l2", "t1", "s1"),
+                new tk.tahri.grafino.model.SfcLink("l3", "t1", "s2"),
+                new tk.tahri.grafino.model.SfcLink("l4", "s1", "t2"),
+                new tk.tahri.grafino.model.SfcLink("l5", "s2", "t3"),
+                new tk.tahri.grafino.model.SfcLink("l6", "t2", "s3"),
+                new tk.tahri.grafino.model.SfcLink("l7", "t3", "s3")
+        );
+        var badProg = new SfcProgram("BadEtOu", List.of(), List.of(ms0, ms1, ms2, ms3), List.of(mt1, mt2, mt3), List.of(), badLinks);
+        var msgs = badProg.validate();
+        assertTrue(msgs.stream().anyMatch(m -> m.elementId().equals("s3") && m.isError() && m.ruleReference().contains("Divergence ET / Convergence OU")),
+                "L'incohérence Divergence ET / Convergence OU doit être signalée en ERREUR dans SfcProgram.validate()");
+    }
+
+    @Test
+    @DisplayName("Prévisualisation et raccordement manuel par poignées (valide, doublon, boucle, convergence interdite, drop-to-create, poignée haute)")
+    void testManualHandleLinkPreviewAndBidirectionalHandles() {
+        Grafcet grafcet = new Grafcet();
+        grafcet.createInitialStep();
+        Step s1 = (Step) grafcet.getComponents().getFirst();
+        Step s2 = grafcet.createTransitionAndStepPair(s1);
+        Transition t1 = (Transition) s1.getLinksToChildren().getFirst().getChildComponent();
+
+        // 1. Hit-test des poignées haute et basse
+        assertTrue(s1.isTopHandlePressed(new Point2D(s1.getX() + 40, s1.getY() + 4)));
+        assertTrue(s1.isBottomHandlePressed(new Point2D(s1.getX() + 40, s1.getY() + 60)));
+
+        // 2. Doublon : tirer de S1 (bas) vers T1 déjà reliée -> DUPLICATE
+        var dupPreview = grafcet.evaluateManualLinkPreview(s1, new Point2D(t1.getX() + 40, t1.getY() + 20), true);
+        assertEquals(Grafcet.PreviewStatus.DUPLICATE, dupPreview.status());
+
+        // 3. Alternance invalide : tirer de S1 vers S2 -> INVALID
+        var altPreview = grafcet.evaluateManualLinkPreview(s1, new Point2D(s2.getX() + 40, s2.getY() + 20), true);
+        assertEquals(Grafcet.PreviewStatus.INVALID, altPreview.status());
+
+        // 4. Boucle ascendante valide : tirer de T2 (sous S2) vers S1 -> VALID_LOOP
+        grafcet.createTransition(s2);
+        Transition t2 = (Transition) s2.getLinksToChildren().getFirst().getChildComponent();
+        var loopPreview = grafcet.evaluateManualLinkPreview(t2, new Point2D(s1.getX() + 40, s1.getY() + 20), true);
+        assertEquals(Grafcet.PreviewStatus.VALID_LOOP, loopPreview.status());
+        assertTrue(loopPreview.isAscending());
+
+        // 5. Tirage dans le vide sous T2 -> FREE (aucun Drop-to-Create)
+        var freePreview = grafcet.evaluateManualLinkPreview(t2, new Point2D(t2.getX() + 40, t2.getY() + 140), true);
+        assertEquals(Grafcet.PreviewStatus.FREE, freePreview.status());
+        assertNull(freePreview.target());
+
+        // 6. Raccordement depuis poignée haute (fromBottom = false) : de S1 (haut) vers T2 (bas) -> VALID_LOOP
+        var topHandlePreview = grafcet.evaluateManualLinkPreview(s1, new Point2D(t2.getX() + 40, t2.getY() + 20), false);
+        assertEquals(Grafcet.PreviewStatus.VALID_LOOP, topHandlePreview.status());
+    }
 }

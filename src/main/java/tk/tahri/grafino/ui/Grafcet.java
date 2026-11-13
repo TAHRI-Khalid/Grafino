@@ -3,6 +3,7 @@ package tk.tahri.grafino.ui;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.geometry.VPos;
 import javafx.scene.Cursor;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
@@ -20,6 +21,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
 import tk.tahri.grafino.Handle;
 import tk.tahri.grafino.Operation;
 import tk.tahri.grafino.component.*;
@@ -194,6 +196,8 @@ public class Grafcet extends Pane {
 
                 if (component.isBottomHandlePressed(diagPt)) {
                     operation = Operation.PRESSED_TO_BOTTOM_LINK;
+                } else if (component.isTopHandlePressed(diagPt)) {
+                    operation = Operation.PRESSED_TO_TOP_LINK;
                 } else {
                     operation = Operation.PRESSED_TO_MOVE;
                     dragStartPos = new Point2D(component.getX(), component.getY());
@@ -290,19 +294,15 @@ public class Grafcet extends Pane {
                         }
                         mouseDragPosition = null;
                     }
-                    case PRESSED_TO_BOTTOM_LINK -> {
+                    case PRESSED_TO_BOTTOM_LINK, PRESSED_TO_TOP_LINK -> {
                         mouseDragPosition = diagPt;
-                        Predicate<Component> predicate;
-                        if (component instanceof Step) {
-                            predicate = com -> com instanceof Transition;
-                        } else {
-                            predicate = com -> com instanceof Step;
+                        components.forEach(com -> com.setHandle(Handle.NONE));
+                        activeGuideLines.clear();
+                        boolean fromBottom = operation == Operation.PRESSED_TO_BOTTOM_LINK;
+                        var preview = evaluateManualLinkPreview(component, diagPt, fromBottom);
+                        if (preview.target() != null && preview.status() != PreviewStatus.INVALID) {
+                            preview.target().setHandle(fromBottom ? Handle.TOP : Handle.BOTTOM);
                         }
-                        components.stream()
-                                .filter(com -> com.isPointOnTheComponent(diagPt))
-                                .filter(predicate)
-                                .findFirst()
-                                .ifPresent(com -> com.setHandle(Handle.TOP));
                     }
                     default -> {}
                 }
@@ -344,30 +344,9 @@ public class Grafcet extends Pane {
 
             Point2D diagPt = screenToDiagram(event.getX(), event.getY());
 
-            if (operation == Operation.PRESSED_TO_BOTTOM_LINK) {
-                getSelectedComponent().ifPresent(source -> {
-                    var targetOpt = components.stream()
-                            .filter(component -> component.isPointOnTheComponent(diagPt))
-                            .findFirst();
-
-                    if (targetOpt.isPresent()) {
-                        var target = targetOpt.get();
-                        if (source != target) {
-                            // Raccordement normalisé avec vérification d'alternance CEI 60848
-                            if ((source instanceof Transition && target instanceof Step) ||
-                                (source instanceof Step && target instanceof Transition)) {
-                                Link.between(ctx, source, target);
-                                notifyStatus("Liaison créée entre " + getElementName(source) + " et " + getElementName(target));
-                                notifyStructureChanged();
-                            } else {
-                                notifyStatus("⚠ Violation d'alternance CEI 60848 : une étape ne peut être reliée qu'à une transition.");
-                            }
-                        }
-                    } else if (diagPt.getY() > source.getY() + Component.UNIT_HEIGHT + 30) {
-                        // Drop-to-Create moderne : relâcher un lien dans le vide crée directement l'élément suivant à cet endroit !
-                        createElementAtDropPoint(source, diagPt);
-                    }
-                });
+            if (operation == Operation.PRESSED_TO_BOTTOM_LINK || operation == Operation.PRESSED_TO_TOP_LINK) {
+                boolean fromBottom = operation == Operation.PRESSED_TO_BOTTOM_LINK;
+                getSelectedComponent().ifPresent(anchor -> handleManualLinkRelease(anchor, diagPt, fromBottom));
             }
 
             mouseDragPosition = null;
@@ -418,6 +397,16 @@ public class Grafcet extends Pane {
                 deleteSelected();
                 event.consume();
             } else if (event.getCode() == KeyCode.ESCAPE) {
+                if (operation == Operation.PRESSED_TO_BOTTOM_LINK || operation == Operation.PRESSED_TO_TOP_LINK) {
+                    mouseDragPosition = null;
+                    operation = Operation.PRESSED_TO_MOVE;
+                    activeGuideLines.clear();
+                    components.forEach(c -> c.setHandle(Handle.NONE));
+                    notifyStatus("Raccordement manuel annulé.");
+                    redraw();
+                    event.consume();
+                    return;
+                }
                 components.forEach(c -> c.setSelected(false));
                 clearLinkSelections();
                 fireSelectionChange(Optional.empty());
@@ -510,8 +499,10 @@ public class Grafcet extends Pane {
 
         // 1. Aimantation verticale sur l'axe X (Parents, enfants puis autres composants)
         List<StepAndTransitionCommonBehavior> xCandidates = new ArrayList<>();
-        draggedComp.getLinksFromParents().forEach(l -> xCandidates.add(l.getParentComponent()));
-        draggedComp.getLinksToChildren().forEach(l -> xCandidates.add(l.getChildComponent()));
+        if (draggedComp != null) {
+            draggedComp.getLinksFromParents().forEach(l -> xCandidates.add(l.getParentComponent()));
+            draggedComp.getLinksToChildren().forEach(l -> xCandidates.add(l.getChildComponent()));
+        }
         components.stream().filter(c -> c != draggedComp && !xCandidates.contains(c)).forEach(xCandidates::add);
 
         for (var ref : xCandidates) {
@@ -711,8 +702,9 @@ public class Grafcet extends Pane {
         }
 
         // Tracé du lien dynamique en cours d'étirement
-        if (mouseDragPosition != null && operation == Operation.PRESSED_TO_BOTTOM_LINK) {
-            getSelectedComponent().ifPresent(comp -> drawDraggedLinkPreview(comp, mouseDragPosition));
+        if (mouseDragPosition != null && (operation == Operation.PRESSED_TO_BOTTOM_LINK || operation == Operation.PRESSED_TO_TOP_LINK)) {
+            boolean fromBottom = operation == Operation.PRESSED_TO_BOTTOM_LINK;
+            getSelectedComponent().ifPresent(comp -> drawDraggedLinkPreview(comp, mouseDragPosition, fromBottom));
         }
 
         ctx.restore();
@@ -739,50 +731,195 @@ public class Grafcet extends Pane {
         }
     }
 
-    private void drawDraggedLinkPreview(StepAndTransitionCommonBehavior source, Point2D mouse) {
-        final var begin = new Point2D(source.getX() + Component.UNIT_WIDTH / 2, source.getY() + Component.UNIT_HEIGHT);
+    public enum PreviewStatus {
+        VALID,
+        VALID_LOOP,
+        DUPLICATE,
+        INVALID,
+        FREE
+    }
 
-        // Vérification de la compatibilité sous le curseur
-        boolean validTargetFound = false;
-        boolean invalidAlternance = false;
+    public record ManualLinkPreview(
+            PreviewStatus status,
+            StepAndTransitionCommonBehavior target,
+            String badgeText,
+            boolean isAscending,
+            Point2D snappedStart,
+            Point2D snappedEnd
+    ) {}
 
-        for (StepAndTransitionCommonBehavior target : components) {
-            if (target != source && target.isPointOnTheComponent(mouse)) {
-                if ((source instanceof Step && target instanceof Transition) ||
-                    (source instanceof Transition && target instanceof Step)) {
-                    validTargetFound = true;
-                } else {
-                    invalidAlternance = true;
+    public ManualLinkPreview evaluateManualLinkPreview(StepAndTransitionCommonBehavior anchor, Point2D mouse, boolean fromBottom) {
+        if (anchor == null || mouse == null) {
+            return new ManualLinkPreview(PreviewStatus.FREE, null, null, false, Point2D.ZERO, Point2D.ZERO);
+        }
+
+        Point2D anchorPt = fromBottom
+                ? new Point2D(anchor.getX() + Component.UNIT_WIDTH / 2, anchor.getY() + Component.UNIT_HEIGHT)
+                : new Point2D(anchor.getX() + Component.UNIT_WIDTH / 2, anchor.getY());
+
+        StepAndTransitionCommonBehavior hovered = components.stream()
+                .filter(c -> c != anchor && c.isPointOnTheComponent(mouse))
+                .findFirst()
+                .orElse(null);
+
+        if (hovered != null) {
+            StepAndTransitionCommonBehavior source = fromBottom ? anchor : hovered;
+            StepAndTransitionCommonBehavior target = fromBottom ? hovered : anchor;
+            Point2D startPt = new Point2D(source.getX() + Component.UNIT_WIDTH / 2, source.getY() + Component.UNIT_HEIGHT);
+            Point2D endPt = new Point2D(target.getX() + Component.UNIT_WIDTH / 2, target.getY());
+            boolean ascending = target.getY() < source.getY() + Component.UNIT_HEIGHT;
+
+            boolean validAlternance = (source instanceof Step && target instanceof Transition)
+                    || (source instanceof Transition && target instanceof Step);
+            if (!validAlternance) {
+                return new ManualLinkPreview(PreviewStatus.INVALID, hovered, "✕ Alternance CEI 60848 invalide", ascending, startPt, endPt);
+            }
+
+            boolean duplicate = source.getLinksToChildren().stream().anyMatch(l -> l.getChildComponent() == target);
+            if (duplicate) {
+                return new ManualLinkPreview(PreviewStatus.DUPLICATE, hovered, "Liaison déjà existante", ascending, startPt, endPt);
+            }
+
+            Optional<String> convErr = validateManualConvergenceLink(source, target);
+            if (convErr.isPresent()) {
+                return new ManualLinkPreview(PreviewStatus.INVALID, hovered, "✕ Convergence non conforme", ascending, startPt, endPt);
+            }
+
+            if (ascending) {
+                return new ManualLinkPreview(PreviewStatus.VALID_LOOP, hovered, "▲ Boucle vers " + getElementName(target), true, startPt, endPt);
+            }
+
+            boolean createsConvergence = target.getLinksFromParents().stream().anyMatch(l -> !l.isAscending());
+            String label = createsConvergence
+                    ? (target instanceof Transition ? "✓ Convergence ET" : "✓ Convergence OU")
+                    : "✓ Raccorder à " + getElementName(target);
+            return new ManualLinkPreview(PreviewStatus.VALID, hovered, label, false, startPt, endPt);
+        }
+
+        boolean ascending = fromBottom ? (mouse.getY() < anchorPt.getY()) : (mouse.getY() > anchorPt.getY());
+        return new ManualLinkPreview(PreviewStatus.FREE, null, null, ascending, anchorPt, mouse);
+    }
+
+    private void handleManualLinkRelease(StepAndTransitionCommonBehavior anchor, Point2D diagPt, boolean fromBottom) {
+        var preview = evaluateManualLinkPreview(anchor, diagPt, fromBottom);
+        if (preview.target() != null) {
+            StepAndTransitionCommonBehavior source = fromBottom ? anchor : preview.target();
+            StepAndTransitionCommonBehavior target = fromBottom ? preview.target() : anchor;
+            switch (preview.status()) {
+                case VALID, VALID_LOOP -> {
+                    Link.between(ctx, source, target);
+                    if (preview.status() == PreviewStatus.VALID_LOOP) {
+                        notifyStatus("Boucle de reprise créée : " + getElementName(source) + " ▲ " + getElementName(target));
+                    } else {
+                        notifyStatus("Liaison créée entre " + getElementName(source) + " et " + getElementName(target));
+                    }
+                    notifyStructureChanged();
                 }
-                break;
+                case DUPLICATE -> notifyStatus("Cette liaison existe déjà entre " + getElementName(source) + " et " + getElementName(target) + ".");
+                case INVALID -> {
+                    if (!((source instanceof Transition && target instanceof Step) || (source instanceof Step && target instanceof Transition))) {
+                        notifyStatus("⚠ Violation d'alternance CEI 60848 : une étape ne peut être reliée qu'à une transition.");
+                    } else {
+                        validateManualConvergenceLink(source, target).ifPresent(err -> notifyStatus("⚠ " + err));
+                    }
+                }
+                default -> {}
+            }
+        }
+    }
+
+    private void drawDraggedLinkPreview(StepAndTransitionCommonBehavior anchor, Point2D mouse, boolean fromBottom) {
+        var preview = evaluateManualLinkPreview(anchor, mouse, fromBottom);
+        Point2D begin = preview.snappedStart();
+        Point2D end = preview.snappedEnd();
+
+        ctx.save();
+        switch (preview.status()) {
+            case VALID, VALID_LOOP -> {
+                ctx.setStroke(Color.rgb(16, 185, 129));
+                ctx.setLineWidth(3.0);
+            }
+            case DUPLICATE -> {
+                ctx.setStroke(Color.rgb(245, 158, 11));
+                ctx.setLineWidth(2.5);
+            }
+            case INVALID -> {
+                ctx.setStroke(Color.rgb(217, 56, 30));
+                ctx.setLineWidth(3.0);
+            }
+            case FREE -> {
+                ctx.setStroke(Color.rgb(0, 129, 132));
+                ctx.setLineWidth(2.0);
             }
         }
 
-        if (validTargetFound) {
-            ctx.setStroke(Color.rgb(16, 185, 129)); // Vert émeraude
-            ctx.setLineWidth(3.0);
-        } else if (invalidAlternance) {
-            ctx.setStroke(Color.rgb(217, 56, 30)); // Rouge interdiction
-            ctx.setLineWidth(3.0);
-        } else {
-            ctx.setStroke(Color.rgb(0, 129, 132)); // Arduino Teal
-            ctx.setLineWidth(2.0);
-        }
-
-        if (mouse.getY() < begin.getY()) {
-            double gutterX = (begin.getX() > mouse.getX() + 20)
-                    ? Math.max(begin.getX(), mouse.getX()) + Component.UNIT_WIDTH * 0.9
-                    : Math.min(begin.getX(), mouse.getX()) - Component.UNIT_WIDTH * 0.9;
+        if (preview.isAscending()) {
+            double gutterX = (begin.getX() > end.getX() + 20)
+                    ? Math.max(begin.getX(), end.getX()) + Component.UNIT_WIDTH * 0.9
+                    : Math.min(begin.getX(), end.getX()) - Component.UNIT_WIDTH * 0.9;
+            double topY = end.getY() - 15;
             ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), begin.getY() + 15);
             ctx.strokeLine(begin.getX(), begin.getY() + 15, gutterX, begin.getY() + 15);
-            ctx.strokeLine(gutterX, begin.getY() + 15, gutterX, mouse.getY());
-            ctx.strokeLine(gutterX, mouse.getY(), mouse.getX(), mouse.getY());
+            ctx.strokeLine(gutterX, begin.getY() + 15, gutterX, topY);
+            ctx.strokeLine(gutterX, topY, end.getX(), topY);
+            ctx.strokeLine(end.getX(), topY, end.getX(), end.getY());
+
+            // Flèche ascendante ▲
+            double midArrowY = (begin.getY() + 15 + topY) / 2.0;
+            ctx.setFill(ctx.getStroke());
+            ctx.beginPath();
+            ctx.moveTo(gutterX, midArrowY - 8);
+            ctx.lineTo(gutterX - 5, midArrowY + 6);
+            ctx.lineTo(gutterX + 5, midArrowY + 6);
+            ctx.closePath();
+            ctx.fill();
         } else {
-            double midY = (begin.getY() + mouse.getY()) / 2;
+            double midY = (begin.getY() + end.getY()) / 2;
             ctx.strokeLine(begin.getX(), begin.getY(), begin.getX(), midY);
-            ctx.strokeLine(begin.getX(), midY, mouse.getX(), midY);
-            ctx.strokeLine(mouse.getX(), midY, mouse.getX(), mouse.getY());
+            ctx.strokeLine(begin.getX(), midY, end.getX(), midY);
+            ctx.strokeLine(end.getX(), midY, end.getX(), end.getY());
         }
+
+        // Badge contextuel près du curseur
+        if (preview.badgeText() != null) {
+            drawPreviewCursorBadge(mouse.getX() + 14, mouse.getY() - 12, preview.badgeText(), preview.status());
+        }
+        ctx.restore();
+    }
+
+    private void drawPreviewCursorBadge(double x, double y, String text, PreviewStatus status) {
+        Color bg = switch (status) {
+            case VALID, VALID_LOOP -> Color.rgb(209, 250, 229, 0.96);
+            case DUPLICATE -> Color.rgb(254, 243, 199, 0.96);
+            case INVALID -> Color.rgb(254, 226, 226, 0.96);
+            case FREE -> Color.rgb(229, 245, 245, 0.96);
+        };
+        Color border = switch (status) {
+            case VALID, VALID_LOOP -> Color.rgb(16, 185, 129);
+            case DUPLICATE -> Color.rgb(245, 158, 11);
+            case INVALID -> Color.rgb(217, 56, 30);
+            case FREE -> Color.rgb(0, 129, 132);
+        };
+        Color textFill = switch (status) {
+            case VALID, VALID_LOOP -> Color.rgb(4, 120, 87);
+            case DUPLICATE -> Color.rgb(180, 83, 9);
+            case INVALID -> Color.rgb(185, 28, 28);
+            case FREE -> Color.rgb(0, 102, 104);
+        };
+
+        double w = Math.max(84, text.length() * 6.8 + 16);
+        double h = 22;
+        ctx.setFill(bg);
+        ctx.setStroke(border);
+        ctx.setLineWidth(1.2);
+        ctx.fillRoundRect(x, y - h / 2, w, h, 8, 8);
+        ctx.strokeRoundRect(x, y - h / 2, w, h, 8, 8);
+
+        ctx.setFill(textFill);
+        ctx.setFont(Font.font("SansSerif", FontWeight.BOLD, 11));
+        ctx.setTextAlign(TextAlignment.LEFT);
+        ctx.setTextBaseline(VPos.CENTER);
+        ctx.fillText(text, x + 8, y);
     }
 
     private void setupFloatingCanvasControls() {
@@ -1249,13 +1386,25 @@ public class Grafcet extends Pane {
     }
 
     public void createInitialStep() {
-        double initX = (canvas != null && canvas.getWidth() > 0) ? (canvas.getWidth() / 2 - Component.UNIT_WIDTH / 2) : 400;
+        components.forEach(com -> com.setSelected(false));
+        clearLinkSelections();
+        double initX;
+        if (components.isEmpty()) {
+            initX = (canvas != null && canvas.getWidth() > 0) ? (canvas.getWidth() / 2 - Component.UNIT_WIDTH / 2) : 400;
+        } else {
+            double maxX = components.stream()
+                    .mapToDouble(StepAndTransitionCommonBehavior::getX)
+                    .max()
+                    .orElse(400);
+            initX = maxX + 3.0 * Component.UNIT_WIDTH;
+        }
         double initY = 80;
         var initStep = new InitStep(ctx, new Point2D(initX, initY));
+        initStep.setSelected(true);
         components.add(initStep);
         fireSelectionChange(Optional.of(initStep));
         refreshActionBar();
-        notifyStatus("Étape initiale créée.");
+        notifyStatus("Étape initiale S" + initStep.getNumber() + " créée.");
         notifyStructureChanged();
         redraw();
     }
@@ -1391,31 +1540,242 @@ public class Grafcet extends Pane {
     }
 
     /**
+     * Valide qu'un groupe d'étapes peut former une Convergence en ET conforme à la norme CEI 60848.
+     */
+    public Optional<String> validateAndConvergence(List<Step> steps) {
+        return validateAndConvergenceCore(steps, null);
+    }
+
+    private Optional<String> validateAndConvergenceCore(List<Step> steps, Transition existingTarget) {
+        if (steps == null || steps.size() < 2) {
+            return Optional.of("Sélectionnez au moins 2 étapes parallèles pour créer une convergence en ET.");
+        }
+        Set<Step> unique = new LinkedHashSet<>(steps);
+        if (unique.size() < 2) {
+            return Optional.of("Sélectionnez au moins 2 étapes distinctes pour créer une convergence en ET.");
+        }
+        if (unique.stream().anyMatch(Step::isInitial)) {
+            return Optional.of("Une étape initiale ne peut pas participer à une convergence en ET.");
+        }
+        for (Step s : unique) {
+            List<Link> down = getDownwardLinks(s);
+            boolean allowedExisting = existingTarget != null
+                    && down.size() == 1
+                    && down.getFirst().getChildComponent() == existingTarget;
+            if (!down.isEmpty() && !allowedExisting) {
+                return Optional.of("L'étape S" + s.getNumber() + " possède déjà une transition aval : elle doit être en fin de branche ouverte.");
+            }
+        }
+        List<Step> stepList = List.copyOf(unique);
+        if (wouldCauseOrToAndDeadlock(stepList)) {
+            return Optional.of("Convergence en ET interdite (CEI 60848) : ces étapes sont issues d'un aiguillage en OU (Deadlock).");
+        }
+        if (!hasCommonAndDivergenceAncestor(stepList)) {
+            return Optional.of("Convergence en ET non conforme (CEI 60848) : les étapes doivent provenir de branches parallèles distinctes d'une même divergence en ET.");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Valide qu'un groupe de transitions peut former une Convergence en OU conforme à la norme CEI 60848.
+     */
+    public Optional<String> validateOrConvergence(List<Transition> transitions) {
+        return validateOrConvergenceCore(transitions, null);
+    }
+
+    private Optional<String> validateOrConvergenceCore(List<Transition> transitions, Step existingTarget) {
+        if (transitions == null || transitions.size() < 2) {
+            return Optional.of("Sélectionnez au moins 2 transitions alternatives pour créer une convergence en OU.");
+        }
+        Set<Transition> unique = new LinkedHashSet<>(transitions);
+        if (unique.size() < 2) {
+            return Optional.of("Sélectionnez au moins 2 transitions distinctes pour créer une convergence en OU.");
+        }
+        for (Transition t : unique) {
+            List<Link> down = getDownwardLinks(t);
+            boolean allowedExisting = existingTarget != null
+                    && down.size() == 1
+                    && down.getFirst().getChildComponent() == existingTarget;
+            if (!down.isEmpty() && !allowedExisting) {
+                return Optional.of("La transition T" + t.getNumber() + " possède déjà une étape aval : elle doit être en fin de branche ouverte.");
+            }
+        }
+        List<Transition> transList = List.copyOf(unique);
+        if (wouldCauseAndToOrUnsyncedConvergence(transList)) {
+            return Optional.of("Convergence en OU interdite (CEI 60848) : ces transitions sont issues de branches parallèles en ET non synchronisées.");
+        }
+        if (!hasCommonOrDivergenceAncestor(transList)) {
+            return Optional.of("Convergence en OU non conforme (CEI 60848) : les transitions doivent provenir de branches alternatives distinctes d'une même divergence en OU.");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Valide qu'un raccordement manuel (glisser-déposer) vers un élément cible ne crée pas une convergence non conforme.
+     */
+    public Optional<String> validateManualConvergenceLink(StepAndTransitionCommonBehavior source,
+                                                          StepAndTransitionCommonBehavior target) {
+        if (source == null || target == null || source == target) {
+            return Optional.empty();
+        }
+        // Une liaison ascendante (boucle de reprise) n'est pas une convergence descendante
+        boolean isAscending = target.getY() < source.getY() + Component.UNIT_HEIGHT;
+        if (isAscending) {
+            return Optional.empty();
+        }
+        List<StepAndTransitionCommonBehavior> existingDownwardParents = target.getLinksFromParents().stream()
+                .filter(l -> !l.isAscending())
+                .map(Link::getParentComponent)
+                .toList();
+        if (existingDownwardParents.isEmpty()) {
+            return Optional.empty();
+        }
+        if (target instanceof Transition targetTrans && source instanceof Step sourceStep) {
+            List<Step> allParents = new ArrayList<>();
+            for (var p : existingDownwardParents) {
+                if (p instanceof Step s) allParents.add(s);
+            }
+            allParents.add(sourceStep);
+            return validateAndConvergenceCore(allParents, targetTrans);
+        }
+        if (target instanceof Step targetStep && source instanceof Transition sourceTrans) {
+            List<Transition> allParents = new ArrayList<>();
+            for (var p : existingDownwardParents) {
+                if (p instanceof Transition t) allParents.add(t);
+            }
+            allParents.add(sourceTrans);
+            return validateOrConvergenceCore(allParents, targetStep);
+        }
+        return Optional.empty();
+    }
+
+    /**
      * Recherche les autres étapes de fin de branche (sans liaison descendante) pouvant converger en ET
-     * avec l'étape donnée sans provoquer d'incohérence CEI 60848 (Divergence OU fermée par Convergence ET).
+     * avec l'étape donnée selon la norme CEI 60848.
      */
     public List<Step> findConvergenceCandidateSteps(Step primary) {
         if (primary == null) return List.of();
         return components.stream()
                 .filter(Step.class::isInstance)
                 .map(Step.class::cast)
-                .filter(s -> s != primary && !s.isInitial() && getDownwardLinks(s).isEmpty())
-                .filter(s -> !wouldCauseOrToAndDeadlock(List.of(primary, s)))
+                .filter(s -> s != primary && validateAndConvergence(List.of(primary, s)).isEmpty())
                 .toList();
     }
 
     /**
      * Recherche les autres transitions de fin de branche (sans liaison descendante) pouvant converger en OU
-     * avec la transition donnée sans provoquer d'incohérence CEI 60848 (Divergence ET fermée par Convergence OU).
+     * avec la transition donnée selon la norme CEI 60848.
      */
     public List<Transition> findConvergenceCandidateTransitions(Transition primary) {
         if (primary == null) return List.of();
         return components.stream()
                 .filter(Transition.class::isInstance)
                 .map(Transition.class::cast)
-                .filter(t -> t != primary && getDownwardLinks(t).isEmpty())
-                .filter(t -> !wouldCauseAndToOrUnsyncedConvergence(List.of(primary, t)))
+                .filter(t -> t != primary && validateOrConvergence(List.of(primary, t)).isEmpty())
                 .toList();
+    }
+
+    private boolean hasCommonAndDivergenceAncestor(List<Step> steps) {
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Transition divTrans) {
+                List<Link> branches = getDownwardLinks(divTrans);
+                if (branches.size() < 2) continue;
+                List<Set<Step>> branchStepSets = new ArrayList<>();
+                for (Link bLink : branches) {
+                    if (bLink.getChildComponent() instanceof Step startStep) {
+                        branchStepSets.add(collectAllDownwardSteps(startStep));
+                    } else {
+                        branchStepSets.add(Set.of());
+                    }
+                }
+                if (canAssignDistinctBranches(steps, branchStepSets)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCommonOrDivergenceAncestor(List<Transition> transitions) {
+        for (StepAndTransitionCommonBehavior comp : components) {
+            if (comp instanceof Step divStep) {
+                List<Link> branches = getDownwardLinks(divStep);
+                if (branches.size() < 2) continue;
+                List<Set<Transition>> branchTransSets = new ArrayList<>();
+                for (Link bLink : branches) {
+                    if (bLink.getChildComponent() instanceof Transition startTrans) {
+                        branchTransSets.add(collectAllDownwardTransitions(startTrans));
+                    } else {
+                        branchTransSets.add(Set.of());
+                    }
+                }
+                if (canAssignDistinctBranches(transitions, branchTransSets)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private <T> boolean canAssignDistinctBranches(List<T> elements, List<Set<T>> branchSets) {
+        return assignBranchesRecursive(elements, 0, branchSets, new boolean[branchSets.size()]);
+    }
+
+    private <T> boolean assignBranchesRecursive(List<T> elements, int idx, List<Set<T>> branchSets, boolean[] usedBranch) {
+        if (idx == elements.size()) {
+            return true;
+        }
+        T elem = elements.get(idx);
+        for (int b = 0; b < branchSets.size(); b++) {
+            if (!usedBranch[b] && branchSets.get(b).contains(elem)) {
+                usedBranch[b] = true;
+                if (assignBranchesRecursive(elements, idx + 1, branchSets, usedBranch)) {
+                    return true;
+                }
+                usedBranch[b] = false;
+            }
+        }
+        return false;
+    }
+
+    private Set<Step> collectAllDownwardSteps(Step startStep) {
+        Set<Step> visitedSteps = new LinkedHashSet<>();
+        Queue<Step> queue = new ArrayDeque<>();
+        visitedSteps.add(startStep);
+        queue.add(startStep);
+        while (!queue.isEmpty()) {
+            Step s = queue.poll();
+            for (Link tLink : getDownwardLinks(s)) {
+                if (tLink.getChildComponent() instanceof Transition t) {
+                    for (Link sLink : getDownwardLinks(t)) {
+                        if (sLink.getChildComponent() instanceof Step nextS && visitedSteps.add(nextS)) {
+                            queue.add(nextS);
+                        }
+                    }
+                }
+            }
+        }
+        return visitedSteps;
+    }
+
+    private Set<Transition> collectAllDownwardTransitions(Transition startTrans) {
+        Set<Transition> visitedTrans = new LinkedHashSet<>();
+        Queue<Transition> queue = new ArrayDeque<>();
+        visitedTrans.add(startTrans);
+        queue.add(startTrans);
+        while (!queue.isEmpty()) {
+            Transition t = queue.poll();
+            for (Link sLink : getDownwardLinks(t)) {
+                if (sLink.getChildComponent() instanceof Step s) {
+                    for (Link tLink : getDownwardLinks(s)) {
+                        if (tLink.getChildComponent() instanceof Transition nextT && visitedTrans.add(nextT)) {
+                            queue.add(nextT);
+                        }
+                    }
+                }
+            }
+        }
+        return visitedTrans;
     }
 
     /**
@@ -1556,7 +1916,11 @@ public class Grafcet extends Pane {
      * Crée une Convergence en ET (synchronisation à double barre CEI 60848) reliant plusieurs étapes vers une transition commune.
      */
     public Transition createAndConvergence(List<Step> steps) {
-        if (steps == null || steps.size() < 2) return null;
+        Optional<String> validationError = validateAndConvergence(steps);
+        if (validationError.isPresent()) {
+            notifyStatus("⚠ " + validationError.get());
+            return null;
+        }
 
         components.forEach(com -> com.setSelected(false));
         clearLinkSelections();
@@ -1586,7 +1950,11 @@ public class Grafcet extends Pane {
      * Crée une Convergence en OU (regroupement de séquences CEI 60848) reliant plusieurs transitions vers une étape commune.
      */
     public Step createOrConvergence(List<Transition> transitions) {
-        if (transitions == null || transitions.size() < 2) return null;
+        Optional<String> validationError = validateOrConvergence(transitions);
+        if (validationError.isPresent()) {
+            notifyStatus("⚠ " + validationError.get());
+            return null;
+        }
 
         components.forEach(com -> com.setSelected(false));
         clearLinkSelections();
@@ -1744,34 +2112,6 @@ public class Grafcet extends Pane {
                 }
             }
         }
-    }
-
-    private void createElementAtDropPoint(StepAndTransitionCommonBehavior source, Point2D dropPt) {
-        components.forEach(com -> com.setSelected(false));
-        clearLinkSelections();
-
-        double rawX = dropPt.getX() - Component.UNIT_WIDTH / 2;
-        double rawY = dropPt.getY();
-
-        if (source instanceof Step step) {
-            var transition = new Transition(ctx);
-            transition.position = computeSmartSnap(transition, rawX, rawY);
-            activeGuideLines.clear();
-            Link.between(ctx, step, transition);
-            components.add(transition);
-            fireSelectionChange(Optional.of(transition));
-            notifyStatus("Transition T" + transition.getNumber() + " créée par glisser-déposer.");
-        } else if (source instanceof Transition trans) {
-            var step = new Step(ctx);
-            step.position = computeSmartSnap(step, rawX, rawY);
-            activeGuideLines.clear();
-            Link.between(ctx, trans, step);
-            components.add(step);
-            fireSelectionChange(Optional.of(step));
-            notifyStatus("Étape S" + step.getNumber() + " créée par glisser-déposer.");
-        }
-        notifyStructureChanged();
-        redraw();
     }
 
     public void toggleInitialStep(Step step) {
@@ -2241,7 +2581,31 @@ public class Grafcet extends Pane {
             sfcLinks.add(new SfcLink(linkId, srcId, tgtId, points));
         }
 
-        return new SfcProgram(name, iecVars, sfcSteps, sfcTransitions, List.of(), sfcLinks);
+        // 5. Conversion explicite des divergences et convergences (CEI 61131-3)
+        List<SfcBranch> sfcBranches = new ArrayList<>();
+        for (StepAndTransitionCommonBehavior comp : components) {
+            String compId = (comp instanceof Step s) ? ("s" + s.getNumber()) : ("t" + comp.getNumber());
+            List<Link> downOut = getDownwardLinks(comp);
+            if (downOut.size() >= 2) {
+                SfcBranchType divType = (comp instanceof Transition) ? SfcBranchType.DIVERGENCE_AND : SfcBranchType.DIVERGENCE_OR;
+                List<String> downIds = downOut.stream()
+                        .map(l -> (l.getChildComponent() instanceof Step s) ? ("s" + s.getNumber()) : ("t" + l.getChildComponent().getNumber()))
+                        .toList();
+                sfcBranches.add(new SfcBranch("b_div_" + compId, divType.name().toLowerCase(Locale.ROOT) + "_" + compId,
+                        divType, comp.getX(), comp.getY() + Component.UNIT_HEIGHT + 20, List.of(compId), downIds));
+            }
+            List<Link> downIn = comp.getLinksFromParents().stream().filter(l -> !l.isAscending()).toList();
+            if (downIn.size() >= 2) {
+                SfcBranchType convType = (comp instanceof Transition) ? SfcBranchType.CONVERGENCE_AND : SfcBranchType.CONVERGENCE_OR;
+                List<String> upIds = downIn.stream()
+                        .map(l -> (l.getParentComponent() instanceof Step s) ? ("s" + s.getNumber()) : ("t" + l.getParentComponent().getNumber()))
+                        .toList();
+                sfcBranches.add(new SfcBranch("b_conv_" + compId, convType.name().toLowerCase(Locale.ROOT) + "_" + compId,
+                        convType, comp.getX(), comp.getY() - 20, upIds, List.of(compId)));
+            }
+        }
+
+        return new SfcProgram(name, iecVars, sfcSteps, sfcTransitions, sfcBranches, sfcLinks);
     }
 
     /**

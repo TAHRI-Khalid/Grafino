@@ -191,6 +191,14 @@ public class Link extends Component {
         }
     }
 
+    private double computeConvergenceBarY() {
+        double maxParentBottomY = getDownwardParents().stream()
+                .mapToDouble(l -> l.getParentComponent().getY() + UNIT_HEIGHT)
+                .max()
+                .orElse(childComponent.getY() - 40);
+        return Math.max((maxParentBottomY + childComponent.getY()) / 2.0, childComponent.getY() - 20);
+    }
+
     private void drawConvergenceBar() {
         var downwardParents = getDownwardParents();
         if (downwardParents.size() <= 1) {
@@ -201,7 +209,7 @@ public class Link extends Component {
             return;
         }
 
-        double convY = childComponent.getY() - 20;
+        double convY = computeConvergenceBarY();
         double minX = downwardParents.stream()
                 .mapToDouble(l -> l.getParentComponent().getX() + UNIT_WIDTH / 2)
                 .min().orElse(childComponent.getX() + UNIT_WIDTH / 2);
@@ -305,7 +313,7 @@ public class Link extends Component {
             var p4 = end;
             path.addAll(List.of(p1, p2, p3, p4));
         } else if (hasConvergence && !hasDivergence) {
-            double convY = childComponent.getY() - 20;
+            double convY = computeConvergenceBarY();
             var p1 = begin;
             var p2 = new Point2D(begin.getX(), convY);
             var p3 = new Point2D(end.getX(), convY);
@@ -313,7 +321,7 @@ public class Link extends Component {
             path.addAll(List.of(p1, p2, p3, p4));
         } else if (hasDivergence && hasConvergence) {
             double branchY = parentComponent.getY() + UNIT_HEIGHT + 20;
-            double convY = childComponent.getY() - 20;
+            double convY = computeConvergenceBarY();
             var p1 = begin;
             var p2 = new Point2D(begin.getX(), branchY);
             var p3 = new Point2D(end.getX(), branchY);

@@ -19,7 +19,6 @@ import tk.tahri.grafino.component.StepAndTransitionCommonBehavior;
 import tk.tahri.grafino.component.Transition;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -267,12 +266,13 @@ public class ActionBar extends VBox {
 
         if (allSteps) {
             List<Step> steps = selected.stream().map(Step.class::cast).toList();
-            boolean validAndConv = !grafcet.wouldCauseOrToAndDeadlock(steps);
+            var errorOpt = grafcet.validateAndConvergence(steps);
+            boolean validAndConv = errorOpt.isEmpty();
             Button convAndBtn = createIconButton(
                     "⫘",
                     validAndConv
                             ? "Converger en ET ces " + count + " étapes vers une transition commune (C)"
-                            : "Convergence en ET interdite (CEI 60848) : ces étapes sont issues d'un aiguillage en OU (Deadlock)",
+                            : errorOpt.get(),
                     AppTheme.PRIMARY_TEAL, "#FFFFFF", AppTheme.PRIMARY_TEAL_DARK,
                     validAndConv ? GhostPreviewType.CONVERGE : GhostPreviewType.NONE,
                     () -> grafcet.createAndConvergence(steps)
@@ -281,12 +281,13 @@ public class ActionBar extends VBox {
             this.getChildren().add(convAndBtn);
         } else if (allTransitions) {
             List<Transition> transitions = selected.stream().map(Transition.class::cast).toList();
-            boolean validOrConv = !grafcet.wouldCauseAndToOrUnsyncedConvergence(transitions);
+            var errorOpt = grafcet.validateOrConvergence(transitions);
+            boolean validOrConv = errorOpt.isEmpty();
             Button convOrBtn = createIconButton(
                     "⫘",
                     validOrConv
                             ? "Converger en OU ces " + count + " transitions vers une étape commune (C)"
-                            : "Convergence en OU déconseillée (CEI 60848) : ces transitions sont issues de branches parallèles en ET non synchronisées",
+                            : errorOpt.get(),
                     AppTheme.PRIMARY_TEAL, "#FFFFFF", AppTheme.PRIMARY_TEAL_DARK,
                     validOrConv ? GhostPreviewType.CONVERGE : GhostPreviewType.NONE,
                     () -> grafcet.createOrConvergence(transitions)
@@ -353,57 +354,16 @@ public class ActionBar extends VBox {
     private void buildNoSelectionActions() {
         this.getChildren().add(createContextBadge("SFC", AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK));
 
-        // 1. Ajouter l'élément suivant à la fin de la chaîne active (ou créer l'étape initiale si vide)
-        Button quickAddBtn = createIconButton(
+        // Créer une nouvelle étape initiale (début d'un nouveau diagramme / Grafcet secondaire)
+        Button addInitialStepBtn = createIconButton(
                 "＋",
-                "Ajouter l'élément suivant en fin de Grafcet (ou créer l'étape initiale)",
+                "Créer une nouvelle étape initiale (début d'un nouveau diagramme secondaire)",
                 AppTheme.PRIMARY_TEAL, "#FFFFFF", AppTheme.PRIMARY_TEAL_DARK,
                 GhostPreviewType.NONE,
-                this::appendNextToLastLeaf
+                grafcet::createInitialStep
         );
 
-        // 2. Ajouter une séquence complète en fin de chaîne
-        Button quickSeqBtn = createIconButton(
-                "⚡",
-                "Insérer un couple complet Étape + Transition en fin de Grafcet",
-                AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK, "#B2DFDB",
-                GhostPreviewType.NONE,
-                this::appendPairToLastLeaf
-        );
-
-        this.getChildren().addAll(quickAddBtn, quickSeqBtn);
-    }
-
-    private void appendNextToLastLeaf() {
-        if (grafcet.getComponents().isEmpty()) {
-            grafcet.createInitialStep();
-            return;
-        }
-        var leaf = findLowestLeafComponent();
-        if (leaf instanceof Step step) {
-            grafcet.createTransition(step);
-        } else if (leaf instanceof Transition trans) {
-            grafcet.createStep(trans);
-        }
-    }
-
-    private void appendPairToLastLeaf() {
-        if (grafcet.getComponents().isEmpty()) {
-            grafcet.createInitialStep();
-        }
-        var leaf = findLowestLeafComponent();
-        if (leaf instanceof Step step) {
-            grafcet.createTransitionAndStepPair(step);
-        } else if (leaf instanceof Transition trans) {
-            grafcet.createStepAndTransitionPair(trans);
-        }
-    }
-
-    private StepAndTransitionCommonBehavior findLowestLeafComponent() {
-        return grafcet.getComponents().stream()
-                .filter(c -> grafcet.getDownwardLinks(c).isEmpty())
-                .max(Comparator.comparingDouble(StepAndTransitionCommonBehavior::getY))
-                .orElseGet(() -> grafcet.getComponents().getLast());
+        this.getChildren().add(addInitialStepBtn);
     }
 
     /**

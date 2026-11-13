@@ -100,23 +100,33 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
         ctx.setStroke(LINE_COLOR);
         ctx.setLineWidth(LINE_WIDTH);
         switch (handle) {
+            case NONE -> {}
             case TOP -> drawTopHandle();
             case BOTTOM -> drawBottomHandle();
             case BOTH -> {
-                if (this.linksFromParents.isEmpty()) drawTopHandle();
-                if (this.linksToChildren.isEmpty()) drawBottomHandle();
+                drawTopHandle();
+                drawBottomHandle();
             }
         }
     }
 
     private void drawTopHandle() {
-        ctx.fillOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY(), radius, radius);
-        ctx.strokeOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY(), radius, radius);
+        drawConnectionHandle(getX() + UNIT_WIDTH / 2, getY() + radius / 2);
     }
 
     private void drawBottomHandle() {
-        ctx.fillOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT - radius, radius, radius);
-        ctx.strokeOval(getX() - radius / 2 + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT - radius, radius, radius);
+        drawConnectionHandle(getX() + UNIT_WIDTH / 2, getY() + UNIT_HEIGHT - radius / 2);
+    }
+
+    private void drawConnectionHandle(double cx, double cy) {
+        double r = radius / 2.0 + 1.0;
+        ctx.save();
+        ctx.setFill(Color.rgb(0, 129, 132)); // Arduino Teal
+        ctx.setStroke(Color.WHITE);
+        ctx.setLineWidth(1.6);
+        ctx.fillOval(cx - r, cy - r, r * 2, r * 2);
+        ctx.strokeOval(cx - r, cy - r, r * 2, r * 2);
+        ctx.restore();
     }
 
     public Point2D getQuickAddNextCenter() {
@@ -193,12 +203,16 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
                 point.getY() >= topPoint.getY() && point.getY() <= bottomPoint.getY();
     }
 
+    public boolean isTopHandlePressed(Point2D point) {
+        if (position == null || point == null) return false;
+        Point2D center = new Point2D(this.getX() + UNIT_WIDTH / 2, this.getY() + radius / 2);
+        return center.distance(point) <= Math.max(radius, 12.0);
+    }
+
     public boolean isBottomHandlePressed(Point2D point) {
-        if (position == null) return false;
-        var topPoint = new Point2D(this.getX() + UNIT_WIDTH / 2 - radius / 2, this.getY() + UNIT_HEIGHT - radius);
-        var bottomPoint = new Point2D(this.getX() + UNIT_WIDTH / 2 + radius / 2, this.getY() + UNIT_HEIGHT);
-        return point.getX() >= topPoint.getX() && point.getX() <= bottomPoint.getX() &&
-                point.getY() >= topPoint.getY() && point.getY() <= bottomPoint.getY();
+        if (position == null || point == null) return false;
+        Point2D center = new Point2D(this.getX() + UNIT_WIDTH / 2, this.getY() + UNIT_HEIGHT - radius / 2);
+        return center.distance(point) <= Math.max(radius, 12.0);
     }
 
     public void updatePositionAndLinks(Point2D position) {
