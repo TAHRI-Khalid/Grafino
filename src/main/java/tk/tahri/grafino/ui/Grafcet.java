@@ -76,6 +76,12 @@ public class Grafcet extends Pane {
     private Point2D marqueeStartDiag = null;
     private Point2D marqueeCurrentDiag = null;
 
+    // Espacements par défaut lors de la création et du réalignement automatique
+    private static final double CREATION_V_GAP = 16.0;
+    private static final double CONVERGENCE_V_GAP = 20.0;
+    private static final double BRANCH_H_SPACING = 1.8 * Component.UNIT_WIDTH;
+    private static final double SECONDARY_DIAGRAM_H_SPACING = 2.4 * Component.UNIT_WIDTH;
+
     // Barre d'action contextuelle flottante & Aperçu fantôme (Ghost Preview)
     private final ActionBar actionBar;
     private ActionBar.GhostPreviewType activeGhostPreview = ActionBar.GhostPreviewType.NONE;
@@ -619,8 +625,8 @@ public class Grafcet extends Pane {
 
         double centerX = (canvas != null && canvas.getWidth() > 0) ? canvas.getWidth() / 2 - Component.UNIT_WIDTH / 2 : 400;
         double startY = 80;
-        double verticalSpacing = 85;
-        double horizontalSpacing = 180;
+        double verticalSpacing = Component.UNIT_HEIGHT + CREATION_V_GAP;
+        double horizontalSpacing = 150;
 
         byLevel.forEach((lvl, compsInLevel) -> {
             double y = startY + lvl * verticalSpacing;
@@ -1144,22 +1150,18 @@ public class Grafcet extends Pane {
     }
 
     /**
-     * Positionne la barre d'outils verticale à un emplacement fixe sur le bord gauche du Canvas,
-     * centrée verticalement.
+     * Positionne la barre d'outils verticale à un emplacement fixe en haut à gauche du Canvas
+     * afin d'éviter tout déplacement vertical lors des changements de sélection.
      */
     private void updateActionBarPosition() {
         if (actionBar == null || !actionBar.isVisible()) return;
 
         actionBar.autosize();
-        double barH = Math.max(actionBar.getHeight(), actionBar.prefHeight(-1));
-        if (barH <= 10) barH = 260;
-
-        double paneH = this.getHeight() > 0 ? this.getHeight() : 600;
         double fixedLeftX = 14.0;
-        double centeredY = Math.max(14.0, (paneH - barH) / 2.0);
+        double fixedTopY = 14.0;
 
         actionBar.setLayoutX(fixedLeftX);
-        actionBar.setLayoutY(centeredY);
+        actionBar.setLayoutY(fixedTopY);
     }
 
     private void drawMarqueeSelectionBox() {
@@ -1204,7 +1206,7 @@ public class Grafcet extends Pane {
                 if (selected.size() == 1) {
                     var comp = selected.getFirst();
                     double targetX = comp.getX();
-                    double targetY = comp.getY() + Component.UNIT_HEIGHT + 40;
+                    double targetY = comp.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
                     drawGhostLink(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT,
                                   targetX + Component.UNIT_WIDTH / 2, targetY);
                     if (comp instanceof Step) {
@@ -1218,14 +1220,14 @@ public class Grafcet extends Pane {
                 if (selected.size() == 1) {
                     var comp = selected.getFirst();
                     List<Link> downward = getDownwardLinks(comp);
-                    double targetY = comp.getY() + Component.UNIT_HEIGHT + 40;
-                    double branchBarY = comp.getY() + Component.UNIT_HEIGHT + 20;
+                    double targetY = comp.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
+                    double branchBarY = comp.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP / 2.0;
                     boolean isAndDiv = comp instanceof Transition;
 
                     if (downward.isEmpty()) {
                         // Aperçu d'ouverture de divergence complète à 2 branches
                         double firstX = comp.getX();
-                        double secondX = comp.getX() + 2.2 * Component.UNIT_WIDTH;
+                        double secondX = comp.getX() + BRANCH_H_SPACING;
                         double minCenterX = firstX + Component.UNIT_WIDTH / 2 - 15;
                         double maxCenterX = secondX + Component.UNIT_WIDTH / 2 + 15;
 
@@ -1251,7 +1253,7 @@ public class Grafcet extends Pane {
                         double minX = downward.stream()
                                 .mapToDouble(l -> l.getChildComponent().getX())
                                 .min().orElse(comp.getX());
-                        double targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+                        double targetX = maxX + BRANCH_H_SPACING;
                         double minCenterX = Math.min(minX, comp.getX()) + Component.UNIT_WIDTH / 2 - 15;
                         double maxCenterX = targetX + Component.UNIT_WIDTH / 2 + 15;
 
@@ -1272,14 +1274,14 @@ public class Grafcet extends Pane {
                     var comp = selected.getFirst();
                     List<Link> downward = getDownwardLinks(comp);
                     double targetX = comp.getX();
-                    double firstY = comp.getY() + Component.UNIT_HEIGHT + 40;
+                    double firstY = comp.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
                     if (!downward.isEmpty()) {
                         double maxX = downward.stream()
                                 .mapToDouble(l -> l.getChildComponent().getX())
                                 .max().orElse(comp.getX());
-                        targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+                        targetX = maxX + BRANCH_H_SPACING;
                     }
-                    double secondY = firstY + Component.UNIT_HEIGHT + 40;
+                    double secondY = firstY + Component.UNIT_HEIGHT + CREATION_V_GAP;
                     double midX = targetX + Component.UNIT_WIDTH / 2;
                     drawGhostLink(comp.getX() + Component.UNIT_WIDTH / 2, comp.getY() + Component.UNIT_HEIGHT, midX, firstY);
                     drawGhostLink(midX, firstY + Component.UNIT_HEIGHT, midX, secondY);
@@ -1305,8 +1307,8 @@ public class Grafcet extends Pane {
                 if (toConverge.size() >= 2) {
                     double avgX = toConverge.stream().mapToDouble(StepAndTransitionCommonBehavior::getX).average().orElse(400);
                     double maxY = toConverge.stream().mapToDouble(StepAndTransitionCommonBehavior::getY).max().orElse(200);
-                    double targetY = maxY + Component.UNIT_HEIGHT + 45;
-                    double convBarY = targetY - 20;
+                    double targetY = maxY + Component.UNIT_HEIGHT + CONVERGENCE_V_GAP;
+                    double convBarY = targetY - CONVERGENCE_V_GAP / 2.0;
                     double minCenterX = toConverge.stream().mapToDouble(c -> c.getX() + Component.UNIT_WIDTH / 2).min().orElse(avgX) - 15;
                     double maxCenterX = toConverge.stream().mapToDouble(c -> c.getX() + Component.UNIT_WIDTH / 2).max().orElse(avgX) + 15;
 
@@ -1350,7 +1352,7 @@ public class Grafcet extends Pane {
                     var parent = link.getParentComponent();
                     var child = link.getChildComponent();
                     double midX = link.isDivergence() ? child.getX() : parent.getX();
-                    double firstY = parent.getY() + Component.UNIT_HEIGHT + 35;
+                    double firstY = parent.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
                     if (parent instanceof Step) {
                         drawGhostTransitionShape(midX, firstY);
                     } else {
@@ -1396,7 +1398,7 @@ public class Grafcet extends Pane {
                     .mapToDouble(StepAndTransitionCommonBehavior::getX)
                     .max()
                     .orElse(400);
-            initX = maxX + 3.0 * Component.UNIT_WIDTH;
+            initX = maxX + SECONDARY_DIAGRAM_H_SPACING;
         }
         double initY = 80;
         var initStep = new InitStep(ctx, new Point2D(initX, initY));
@@ -1415,7 +1417,7 @@ public class Grafcet extends Pane {
         var step = new Step(ctx);
 
         double targetX = transition.getX();
-        double targetY = transition.getY() + Component.UNIT_HEIGHT + 40;
+        double targetY = transition.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
 
         // Si la transition a déjà des enfants descendants (divergence ET)
         List<Link> downward = getDownwardLinks(transition);
@@ -1423,7 +1425,7 @@ public class Grafcet extends Pane {
             double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(transition.getX());
-            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+            targetX = maxX + BRANCH_H_SPACING;
         }
 
         step.position = new Point2D(targetX, targetY);
@@ -1442,7 +1444,7 @@ public class Grafcet extends Pane {
         var transition = new Transition(ctx);
 
         double targetX = step.getX();
-        double targetY = step.getY() + Component.UNIT_HEIGHT + 40;
+        double targetY = step.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
 
         // Si l'étape a déjà des enfants descendants (divergence OU)
         List<Link> downward = getDownwardLinks(step);
@@ -1450,7 +1452,7 @@ public class Grafcet extends Pane {
             double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(step.getX());
-            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+            targetX = maxX + BRANCH_H_SPACING;
         }
 
         transition.position = new Point2D(targetX, targetY);
@@ -1471,15 +1473,15 @@ public class Grafcet extends Pane {
         clearLinkSelections();
 
         double targetX = parentStep.getX();
-        double transY = parentStep.getY() + Component.UNIT_HEIGHT + 40;
+        double transY = parentStep.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
         List<Link> downward = getDownwardLinks(parentStep);
         if (!downward.isEmpty()) {
             double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(parentStep.getX());
-            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+            targetX = maxX + BRANCH_H_SPACING;
         }
-        double stepY = transY + Component.UNIT_HEIGHT + 40;
+        double stepY = transY + Component.UNIT_HEIGHT + CREATION_V_GAP;
 
         var transition = new Transition(ctx);
         transition.setSelected(false);
@@ -1509,15 +1511,15 @@ public class Grafcet extends Pane {
         clearLinkSelections();
 
         double targetX = parentTransition.getX();
-        double stepY = parentTransition.getY() + Component.UNIT_HEIGHT + 40;
+        double stepY = parentTransition.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
         List<Link> downward = getDownwardLinks(parentTransition);
         if (!downward.isEmpty()) {
             double maxX = downward.stream()
                     .mapToDouble(l -> l.getChildComponent().getX())
                     .max().orElse(parentTransition.getX());
-            targetX = maxX + 2.2 * Component.UNIT_WIDTH;
+            targetX = maxX + BRANCH_H_SPACING;
         }
-        double transY = stepY + Component.UNIT_HEIGHT + 40;
+        double transY = stepY + Component.UNIT_HEIGHT + CREATION_V_GAP;
 
         var step = new Step(ctx);
         step.setSelected(false);
@@ -1927,7 +1929,7 @@ public class Grafcet extends Pane {
 
         double avgX = steps.stream().mapToDouble(Step::getX).average().orElse(400.0);
         double maxY = steps.stream().mapToDouble(Step::getY).max().orElse(200.0);
-        double targetY = maxY + Component.UNIT_HEIGHT + 45.0;
+        double targetY = maxY + Component.UNIT_HEIGHT + CONVERGENCE_V_GAP;
 
         var commonTransition = new Transition(ctx);
         commonTransition.position = new Point2D(avgX, targetY);
@@ -1961,7 +1963,7 @@ public class Grafcet extends Pane {
 
         double avgX = transitions.stream().mapToDouble(Transition::getX).average().orElse(400.0);
         double maxY = transitions.stream().mapToDouble(Transition::getY).max().orElse(200.0);
-        double targetY = maxY + Component.UNIT_HEIGHT + 45.0;
+        double targetY = maxY + Component.UNIT_HEIGHT + CONVERGENCE_V_GAP;
 
         var commonStep = new Step(ctx);
         commonStep.position = new Point2D(avgX, targetY);
@@ -2041,15 +2043,15 @@ public class Grafcet extends Pane {
         }
 
         // Décaler tous les descendants aval vers le bas pour faire de la place au couple inséré
-        double shiftY = 2 * (Component.UNIT_HEIGHT + 40);
+        double shiftY = 2 * (Component.UNIT_HEIGHT + CREATION_V_GAP);
         shiftDownstreamComponents(child, shiftY);
 
         components.forEach(c -> c.setSelected(false));
         clearLinkSelections();
 
         double midX = wasDivergence ? child.getX() : parent.getX();
-        double firstY = parent.getY() + Component.UNIT_HEIGHT + 40;
-        double secondY = firstY + Component.UNIT_HEIGHT + 40;
+        double firstY = parent.getY() + Component.UNIT_HEIGHT + CREATION_V_GAP;
+        double secondY = firstY + Component.UNIT_HEIGHT + CREATION_V_GAP;
 
         if (parent instanceof Step step && child instanceof Transition transChild) {
             // S_parent -> [T_new -> S_new] -> T_child

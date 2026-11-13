@@ -14,9 +14,9 @@ import java.util.regex.Pattern;
  */
 public class Variable {
 
-    // Motifs de validation de l'adresse API (CEI 61131-3 et microcontrôleur)
+    // Motifs de validation de l'adresse API (CEI 61131-3 : %I, %Q, %M et broches microcontrôleur)
     public static final Pattern IEC_ADDRESS_PATTERN =
-            Pattern.compile("^%(?i:[IQMG])([XBWDLxbwdl])?\\d+(\\.\\d+)*$");
+            Pattern.compile("^%(?i:[IQM])([XBWDLxbwdl])?\\d+(\\.\\d+)*$");
     public static final Pattern HARDWARE_PIN_PATTERN =
             Pattern.compile("^(?i:PIN\\s*\\d+|D\\d+|A\\d+)$");
 
@@ -77,7 +77,7 @@ public class Variable {
                     } else {
                         String trimmed = currentAddr.trim().toUpperCase();
                         if (trimmed.startsWith("%I") || trimmed.startsWith("%Q") ||
-                            trimmed.startsWith("%M") || trimmed.startsWith("%G")) {
+                            trimmed.startsWith("%M")) {
                             this.address.set(targetPrefix + currentAddr.substring(2));
                         } else {
                             this.address.set(targetPrefix + "0.0");
@@ -100,7 +100,7 @@ public class Variable {
         if (raw == null) return "";
         String s = raw.trim();
         // Si l'utilisateur a omis le '%' initial mais a saisi un format IEC valide (ex: I0.0, Q0.1, IW2)
-        if (s.matches("^(?i:[IQMG])([XBWDLxbwdl])?\\d+(\\.\\d+)*$")) {
+        if (s.matches("^(?i:[IQM])([XBWDLxbwdl])?\\d+(\\.\\d+)*$")) {
             s = "%" + s;
         }
         return s.toUpperCase();
@@ -112,7 +112,6 @@ public class Variable {
         if (upper.startsWith("%I")) return IecVariableScope.VAR_INPUT;
         if (upper.startsWith("%Q")) return IecVariableScope.VAR_OUTPUT;
         if (upper.startsWith("%M")) return IecVariableScope.VAR;
-        if (upper.startsWith("%G")) return IecVariableScope.VAR_GLOBAL;
         return IecVariableScope.VAR;
     }
 

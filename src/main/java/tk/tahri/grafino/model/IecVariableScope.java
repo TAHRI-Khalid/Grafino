@@ -13,9 +13,6 @@ public enum IecVariableScope {
     /** Mémoires internes locales au bloc (%M...). */
     VAR("%M", "Mémoire interne"),
 
-    /** Variables globales partagées (%G...). */
-    VAR_GLOBAL("%G", "Variable globale"),
-
     /** Paramètres transmis par référence. */
     VAR_IN_OUT("", "Paramètre In/Out");
 

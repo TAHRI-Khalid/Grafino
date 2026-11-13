@@ -101,6 +101,7 @@ class VariableTest {
         assertFalse(Variable.isValidAddress("123"));
         assertFalse(Variable.isValidAddress("%%I0.0"));
         assertFalse(Variable.isValidAddress("%I0.-1"));
+        assertFalse(Variable.isValidAddress("%G0.0"));
 
         // Test comportement setAddress avec valeur invalide
         var v = new Variable("test", Variable.Type.BOOL, "%I0.0", "");

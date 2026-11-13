@@ -205,14 +205,21 @@ class ActionBarAndUxOperationsTest {
             }
         }
 
-        // Vérifier que la barre est ancrée à une position fixe sur le côté gauche du Canvas (x = 14)
+        // Vérifier que la barre est ancrée à une position fixe en haut à gauche du Canvas (x = 14, y = 14)
         assertEquals(14.0, bar.getLayoutX(), 0.01, "La barre verticale doit être fixe sur le bord gauche du Canvas");
+        assertEquals(14.0, bar.getLayoutY(), 0.01, "La barre verticale doit rester fixe en Y lors de la sélection d'une étape");
 
-        // Sélection d'une transition : la position X reste fixe à gauche
+        // Sélection d'une transition : la position (X, Y) reste fixe sans déplacement vertical
         grafcet.createTransition(s1);
         Transition t1 = (Transition) s1.getLinksToChildren().getFirst().getChildComponent();
         assertTrue(bar.isVisible(), "La barre verticale doit rester visible lorsqu'une transition est sélectionnée");
         assertEquals(14.0, bar.getLayoutX(), 0.01, "La barre verticale reste fixe sur le bord gauche (x = 14)");
+        assertEquals(14.0, bar.getLayoutY(), 0.01, "La barre verticale reste fixe en Y lors de la sélection d'une transition");
+
+        // Désélection : la position Y ne saute pas
+        grafcet.getComponents().forEach(c -> c.setSelected(false));
+        grafcet.refreshActionBar();
+        assertEquals(14.0, bar.getLayoutY(), 0.01, "La barre verticale reste fixe en Y après désélection");
 
         // Masquage automatique pendant la simulation
         grafcet.updateSimulationVisuals(java.util.Set.of("s1"), java.util.Set.of());

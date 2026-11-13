@@ -229,7 +229,7 @@ public class VariableTable extends VBox {
             public IecVariableScope fromString(String string) {
                 return null;
             }
-        }, IecVariableScope.VAR_INPUT, IecVariableScope.VAR_OUTPUT, IecVariableScope.VAR, IecVariableScope.VAR_GLOBAL));
+        }, IecVariableScope.VAR_INPUT, IecVariableScope.VAR_OUTPUT, IecVariableScope.VAR));
         scopeCol.setOnEditCommit(event -> {
             Variable row = event.getRowValue();
             IecVariableScope newScope = event.getNewValue();
@@ -471,7 +471,7 @@ public class VariableTable extends VBox {
         String currentAddr = targetVar.getAddress();
         String candidate;
         if (currentAddr != null && (currentAddr.startsWith("%I") || currentAddr.startsWith("%Q") ||
-                currentAddr.startsWith("%M") || currentAddr.startsWith("%G"))) {
+                currentAddr.startsWith("%M"))) {
             candidate = prefix + currentAddr.substring(2);
         } else {
             candidate = prefix + "0.0";

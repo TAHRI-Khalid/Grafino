@@ -320,7 +320,6 @@ public class SfcStorage {
         return switch (s) {
             case "VAR_INPUT", "INPUT" -> IecVariableScope.VAR_INPUT;
             case "VAR_OUTPUT", "OUTPUT" -> IecVariableScope.VAR_OUTPUT;
-            case "VAR_GLOBAL", "GLOBAL" -> IecVariableScope.VAR_GLOBAL;
             case "VAR_IN_OUT", "IN_OUT" -> IecVariableScope.VAR_IN_OUT;
             default -> IecVariableScope.VAR;
         };
