@@ -276,4 +276,52 @@ class GrafcetDrawingLogicTest {
         step.setActive(false);
         assertFalse(step.isActive());
     }
+
+    @Test
+    @DisplayName("Déplacement vertical borné (anti-chevauchement) : une liaison directe ne se transforme pas en boucle")
+    void testClampPositionPreventsFalseAscendingLoop() {
+        var grafcet = new tk.tahri.grafino.ui.Grafcet(false);
+
+        var s1 = new InitStep(null, new Point2D(400, 80));
+        var t1 = new Transition(null);
+        t1.position = new Point2D(400, 200);
+        var s2 = new Step(null);
+        s2.position = new Point2D(400, 320);
+
+        grafcet.getComponents().addAll(java.util.List.of(s1, t1, s2));
+        var linkS1T1 = Link.between(null, s1, t1);
+        var linkT1S2 = Link.between(null, t1, s2);
+
+        // Tentative de déplacer T1 tout en haut (au-dessus de S1)
+        var clampedUp = grafcet.clampPositionWithoutOverlap(t1, 400, 50);
+        t1.updatePositionAndLinks(clampedUp);
+        assertEquals(s1.getY() + Component.UNIT_HEIGHT + tk.tahri.grafino.ui.Grafcet.MIN_VERTICAL_GAP,
+                t1.getY(), 0.01, "T1 doit être bloqué sous S1 avec la marge minimale");
+        assertFalse(linkS1T1.isAscending(), "La liaison S1 -> T1 ne doit pas devenir ascendante");
+
+        // Tentative de déplacer T1 tout en bas (en-dessous de S2)
+        var clampedDown = grafcet.clampPositionWithoutOverlap(t1, 400, 400);
+        t1.updatePositionAndLinks(clampedDown);
+        assertEquals(s2.getY() - Component.UNIT_HEIGHT - tk.tahri.grafino.ui.Grafcet.MIN_VERTICAL_GAP,
+                t1.getY(), 0.01, "T1 doit être bloqué au-dessus de S2 avec la marge minimale");
+        assertFalse(linkT1S2.isAscending(), "La liaison T1 -> S2 ne doit pas devenir ascendante");
+    }
+
+    @Test
+    @DisplayName("Déplacement vertical d'un composant non relié : pas de chevauchement dans la même colonne")
+    void testClampPositionPreventsOverlapWithUnlinkedComponent() {
+        var grafcet = new tk.tahri.grafino.ui.Grafcet(false);
+
+        var s1 = new Step(null);
+        s1.position = new Point2D(400, 100);
+        var s2 = new Step(null);
+        s2.position = new Point2D(400, 250);
+
+        grafcet.getComponents().addAll(java.util.List.of(s1, s2));
+
+        // Déplacement de s2 vers le haut jusqu'à chevaucher s1
+        var clamped = grafcet.clampPositionWithoutOverlap(s2, 400, 110);
+        assertEquals(s1.getY() + Component.UNIT_HEIGHT + tk.tahri.grafino.ui.Grafcet.MIN_VERTICAL_GAP,
+                clamped.getY(), 0.01, "s2 ne doit pas chevaucher s1 dans la même colonne");
+    }
 }

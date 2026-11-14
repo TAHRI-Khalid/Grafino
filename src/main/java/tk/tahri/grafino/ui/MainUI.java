@@ -402,10 +402,14 @@ public class MainUI extends BorderPane {
             grafcet.getSelectedComponent().ifPresent(component -> {
                 int step = event.isControlDown() ? 10 : 2;
                 switch (event.getCode()) {
-                    case UP -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() - step));
-                    case DOWN -> component.updatePositionAndLinks(new Point2D(component.getX(), component.getY() + step));
-                    case LEFT -> component.updatePositionAndLinks(new Point2D(component.getX() - step, component.getY()));
-                    case RIGHT -> component.updatePositionAndLinks(new Point2D(component.getX() + step, component.getY()));
+                    case UP -> component.updatePositionAndLinks(
+                            grafcet.clampPositionWithoutOverlap(component, component.getX(), component.getY() - step));
+                    case DOWN -> component.updatePositionAndLinks(
+                            grafcet.clampPositionWithoutOverlap(component, component.getX(), component.getY() + step));
+                    case LEFT -> component.updatePositionAndLinks(
+                            grafcet.clampPositionWithoutOverlap(component, component.getX() - step, component.getY()));
+                    case RIGHT -> component.updatePositionAndLinks(
+                            grafcet.clampPositionWithoutOverlap(component, component.getX() + step, component.getY()));
                     default -> { return; }
                 }
                 refreshDiagnostics();

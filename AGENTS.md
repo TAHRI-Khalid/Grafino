@@ -17,6 +17,7 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Raccordement manuel bidirectionnel par poignées haute et basse (`PRESSED_TO_BOTTOM_LINK` / `PRESSED_TO_TOP_LINK`) avec prévisualisation temps réel conforme CEI 60848 (`evaluateManualLinkPreview` : badge curseur, aimantation sur connecteur cible, flèche `▲` en boucle ascendante, blocage des doublons et convergences non conformes, annulation par `Échap`).
    * Raccourcis clavier universels rapides (`T`/`Entrée` transition, `S`/`Entrée` étape, `Shift + Entrée` séquence complète, `B` branche, `C` convergence, `R` boucle, `I` étape initiale, `Suppr` suppression) permettant d'épurer la barre d'outils supérieure des boutons redondants.
    * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
+   * Bornage vertical anti-chevauchement lors du déplacement à la souris ou au clavier (`clampPositionWithoutOverlap`, `MIN_VERTICAL_GAP = 16 px`), y compris en multi-sélection (`clampGroupDeltaY`), empêchant un composant de recouvrir un voisin ou de transformer une liaison descendante directe en fausse boucle ascendante.
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / menu `Édition > Aligner & Centrer`).
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).

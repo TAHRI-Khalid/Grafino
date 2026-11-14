@@ -78,6 +78,7 @@ public class Grafcet extends Pane {
 
     // Espacements par défaut lors de la création et du réalignement automatique
     private static final double CREATION_V_GAP = 16.0;
+    public static final double MIN_VERTICAL_GAP = CREATION_V_GAP;
     private static final double CONVERGENCE_V_GAP = 20.0;
     private static final double BRANCH_H_SPACING = 1.8 * Component.UNIT_WIDTH;
     private static final double SECONDARY_DIAGRAM_H_SPACING = 2.4 * Component.UNIT_WIDTH;
@@ -287,16 +288,21 @@ public class Grafcet extends Pane {
                         isDraggingComponent = true;
                         double rawX = diagPt.getX() - pressedH;
                         double rawY = diagPt.getY() - pressedV;
-                        var position = computeSmartSnap(component, rawX, rawY);
-                        double dx = position.getX() - component.getX();
-                        double dy = position.getY() - component.getY();
-                        component.updatePositionAndLinks(position);
+                        var snapped = computeSmartSnap(component, rawX, rawY);
+                        var selectedList = getSelectedComponents();
+                        var movingGroup = Set.copyOf(selectedList);
 
-                        // Si plusieurs éléments sont sélectionnés, déplacer tout le groupe ensemble
-                        for (var other : getSelectedComponents()) {
-                            if (other != component) {
-                                other.updatePositionAndLinks(new Point2D(other.getX() + dx, other.getY() + dy));
+                        var clampedPrimary = clampPositionWithoutOverlap(component, snapped.getX(), snapped.getY(), movingGroup);
+                        double dx = clampedPrimary.getX() - component.getX();
+                        double dy = clampedPrimary.getY() - component.getY();
+
+                        if (selectedList.size() > 1) {
+                            double groupDy = clampGroupDeltaY(selectedList, movingGroup, dx, dy);
+                            for (var member : selectedList) {
+                                member.updatePositionAndLinks(new Point2D(member.getX() + dx, member.getY() + groupDy));
                             }
+                        } else {
+                            component.updatePositionAndLinks(clampedPrimary);
                         }
                         mouseDragPosition = null;
                     }
@@ -551,6 +557,91 @@ public class Grafcet extends Pane {
         }
 
         return new Point2D(snappedX, snappedY);
+    }
+
+    /**
+     * Empêche un composant en cours de déplacement de chevaucher un composant voisin
+     * ou de passer au-dessus/en-dessous d'un élément auquel il est relié par une liaison descendante
+     * (ce qui transformerait à tort une liaison directe en boucle ascendante).
+     */
+    public Point2D clampPositionWithoutOverlap(StepAndTransitionCommonBehavior draggedComp, double targetX, double targetY) {
+        return clampPositionWithoutOverlap(draggedComp, targetX, targetY, Set.of(draggedComp));
+    }
+
+    public Point2D clampPositionWithoutOverlap(
+            StepAndTransitionCommonBehavior draggedComp,
+            double targetX,
+            double targetY,
+            Set<StepAndTransitionCommonBehavior> movingGroup) {
+        if (draggedComp == null) {
+            return new Point2D(targetX, targetY);
+        }
+
+        double minY = Double.NEGATIVE_INFINITY;
+        double maxY = Double.POSITIVE_INFINITY;
+        double draggedCenterY = draggedComp.getY() + Component.UNIT_HEIGHT / 2.0;
+
+        // 1. Contraintes des liaisons descendantes directes (parents au-dessus, enfants en-dessous)
+        for (Link link : draggedComp.getLinksFromParents()) {
+            if (!link.isAscending()) {
+                var parent = link.getParentComponent();
+                if (!movingGroup.contains(parent)) {
+                    minY = Math.max(minY, parent.getY() + Component.UNIT_HEIGHT + MIN_VERTICAL_GAP);
+                }
+            }
+        }
+        for (Link link : draggedComp.getLinksToChildren()) {
+            if (!link.isAscending()) {
+                var child = link.getChildComponent();
+                if (!movingGroup.contains(child)) {
+                    maxY = Math.min(maxY, child.getY() - Component.UNIT_HEIGHT - MIN_VERTICAL_GAP);
+                }
+            }
+        }
+
+        // 2. Contraintes anti-chevauchement avec tout autre composant dans la même colonne horizontale
+        for (var other : components) {
+            if (other == draggedComp || movingGroup.contains(other)) {
+                continue;
+            }
+            boolean horizontalOverlap = targetX < other.getX() + Component.UNIT_WIDTH - 1.0
+                    && targetX + Component.UNIT_WIDTH > other.getX() + 1.0;
+            if (horizontalOverlap) {
+                double otherCenterY = other.getY() + Component.UNIT_HEIGHT / 2.0;
+                if (draggedCenterY <= otherCenterY) {
+                    maxY = Math.min(maxY, other.getY() - Component.UNIT_HEIGHT - MIN_VERTICAL_GAP);
+                } else {
+                    minY = Math.max(minY, other.getY() + Component.UNIT_HEIGHT + MIN_VERTICAL_GAP);
+                }
+            }
+        }
+
+        double clampedY;
+        if (minY <= maxY) {
+            clampedY = Math.max(minY, Math.min(maxY, targetY));
+        } else {
+            // Si deux voisins sont déjà plus proches que 2*MIN_VERTICAL_GAP + UNIT_HEIGHT, garder la position actuelle
+            clampedY = draggedComp.getY();
+        }
+        return new Point2D(targetX, clampedY);
+    }
+
+    private double clampGroupDeltaY(
+            List<StepAndTransitionCommonBehavior> selectedList,
+            Set<StepAndTransitionCommonBehavior> movingGroup,
+            double dx,
+            double dy) {
+        double allowedDy = dy;
+        for (var member : selectedList) {
+            var clamped = clampPositionWithoutOverlap(member, member.getX() + dx, member.getY() + allowedDy, movingGroup);
+            double memberDy = clamped.getY() - member.getY();
+            if (dy >= 0) {
+                allowedDy = Math.min(allowedDy, Math.max(0.0, memberDy));
+            } else {
+                allowedDy = Math.max(allowedDy, Math.min(0.0, memberDy));
+            }
+        }
+        return allowedDy;
     }
 
     private String getElementName(StepAndTransitionCommonBehavior comp) {
