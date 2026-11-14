@@ -256,7 +256,7 @@ public class AppMenuBar extends MenuBar {
                 "l'ingénierie des automatismes industriels selon les normes internationales :\n\n" +
                 " • CEI 60848 (Spécification fonctionnelle Grafcet)\n" +
                 " • CEI 61131-3 (Programmation SFC, types de données & variables API)\n\n" +
-                "Version : 1.0.3\n" +
+                "Version : 1.0.4\n" +
                 "Plateforme : Java 27 / JavaFX 27"
         );
         alert.showAndWait();

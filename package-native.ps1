@@ -1,6 +1,6 @@
 ﻿param (
     [string]$PackageType = "msi",
-    [string]$AppVersion = "1.0.3"
+    [string]$AppVersion = "1.0.4"
 )
 
 $ErrorActionPreference = "Stop"
