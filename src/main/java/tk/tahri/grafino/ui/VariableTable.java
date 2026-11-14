@@ -143,20 +143,12 @@ public class VariableTable extends VBox {
         addInternalBtn.setOnMouseExited(e -> addInternalBtn.setStyle(internalStyle));
         addInternalBtn.setOnAction(e -> addQuickInternal());
 
-        var addCounterBtn = new Button("＋ Compteur (INT)");
-        String counterStyle = "-fx-background-color: #E67E22; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
-        String counterHover = "-fx-background-color: #D35400; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
-        addCounterBtn.setStyle(counterStyle);
-        addCounterBtn.setOnMouseEntered(e -> addCounterBtn.setStyle(counterHover));
-        addCounterBtn.setOnMouseExited(e -> addCounterBtn.setStyle(counterStyle));
-        addCounterBtn.setOnAction(e -> addQuickCounter());
-
         var deleteBtn = new Button("🗑");
         deleteBtn.setTooltip(new Tooltip("Supprimer la variable sélectionnée"));
         deleteBtn.setStyle("-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 8 4 8; -fx-background-radius: 6; -fx-cursor: hand;");
         deleteBtn.setOnAction(e -> removeSelectedVariable());
 
-        bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, addCounterBtn, deleteBtn);
+        bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, deleteBtn);
         return bar;
     }
 
@@ -259,12 +251,24 @@ public class VariableTable extends VBox {
         typeCol.setMinWidth(100);
         typeCol.setPrefWidth(110);
         typeCol.setCellFactory(ComboBoxTableCell.forTableColumn(
-                IecDataType.BOOL, IecDataType.INT, IecDataType.DINT,
-                IecDataType.REAL, IecDataType.TIME, IecDataType.STRING
+                IecDataType.BOOL, IecDataType.INT, IecDataType.REAL, IecDataType.TIME
         ));
         typeCol.setOnEditCommit(event -> {
-            event.getRowValue().setType(event.getNewValue());
-            notifyChanged();
+            Variable row = event.getRowValue();
+            IecDataType oldType = row.getType();
+            IecDataType newType = event.getNewValue();
+            if (newType != null) {
+                row.setType(newType);
+                adjustAddressForType(row, newType);
+                String initVal = row.getInitialValue();
+                if (initVal == null || initVal.isBlank()
+                        || (oldType != null && initVal.equalsIgnoreCase(oldType.defaultValue()))
+                        || (oldType == IecDataType.BOOL && ("TRUE".equalsIgnoreCase(initVal) || "FALSE".equalsIgnoreCase(initVal)))) {
+                    row.setInitialValue(newType.defaultValue());
+                }
+                table.refresh();
+                notifyChanged();
+            }
         });
 
         // 4. Colonne Adresse Matérielle avec validation en temps réel
@@ -445,6 +449,27 @@ public class VariableTable extends VBox {
 
     private int getNextAddressOffset(String prefix) {
         return Variable.nextBitIndex(prefix, masterData.stream().map(Variable::getAddress).toList());
+    }
+
+    public void adjustAddressForType(Variable targetVar, IecDataType newType) {
+        if (targetVar == null || newType == null) return;
+        IecVariableScope scope = targetVar.getScope() != null ? targetVar.getScope() : IecVariableScope.VAR;
+        String prefix = scope.iecPrefix();
+        if (prefix == null || prefix.isBlank()) {
+            prefix = "%M";
+        }
+
+        String currentAddr = targetVar.getAddress();
+        if (Variable.addressMatchesType(currentAddr, newType)
+                && Variable.inferScope(currentAddr) == scope) {
+            return;
+        }
+
+        List<String> otherAddresses = masterData.stream()
+                .filter(other -> other != targetVar)
+                .map(Variable::getAddress)
+                .toList();
+        targetVar.setAddress(Variable.nextAddressForType(prefix, newType, otherAddresses));
     }
 
     public void adjustAddressForScope(Variable targetVar, IecVariableScope newScope) {

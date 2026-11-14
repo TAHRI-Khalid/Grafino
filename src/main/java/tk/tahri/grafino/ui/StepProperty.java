@@ -5,7 +5,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.util.StringConverter;
 import tk.tahri.grafino.component.Action;
 import tk.tahri.grafino.component.Step;
 import tk.tahri.grafino.component.Variable;
@@ -185,57 +184,44 @@ public class StepProperty extends VBox {
             durationBox.setManaged(isTimed);
         });
 
-        // Variable cible (%Q)
-        var varLabel = new Label("Variable cible (%Q) :");
+        // Variable cible (%Q) sous forme de boutons cliquables (similaire aux entrées %I)
+        var varLabel = new Label("Sorties préactionneurs disponibles (%Q) :");
         varLabel.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
-        var varCombo = new ComboBox<Variable>();
-        varCombo.setMaxWidth(Double.MAX_VALUE);
-        varCombo.setStyle("-fx-font-size: 11px;");
-        if (outputVariables != null) {
-            varCombo.getItems().addAll(outputVariables);
+        box.getChildren().addAll(qualLabel, qualifierCombo, durationBox, varLabel);
+
+        if (outputVariables == null || outputVariables.isEmpty()) {
+            var emptyLabel = new Label("Aucune sortie %Q définie dans la table.");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            box.getChildren().add(emptyLabel);
+        } else {
+            var chipsPane = new FlowPane(5, 5);
+            for (Variable varOutput : outputVariables) {
+                var chip = new Button(varOutput.getName());
+                chip.setMnemonicParsing(false);
+                chip.setTooltip(new Tooltip(varOutput.getAddress() + (varOutput.getComment().isEmpty() ? "" : " : " + varOutput.getComment())));
+                chip.setStyle(AppTheme.CHIP_INPUT_STYLE);
+                chip.setOnMouseEntered(e -> chip.setStyle(AppTheme.CHIP_INPUT_HOVER_STYLE));
+                chip.setOnMouseExited(e -> chip.setStyle(AppTheme.CHIP_INPUT_STYLE));
+                chip.setOnAction(e -> {
+                    String qualRaw = qualifierCombo.getSelectionModel().getSelectedItem();
+                    String qual = (qualRaw != null) ? qualRaw.substring(0, 1) : "N";
+
+                    String param = null;
+                    if (qual.equals("L") || qual.equals("D")) {
+                        param = durationField.getText().trim() + unitCombo.getSelectionModel().getSelectedItem();
+                    }
+
+                    Action newAction = new Action(qual, varOutput, param);
+                    step.getActions().add(newAction);
+                    refreshActionsList(step);
+                    notifyRedraw();
+                });
+                chipsPane.getChildren().add(chip);
+            }
+            box.getChildren().add(chipsPane);
         }
-        varCombo.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(Variable v) {
-                return (v != null) ? v.getName() + " (" + v.getAddress() + ")" : "";
-            }
-            @Override
-            public Variable fromString(String string) {
-                return null;
-            }
-        });
-        if (!varCombo.getItems().isEmpty()) {
-            varCombo.getSelectionModel().select(0);
-        }
 
-        // Bouton d'ajout
-        var addBtn = new Button("＋ Associer l'action %Q");
-        addBtn.setMaxWidth(Double.MAX_VALUE);
-        addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
-        addBtn.setOnMouseEntered(e -> addBtn.setStyle(AppTheme.PRIMARY_BUTTON_HOVER_STYLE));
-        addBtn.setOnMouseExited(e -> addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE));
-        addBtn.setOnAction(e -> {
-            Variable selectedVar = varCombo.getSelectionModel().getSelectedItem();
-            if (selectedVar == null) {
-                return;
-            }
-
-            String qualRaw = qualifierCombo.getSelectionModel().getSelectedItem();
-            String qual = (qualRaw != null) ? qualRaw.substring(0, 1) : "N";
-
-            String param = null;
-            if (qual.equals("L") || qual.equals("D")) {
-                param = durationField.getText().trim() + unitCombo.getSelectionModel().getSelectedItem();
-            }
-
-            Action newAction = new Action(qual, selectedVar, param);
-            step.getActions().add(newAction);
-            refreshActionsList(step);
-            notifyRedraw();
-        });
-
-        box.getChildren().addAll(qualLabel, qualifierCombo, durationBox, varLabel, varCombo, addBtn);
         return box;
     }
 

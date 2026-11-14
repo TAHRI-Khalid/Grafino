@@ -309,8 +309,8 @@ public record SfcProgram(
                             transition.id(),
                             "CEI 61131-3 — Déclaration des Compteurs",
                             "La transition " + transition.name() + " compare une variable de comptage non déclarée : '" + comp.counterName() + "'.",
-                            "Ouvrez la table des variables au bas de l'écran et cliquez sur '+ Compteur (INT)' pour déclarer '"
-                                    + comp.counterName() + "'."
+                            "Ouvrez la table des variables au bas de l'écran pour déclarer '"
+                                    + comp.counterName() + "' (type INT)."
                     ));
                 } else if (variableOpt.isPresent() && variableOpt.get().type() == IecDataType.BOOL) {
                     messages.add(SfcValidationMessage.warning(

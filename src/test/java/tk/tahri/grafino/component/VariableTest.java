@@ -134,4 +134,30 @@ class VariableTest {
         assertEquals("%Q1.0", Variable.nextBitAddress("%Q", List.of("%Q0.7")));
         assertEquals("%M1.0", Variable.nextBitAddress("%M", List.of("%M0.7", "%MW0")));
     }
+
+    @Test
+    @DisplayName("Adaptation de l'adresse API selon le type CEI 61131-3")
+    void testAddressForIecDataType() {
+        assertEquals("", Variable.sizePrefixForType(IecDataType.BOOL));
+        assertEquals("W", Variable.sizePrefixForType(IecDataType.INT));
+        assertEquals("D", Variable.sizePrefixForType(IecDataType.DINT));
+        assertEquals("D", Variable.sizePrefixForType(IecDataType.REAL));
+        assertEquals("D", Variable.sizePrefixForType(IecDataType.TIME));
+        assertEquals("B", Variable.sizePrefixForType(IecDataType.STRING));
+
+        assertTrue(Variable.addressMatchesType("%M0.1", IecDataType.BOOL));
+        assertFalse(Variable.addressMatchesType("%M0.1", IecDataType.DINT));
+        assertTrue(Variable.addressMatchesType("%MD0", IecDataType.DINT));
+        assertTrue(Variable.addressMatchesType("%MD0", IecDataType.REAL));
+        assertFalse(Variable.addressMatchesType("%MW0", IecDataType.DINT));
+
+        assertEquals("%M0.0", Variable.nextAddressForType("%M", IecDataType.BOOL, List.of()));
+        assertEquals("%MW0", Variable.nextAddressForType("%M", IecDataType.INT, List.of("%M0.0")));
+        assertEquals("%MW2", Variable.nextAddressForType("%M", IecDataType.INT, List.of("%MW0")));
+        assertEquals("%MD0", Variable.nextAddressForType("%M", IecDataType.DINT, List.of("%M0.0", "%MW0")));
+        assertEquals("%MD4", Variable.nextAddressForType("%M", IecDataType.REAL, List.of("%MD0")));
+        assertEquals("%ID0", Variable.nextAddressForType("%I", IecDataType.TIME, List.of()));
+        assertEquals("%QB0", Variable.nextAddressForType("%Q", IecDataType.STRING, List.of()));
+        assertEquals("%QB1", Variable.nextAddressForType("%Q", IecDataType.STRING, List.of("%QB0")));
+    }
 }

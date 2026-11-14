@@ -21,7 +21,7 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / menu `Édition > Aligner & Centrer`).
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
-   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
+   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), puces cliquables avec états de survol pour les entrées `%I` (`TransitionProperty`) et sorties `%Q` (`StepProperty`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
 2. **Sécurisation du flux de travail étudiant & Persistance UI** :
    * Menu Fichier complet (`Nouveau`, `Ouvrir`, `Enregistrer`, `Enregistrer sous`, `Exporter PNG`).
    * Raccourcis clavier universels (`Ctrl + N`, `Ctrl + O`, `Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + E`).
@@ -76,10 +76,13 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
    * `D` : Time Delayed (action retardée par une temporisation `T#...`).
    * `SD`, `DS`, `SL` : Combinaisons temporisées et mémorisées.
 7. **Typage et Adressage des variables (CEI 61131-3)** :
-   * Types de données : `BOOL`, `BYTE`, `WORD`, `INT`, `DINT`, `REAL`, `TIME` (`T#2s`), `STRING`.
+   * Types de données (`IecDataType`) : `BOOL`, `BYTE`, `WORD`, `DWORD`, `INT`, `DINT`, `UINT`, `UDINT`, `REAL`, `LREAL`, `TIME` (`T#0s`), `STRING` (sélecteur rapide dans `VariableTable` : `BOOL`, `INT`, `REAL`, `TIME`).
    * Portées : `VAR_INPUT` (%I), `VAR_OUTPUT` (%Q), `VAR` (%M local), `VAR_GLOBAL` (%G).
-   * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`), avec adressage octet.bit strict (8 bits par octet : `.0` à `.7`, puis passage à l'octet suivant, ex : après `%I0.7` vient `%I1.0`, validé et auto-incrémenté via `Variable.isValidAddress`, `Variable.nextBitIndex` et `Variable.formatBitAddress`).
-   * Couplage bidirectionnel strict entre la portée et l'adresse avec résolution automatique des collisions.
+   * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D|L]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%MW0`, `%MD0`).
+   * Adressage adapté automatiquement au type (`Variable.sizePrefixForType`, `Variable.byteStepForType`, `Variable.addressMatchesType`, `Variable.nextAddressForType`, `VariableTable.adjustAddressForType`) :
+     - `BOOL` : adressage octet.bit strict (8 bits par octet : `.0` à `.7`, puis passage à l'octet suivant, ex : après `%I0.7` vient `%I1.0`, via `Variable.nextBitIndex` et `Variable.formatBitAddress`).
+     - Types multi-octets : préfixe `B` (pas 1 octet) pour `BYTE`/`STRING`, `W` (pas 2 octets) pour `INT`/`WORD`/`UINT`, `D` (pas 4 octets) pour `DINT`/`DWORD`/`UDINT`/`REAL`/`TIME`, `L` (pas 8 octets) pour `LREAL`.
+   * Couplage bidirectionnel strict entre la portée, le type et l'adresse (avec résolution automatique des collisions et mise à jour de la valeur initiale par défaut lors d'un changement de type).
 8. **Temporisateurs dans les transitions (CEI 60848 & CEI 61131-3)** :
    * **Format Grafcet standard CEI 60848 (format par défaut de Grafino)** : $t_n / X_i / d$ (générique $t / X_i / d$, ex : `t/X1/5s`, `t1/X2/500ms`). La réceptivité devient vraie dès que l'étape associée $X_i$ (par défaut l'étape amont directe) a été active de manière continue pendant la durée $d$.
    * **Format Structured Text CEI 61131-3** : $X_i.t \ge T\#d$ ou $Step_i.t \ge T\#d$ (ex : `X1.t >= T#5s`).
@@ -133,13 +136,14 @@ tk.tahri.grafino/
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
 │   ├── StepAndTransitionCommonBehavior.java # Interactions, poignées contextuelles TIA Portal ([+], [⑂], [✕])
 │   ├── Step.java              # Rendu de l'étape (simple ou double cadre initial), jeton actif ● et blocs d'actions allumés
+│   ├── InitStep.java          # Spécialisation d'étape initiale CEI 60848
 │   ├── Transition.java        # Rendu de la transition (trait transversal, rendu tripartite simulation: non validée, attente, franchissable)
 │   ├── Link.java              # Tracé orthogonal Manhattan, double barre ET, simple barre OU, boucle ascendante à gouttière adaptative
 │   ├── Action.java            # Association graphique d'action (qualificateur, variable ou expression ST)
-│   └── Variable.java          # Modèle observable avec validation et couplage scope/adresse
+│   └── Variable.java          # Modèle observable avec validation et couplage portée/type/adresse CEI 61131-3
 │
 └── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
-    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces, couleurs sémantiques)
+    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces et états de survol)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, onglets Variables / Chronogramme et gestion de projet
@@ -149,9 +153,9 @@ tk.tahri.grafino/
     ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
     ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
     ├── TimingDiagramPanel.java# Chronogramme interactif multi-voies (zoom temporel, curseurs Δt, time-travel, export CSV)
-    ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, action %Q, compteur, liste d'actions)
-    ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
-    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M et Compteur INT)
+    ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, puces cliquables %Q, compteur, liste d'actions)
+    ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, puces capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
+    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M, adaptation adresse/défaut par type)
 ```
 
 ### Principes appliqués :
@@ -352,6 +356,9 @@ flowchart TD
 
 # Exécuter l'ensemble des tests unitaires automatisés (modèle, temporisateurs, compteurs, stockage, graphisme)
 ./gradlew test
+
+# Générer le JAR exécutable autonome (fatJar)
+./gradlew fatJar
 
 # Nettoyer les artefacts de build
 ./gradlew clean

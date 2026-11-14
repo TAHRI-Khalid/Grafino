@@ -7,6 +7,8 @@ import tk.tahri.grafino.model.IecVariable;
 import tk.tahri.grafino.model.IecVariableScope;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -156,6 +158,86 @@ public class Variable {
      */
     public static String nextBitAddress(String prefix, Collection<String> existingAddresses) {
         return formatBitAddress(prefix, nextBitIndex(prefix, existingAddresses));
+    }
+
+    /**
+     * Retourne le préfixe de taille CEI 61131-3 associé au type de données
+     * ("" pour BOOL en format octet.bit, "B" pour BYTE/STRING, "W" pour 16 bits, "D" pour 32 bits, "L" pour 64 bits).
+     */
+    public static String sizePrefixForType(IecDataType type) {
+        if (type == null) return "";
+        return switch (type) {
+            case BOOL -> "";
+            case BYTE, STRING -> "B";
+            case WORD, INT, UINT -> "W";
+            case DWORD, DINT, UDINT, REAL, TIME -> "D";
+            case LREAL -> "L";
+        };
+    }
+
+    /**
+     * Retourne le pas d'adressage en octets selon la taille du type CEI 61131-3.
+     */
+    public static int byteStepForType(IecDataType type) {
+        if (type == null) return 1;
+        return switch (type) {
+            case BOOL, BYTE, STRING -> 1;
+            case WORD, INT, UINT -> 2;
+            case DWORD, DINT, UDINT, REAL, TIME -> 4;
+            case LREAL -> 8;
+        };
+    }
+
+    /**
+     * Vérifie si une adresse API existante correspond déjà au format du type CEI 61131-3 donné.
+     */
+    public static boolean addressMatchesType(String address, IecDataType type) {
+        if (address == null || address.isBlank() || type == null) return false;
+        String norm = normalizeAddress(address);
+        if (type == IecDataType.BOOL) {
+            Matcher bitMatcher = IEC_BIT_ADDRESS_PATTERN.matcher(norm);
+            if (!bitMatcher.matches()) return false;
+            try {
+                int bit = Integer.parseInt(bitMatcher.group(2));
+                return bit >= 0 && bit <= 7;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        String sizePrefix = sizePrefixForType(type);
+        return norm.matches("^%[IQM]" + Pattern.quote(sizePrefix) + "\\d+$");
+    }
+
+    /**
+     * Calcule la prochaine adresse CEI 61131-3 disponible pour une portée (%I, %Q, %M) et un type donnés.
+     */
+    public static String nextAddressForType(String scopePrefix, IecDataType type, Collection<String> existingAddresses) {
+        String normalizedScope = (scopePrefix != null && !scopePrefix.isBlank())
+                ? scopePrefix.trim().toUpperCase()
+                : "%M";
+        if (type == null || type == IecDataType.BOOL) {
+            return nextBitAddress(normalizedScope, existingAddresses);
+        }
+
+        Set<String> used = new HashSet<>();
+        if (existingAddresses != null) {
+            for (String addr : existingAddresses) {
+                if (addr != null && !addr.isBlank()) {
+                    used.add(normalizeAddress(addr));
+                }
+            }
+        }
+
+        String sizePrefix = sizePrefixForType(type);
+        int step = byteStepForType(type);
+        int offset = 0;
+        while (true) {
+            String candidate = normalizedScope + sizePrefix + offset;
+            if (!used.contains(candidate)) {
+                return candidate;
+            }
+            offset += step;
+        }
     }
 
     public static String normalizeAddress(String raw) {
