@@ -101,6 +101,15 @@ public final class AppTheme {
             "-fx-background-radius: 6px;" +
             "-fx-cursor: hand;";
 
+    public static final String PRIMARY_BUTTON_HOVER_STYLE =
+            "-fx-background-color: " + PRIMARY_TEAL_DARK + ";" +
+            "-fx-text-fill: #FFFFFF;" +
+            "-fx-font-weight: bold;" +
+            "-fx-font-size: 13px;" +
+            "-fx-padding: 7px 14px;" +
+            "-fx-background-radius: 6px;" +
+            "-fx-cursor: hand;";
+
     public static final String SECONDARY_BUTTON_STYLE =
             "-fx-background-color: " + CARD_BG + ";" +
             "-fx-border-color: " + BORDER_COLOR + ";" +
@@ -111,13 +120,34 @@ public final class AppTheme {
             "-fx-border-radius: 4px;" +
             "-fx-cursor: hand;";
 
+    public static final String SECONDARY_BUTTON_HOVER_STYLE =
+            "-fx-background-color: " + TEAL_LIGHT_BG + ";" +
+            "-fx-border-color: " + ACCENT_TEAL + ";" +
+            "-fx-text-fill: " + PRIMARY_TEAL_DARK + ";" +
+            "-fx-font-size: 12.5px;" +
+            "-fx-padding: 5px 10px;" +
+            "-fx-background-radius: 4px;" +
+            "-fx-border-radius: 4px;" +
+            "-fx-cursor: hand;";
+
     public static final String CHIP_INPUT_STYLE =
             "-fx-background-color: " + TEAL_LIGHT_BG + ";" +
             "-fx-border-color: " + TEAL_LIGHT_BORDER + ";" +
             "-fx-text-fill: " + PRIMARY_TEAL_DARK + ";" +
-            "-fx-font-size: 12.5px;" +
+            "-fx-font-size: 15px;" +
             "-fx-font-weight: bold;" +
-            "-fx-padding: 4px 11px;" +
+            "-fx-padding: 5px 12px;" +
+            "-fx-background-radius: 12px;" +
+            "-fx-border-radius: 12px;" +
+            "-fx-cursor: hand;";
+
+    public static final String CHIP_INPUT_HOVER_STYLE =
+            "-fx-background-color: " + PRIMARY_TEAL + ";" +
+            "-fx-border-color: " + PRIMARY_TEAL_DARK + ";" +
+            "-fx-text-fill: #FFFFFF;" +
+            "-fx-font-size: 15px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 5px 12px;" +
             "-fx-background-radius: 12px;" +
             "-fx-border-radius: 12px;" +
             "-fx-cursor: hand;";

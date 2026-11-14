@@ -267,4 +267,58 @@ class GrafcetPersistenceAndExportTest {
         assertNull(Grafcet.parseDuration(null));
         assertNull(Grafcet.parseDuration(""));
     }
+
+    @Test
+    @DisplayName("Round-trip enregistrement/ouverture : préservation exacte du tracé des liaisons ascendantes")
+    void testSaveAndReloadPreservesAscendingLinkPath(@TempDir Path tempDir) throws IOException {
+        Grafcet sourceGrafcet = new Grafcet(false);
+        sourceGrafcet.clearDiagram();
+
+        Step step0 = (Step) sourceGrafcet.getComponents().get(0);
+        step0.setNumber(0);
+        step0.setInitial(true);
+        step0.position = new Point2D(400, 80);
+
+        Transition t1 = new Transition(null);
+        t1.setNumber(1);
+        t1.setReceptivity("TRUE");
+        t1.position = new Point2D(400, 180);
+        sourceGrafcet.getComponents().add(t1);
+        Link.between(null, step0, t1);
+
+        Step step1 = new Step(null);
+        step1.setNumber(1);
+        step1.position = new Point2D(400, 260);
+        sourceGrafcet.getComponents().add(step1);
+        Link.between(null, t1, step1);
+
+        Transition t2 = new Transition(null);
+        t2.setNumber(2);
+        t2.setReceptivity("TRUE");
+        t2.position = new Point2D(400, 360);
+        sourceGrafcet.getComponents().add(t2);
+        Link.between(null, step1, t2);
+
+        Link loopLink = Link.between(null, t2, step0);
+        loopLink.updateSelectedLink(new Point2D(245.0, 220.0));
+        List<Point2D> expectedPath = List.copyOf(loopLink.getPath());
+
+        File sfcFile = tempDir.resolve("roundtrip_links.sfc").toFile();
+        SfcProgram savedProgram = sourceGrafcet.toProgram("RoundTrip", List.of());
+        SfcStorage.save(savedProgram, sfcFile);
+
+        SfcProgram loadedProgram = SfcStorage.load(sfcFile);
+        Grafcet reloadedGrafcet = new Grafcet(false);
+        reloadedGrafcet.loadFromProgram(loadedProgram, List.of());
+
+        Transition reloadedT2 = (Transition) reloadedGrafcet.getComponents().stream()
+                .filter(c -> c instanceof Transition t && t.getNumber() == 2)
+                .findFirst().orElseThrow();
+        Link reloadedLoop = reloadedT2.getLinksToChildren().stream()
+                .filter(Link::isAscending)
+                .findFirst().orElseThrow();
+
+        assertEquals(245.0, reloadedLoop.getCustomGutterX(), 0.001);
+        assertEquals(expectedPath, reloadedLoop.getPath());
+    }
 }

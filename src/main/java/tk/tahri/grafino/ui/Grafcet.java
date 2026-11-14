@@ -2770,10 +2770,11 @@ public class Grafcet extends Pane {
 
             if (src != null && tgt != null) {
                 Link link = Link.between(ctx, src, tgt);
-                if (link.isAscending() && sfcLink.intermediatePoints() != null && sfcLink.intermediatePoints().size() >= 2) {
-                    double customGutterX = sfcLink.intermediatePoints().get(1).x();
-                    link.setCustomGutterX(customGutterX);
-                    link.update();
+                if (link.isAscending()) {
+                    extractAscendingGutterX(sfcLink.intermediatePoints()).ifPresent(customGutterX -> {
+                        link.setCustomGutterX(customGutterX);
+                        link.update();
+                    });
                 }
             }
         }
@@ -2794,6 +2795,27 @@ public class Grafcet extends Pane {
         refreshActionBar();
         notifyStructureChanged();
         redraw();
+    }
+
+    /**
+     * Extrait l'abscisse de la gouttière d'une liaison ascendante à partir de ses points enregistrés
+     * (compatible avec le format complet à 6 points et l'ancien format à 4 points).
+     */
+    private static OptionalDouble extractAscendingGutterX(List<SfcPoint> points) {
+        if (points == null || points.size() < 2) {
+            return OptionalDouble.empty();
+        }
+        for (int i = 0; i < points.size() - 1; i++) {
+            SfcPoint from = points.get(i);
+            SfcPoint to = points.get(i + 1);
+            if (Math.abs(from.x() - to.x()) < 1.0 && from.y() > to.y()) {
+                return OptionalDouble.of(from.x());
+            }
+        }
+        if (points.size() >= 6) {
+            return OptionalDouble.of(points.get(2).x());
+        }
+        return OptionalDouble.of(points.get(1).x());
     }
 
     private StepAndTransitionCommonBehavior resolveComponentByReference(

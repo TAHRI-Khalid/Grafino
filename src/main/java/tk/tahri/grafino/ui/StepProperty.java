@@ -213,6 +213,8 @@ public class StepProperty extends VBox {
         var addBtn = new Button("＋ Associer l'action %Q");
         addBtn.setMaxWidth(Double.MAX_VALUE);
         addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        addBtn.setOnMouseEntered(e -> addBtn.setStyle(AppTheme.PRIMARY_BUTTON_HOVER_STYLE));
+        addBtn.setOnMouseExited(e -> addBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE));
         addBtn.setOnAction(e -> {
             Variable selectedVar = varCombo.getSelectionModel().getSelectedItem();
             if (selectedVar == null) {
@@ -371,6 +373,8 @@ public class StepProperty extends VBox {
         var addCounterBtn = new Button("➕ Associer l'action de comptage");
         addCounterBtn.setMaxWidth(Double.MAX_VALUE);
         addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        addCounterBtn.setOnMouseEntered(e -> addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_HOVER_STYLE));
+        addCounterBtn.setOnMouseExited(e -> addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE));
         addCounterBtn.setOnAction(e -> {
             String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
                     ? counterCombo.getValue().trim() : "C1";
@@ -417,10 +421,17 @@ public class StepProperty extends VBox {
             var card = new HBox(8);
             card.setAlignment(Pos.CENTER_LEFT);
             card.setPadding(new Insets(6, 10, 6, 10));
-            card.setStyle("-fx-background-color: " + AppTheme.CARD_BG + ";" +
+            String cardStyle = "-fx-background-color: " + AppTheme.CARD_BG + ";" +
                     "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
                     "-fx-border-radius: 6px;" +
-                    "-fx-background-radius: 6px;");
+                    "-fx-background-radius: 6px;";
+            String cardHoverStyle = "-fx-background-color: " + AppTheme.PANEL_BG + ";" +
+                    "-fx-border-color: " + AppTheme.ACCENT_TEAL + ";" +
+                    "-fx-border-radius: 6px;" +
+                    "-fx-background-radius: 6px;";
+            card.setStyle(cardStyle);
+            card.setOnMouseEntered(e -> card.setStyle(cardHoverStyle));
+            card.setOnMouseExited(e -> card.setStyle(cardStyle));
 
             String qual = action.qualifier() != null ? action.qualifier().trim() : "N";
             String qualText = qual;
@@ -445,7 +456,11 @@ public class StepProperty extends VBox {
 
             var delBtn = new Button("🗑");
             delBtn.setTooltip(new Tooltip("Supprimer cette action"));
-            delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-cursor: hand;");
+            String delStyle = "-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
+            String delHoverStyle = "-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
+            delBtn.setStyle(delStyle);
+            delBtn.setOnMouseEntered(e -> delBtn.setStyle(delHoverStyle));
+            delBtn.setOnMouseExited(e -> delBtn.setStyle(delStyle));
             delBtn.setOnAction(e -> {
                 step.getActions().remove(action);
                 refreshActionsList(step);

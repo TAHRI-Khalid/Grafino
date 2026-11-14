@@ -167,9 +167,12 @@ public class TransitionProperty extends VBox {
         } else {
             var chipsPane = new FlowPane(5, 5);
             for (Variable varInput : inputVariables) {
-                var chip = new Button("+ " + varInput.getName());
+                var chip = new Button(varInput.getName());
+                chip.setMnemonicParsing(false);
                 chip.setTooltip(new Tooltip(varInput.getAddress() + (varInput.getComment().isEmpty() ? "" : " : " + varInput.getComment())));
                 chip.setStyle(AppTheme.CHIP_INPUT_STYLE);
+                chip.setOnMouseEntered(e -> chip.setStyle(AppTheme.CHIP_INPUT_HOVER_STYLE));
+                chip.setOnMouseExited(e -> chip.setStyle(AppTheme.CHIP_INPUT_STYLE));
                 chip.setOnAction(e -> insertTextAtCursor(targetField, varInput.getName()));
                 chipsPane.getChildren().add(chip);
             }
@@ -453,6 +456,8 @@ public class TransitionProperty extends VBox {
     private void addOperatorBtn(FlowPane pane, TextField field, String label, String insertValue) {
         var btn = new Button(label);
         btn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE);
+        btn.setOnMouseEntered(e -> btn.setStyle(AppTheme.SECONDARY_BUTTON_HOVER_STYLE));
+        btn.setOnMouseExited(e -> btn.setStyle(AppTheme.SECONDARY_BUTTON_STYLE));
         btn.setOnAction(e -> {
             if ("1".equals(insertValue)) {
                 field.setText("1");
