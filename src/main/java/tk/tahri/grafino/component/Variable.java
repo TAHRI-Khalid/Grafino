@@ -6,6 +6,8 @@ import tk.tahri.grafino.model.IecDataType;
 import tk.tahri.grafino.model.IecVariable;
 import tk.tahri.grafino.model.IecVariableScope;
 
+import java.util.Collection;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -17,6 +19,8 @@ public class Variable {
     // Motifs de validation de l'adresse API (CEI 61131-3 : %I, %Q, %M et broches microcontrôleur)
     public static final Pattern IEC_ADDRESS_PATTERN =
             Pattern.compile("^%(?i:[IQM])([XBWDLxbwdl])?\\d+(\\.\\d+)*$");
+    private static final Pattern IEC_BIT_ADDRESS_PATTERN =
+            Pattern.compile("^%(?i:[IQM])(?:[XBxb])?(\\d+)\\.(\\d+)$");
     public static final Pattern HARDWARE_PIN_PATTERN =
             Pattern.compile("^(?i:PIN\\s*\\d+|D\\d+|A\\d+)$");
 
@@ -93,7 +97,65 @@ public class Variable {
     public static boolean isValidAddress(String address) {
         if (address == null || address.isBlank()) return false;
         String s = normalizeAddress(address);
-        return IEC_ADDRESS_PATTERN.matcher(s).matches() || HARDWARE_PIN_PATTERN.matcher(s).matches();
+        if (HARDWARE_PIN_PATTERN.matcher(s).matches()) {
+            return true;
+        }
+        Matcher bitMatcher = IEC_BIT_ADDRESS_PATTERN.matcher(s);
+        if (bitMatcher.matches()) {
+            try {
+                int bit = Integer.parseInt(bitMatcher.group(2));
+                return bit >= 0 && bit <= 7;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return IEC_ADDRESS_PATTERN.matcher(s).matches();
+    }
+
+    /**
+     * Formate un index de bit linéaire (0, 1, ..., 7, 8, 9...) en adresse CEI 61131-3 octet.bit
+     * (ex: 7 -> "%I0.7", 8 -> "%I1.0").
+     */
+    public static String formatBitAddress(String prefix, int linearBitIndex) {
+        String normalizedPrefix = (prefix != null) ? prefix.trim().toUpperCase() : "%M";
+        int safeIndex = Math.max(0, linearBitIndex);
+        int byteOffset = safeIndex / 8;
+        int bitOffset = safeIndex % 8;
+        return normalizedPrefix + byteOffset + "." + bitOffset;
+    }
+
+    /**
+     * Calcule le prochain index de bit disponible pour un préfixe donné (%I, %Q, %M)
+     * en respectant l'adressage octet.bit (8 bits par octet : .0 à .7, puis octet suivant .0).
+     */
+    public static int nextBitIndex(String prefix, Collection<String> existingAddresses) {
+        if (prefix == null || prefix.isBlank() || existingAddresses == null) {
+            return 0;
+        }
+        String normalizedPrefix = prefix.trim().toUpperCase();
+        Pattern pattern = Pattern.compile("^" + Pattern.quote(normalizedPrefix) + "X?(\\d+)\\.(\\d+)$");
+        int maxLinear = -1;
+        for (String addr : existingAddresses) {
+            if (addr == null) continue;
+            String norm = normalizeAddress(addr);
+            Matcher matcher = pattern.matcher(norm);
+            if (matcher.matches()) {
+                try {
+                    int byteNum = Integer.parseInt(matcher.group(1));
+                    int bitNum = Integer.parseInt(matcher.group(2));
+                    int linear = byteNum * 8 + bitNum;
+                    maxLinear = Math.max(maxLinear, linear);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return maxLinear + 1;
+    }
+
+    /**
+     * Retourne la prochaine adresse bit CEI 61131-3 disponible pour un préfixe (%I, %Q, %M).
+     */
+    public static String nextBitAddress(String prefix, Collection<String> existingAddresses) {
+        return formatBitAddress(prefix, nextBitIndex(prefix, existingAddresses));
     }
 
     public static String normalizeAddress(String raw) {

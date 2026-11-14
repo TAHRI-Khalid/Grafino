@@ -6,6 +6,8 @@ import tk.tahri.grafino.model.IecDataType;
 import tk.tahri.grafino.model.IecVariable;
 import tk.tahri.grafino.model.IecVariableScope;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Tests du composant Variable observable (CEI 61131-3)")
@@ -102,6 +104,15 @@ class VariableTest {
         assertFalse(Variable.isValidAddress("%%I0.0"));
         assertFalse(Variable.isValidAddress("%I0.-1"));
         assertFalse(Variable.isValidAddress("%G0.0"));
+        assertFalse(Variable.isValidAddress("%I0.8"));
+        assertFalse(Variable.isValidAddress("%I0.9"));
+        assertFalse(Variable.isValidAddress("%IX0.8"));
+        assertFalse(Variable.isValidAddress("%Q0.8"));
+        assertFalse(Variable.isValidAddress("%M0.8"));
+        assertFalse(Variable.isValidAddress("%IB0.8"));
+
+        // Formats mots/bits étendus toujours valides
+        assertTrue(Variable.isValidAddress("%MW0.15"));
 
         // Test comportement setAddress avec valeur invalide
         var v = new Variable("test", Variable.Type.BOOL, "%I0.0", "");
@@ -109,5 +120,18 @@ class VariableTest {
         // L'adresse invalide est rejetée, l'adresse reste l'adresse par défaut conforme
         assertTrue(Variable.isValidAddress(v.getAddress()));
         assertEquals("%I0.0", v.getAddress());
+    }
+
+    @Test
+    @DisplayName("Incrémentation des adresses bit CEI 61131-3 : après .7 vient l'octet suivant .0")
+    void testBitAddressingRollover() {
+        assertEquals("%I0.0", Variable.nextBitAddress("%I", List.of()));
+        assertEquals("%I0.7", Variable.nextBitAddress("%I", List.of("%I0.0", "%I0.6")));
+        assertEquals("%I1.0", Variable.nextBitAddress("%I", List.of("%I0.0", "%I0.7")));
+        assertEquals("%I1.1", Variable.nextBitAddress("%I", List.of("%I0.7", "%I1.0")));
+        assertEquals("%I2.0", Variable.nextBitAddress("%I", List.of("%I1.7")));
+
+        assertEquals("%Q1.0", Variable.nextBitAddress("%Q", List.of("%Q0.7")));
+        assertEquals("%M1.0", Variable.nextBitAddress("%M", List.of("%M0.7", "%MW0")));
     }
 }

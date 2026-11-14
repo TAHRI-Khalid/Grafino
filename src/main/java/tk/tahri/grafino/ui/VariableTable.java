@@ -273,7 +273,7 @@ public class VariableTable extends VBox {
         addressCol.setPrefWidth(130);
         addressCol.setCellFactory(col -> new TableCell<Variable, String>() {
             private final TextField textField = new TextField();
-            private final Tooltip invalidTooltip = new Tooltip("Format CEI 61131-3 attendu : %I0.0, %Q0.1, %M0.0, %IW2...");
+            private final Tooltip invalidTooltip = new Tooltip("Format CEI 61131-3 attendu : %I0.0..%I0.7, %I1.0, %Q0.1, %M0.0, %IW2...");
 
             {
                 textField.setStyle("-fx-padding: 2 6 2 6; -fx-font-size: 13px;");
@@ -302,7 +302,7 @@ public class VariableTable extends VBox {
                     commitEdit(normalized);
                 } else {
                     cancelEdit();
-                    notifyValidationError("❌ Adresse API invalide : '" + input + "'. Format attendu : %I0.0, %Q0.1, %M0.0, %IW2 (CEI 61131-3).");
+                    notifyValidationError("❌ Adresse API invalide : '" + input + "'. Format attendu : %I0.0..%I0.7, %I1.0, %Q0.1, %M0.0, %IW2 (CEI 61131-3).");
                 }
             }
 
@@ -382,26 +382,22 @@ public class VariableTable extends VBox {
     // ---------------- Actions Rapides & Auto-Incrémentation ----------------
 
     public void addQuickInput() {
-        int nextNum = getNextAddressOffset("%I");
-        String varName = "e_" + nextNum;
-        String address = "%I0." + nextNum;
-        Variable v = new Variable(varName, IecDataType.BOOL, IecVariableScope.VAR_INPUT, address, "FALSE", "Entrée capteur");
-        addAndFocus(v);
+        addQuickBitVariable("%I", "e_", IecVariableScope.VAR_INPUT, "Entrée capteur");
     }
 
     public void addQuickOutput() {
-        int nextNum = getNextAddressOffset("%Q");
-        String varName = "s_" + nextNum;
-        String address = "%Q0." + nextNum;
-        Variable v = new Variable(varName, IecDataType.BOOL, IecVariableScope.VAR_OUTPUT, address, "FALSE", "Sortie actionneur");
-        addAndFocus(v);
+        addQuickBitVariable("%Q", "s_", IecVariableScope.VAR_OUTPUT, "Sortie actionneur");
     }
 
     public void addQuickInternal() {
-        int nextNum = getNextAddressOffset("%M");
-        String varName = "m_" + nextNum;
-        String address = "%M0." + nextNum;
-        Variable v = new Variable(varName, IecDataType.BOOL, IecVariableScope.VAR, address, "FALSE", "Mémoire interne");
+        addQuickBitVariable("%M", "m_", IecVariableScope.VAR, "Mémoire interne");
+    }
+
+    private void addQuickBitVariable(String prefix, String namePrefix, IecVariableScope scope, String comment) {
+        int nextIndex = getNextAddressOffset(prefix);
+        String varName = namePrefix + nextIndex;
+        String address = Variable.formatBitAddress(prefix, nextIndex);
+        Variable v = new Variable(varName, IecDataType.BOOL, scope, address, "FALSE", comment);
         addAndFocus(v);
     }
 
@@ -448,20 +444,7 @@ public class VariableTable extends VBox {
     }
 
     private int getNextAddressOffset(String prefix) {
-        int max = -1;
-        Pattern pattern = Pattern.compile(".*\\.(\\d+)$");
-        for (Variable v : masterData) {
-            if (v.getAddress().toUpperCase().startsWith(prefix)) {
-                Matcher matcher = pattern.matcher(v.getAddress());
-                if (matcher.find()) {
-                    try {
-                        int num = Integer.parseInt(matcher.group(1));
-                        max = Math.max(max, num);
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        }
-        return max + 1;
+        return Variable.nextBitIndex(prefix, masterData.stream().map(Variable::getAddress).toList());
     }
 
     public void adjustAddressForScope(Variable targetVar, IecVariableScope newScope) {
@@ -483,7 +466,7 @@ public class VariableTable extends VBox {
 
         if (isDuplicate) {
             int nextOffset = getNextAddressOffset(prefix);
-            targetVar.setAddress(prefix + "0." + nextOffset);
+            targetVar.setAddress(Variable.formatBitAddress(prefix, nextOffset));
         } else {
             targetVar.setAddress(candidate);
         }

@@ -78,7 +78,7 @@ Le projet prend en compte la complémentarité entre les deux normes fondamental
 7. **Typage et Adressage des variables (CEI 61131-3)** :
    * Types de données : `BOOL`, `BYTE`, `WORD`, `INT`, `DINT`, `REAL`, `TIME` (`T#2s`), `STRING`.
    * Portées : `VAR_INPUT` (%I), `VAR_OUTPUT` (%Q), `VAR` (%M local), `VAR_GLOBAL` (%G).
-   * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`).
+   * Format d'adresse matérielle : `%[I|Q|M][X|B|W|D]?[0-9]+(\.[0-9]+)?` (ex : `%I0.0`, `%Q0.1`, `%M0.0`, `%IW2`), avec adressage octet.bit strict (8 bits par octet : `.0` à `.7`, puis passage à l'octet suivant, ex : après `%I0.7` vient `%I1.0`, validé et auto-incrémenté via `Variable.isValidAddress`, `Variable.nextBitIndex` et `Variable.formatBitAddress`).
    * Couplage bidirectionnel strict entre la portée et l'adresse avec résolution automatique des collisions.
 8. **Temporisateurs dans les transitions (CEI 60848 & CEI 61131-3)** :
    * **Format Grafcet standard CEI 60848 (format par défaut de Grafino)** : $t_n / X_i / d$ (générique $t / X_i / d$, ex : `t/X1/5s`, `t1/X2/500ms`). La réceptivité devient vraie dès que l'étape associée $X_i$ (par défaut l'étape amont directe) a été active de manière continue pendant la durée $d$.
