@@ -13,9 +13,103 @@ public sealed interface JsonValue permits
         JsonValue.JsonBoolean,
         JsonValue.JsonNull {
 
+    default String toJson() {
+        StringBuilder sb = new StringBuilder();
+        appendJson(sb, 0);
+        sb.append('\n');
+        return sb.toString();
+    }
+
+    private void appendJson(StringBuilder sb, int indent) {
+        switch (this) {
+            case JsonObject(var members) -> {
+                if (members.isEmpty()) {
+                    sb.append("{}");
+                    return;
+                }
+                sb.append("{\n");
+                int i = 0;
+                int size = members.size();
+                for (var entry : members.entrySet()) {
+                    sb.append("  ".repeat(indent + 1))
+                            .append('"').append(escapeString(entry.getKey())).append("\": ");
+                    entry.getValue().appendJson(sb, indent + 1);
+                    if (++i < size) {
+                        sb.append(',');
+                    }
+                    sb.append('\n');
+                }
+                sb.append("  ".repeat(indent)).append('}');
+            }
+            case JsonArray(var elements) -> {
+                if (elements.isEmpty()) {
+                    sb.append("[]");
+                    return;
+                }
+                boolean inlinePrimitives = elements.stream().allMatch(e -> e instanceof JsonNumber || e instanceof JsonString || e instanceof JsonBoolean || e instanceof JsonNull);
+                if (inlinePrimitives && elements.size() <= 4 && indent >= 2) {
+                    sb.append('[');
+                    for (int i = 0; i < elements.size(); i++) {
+                        elements.get(i).appendJson(sb, indent);
+                        if (i < elements.size() - 1) sb.append(", ");
+                    }
+                    sb.append(']');
+                    return;
+                }
+                sb.append("[\n");
+                for (int i = 0; i < elements.size(); i++) {
+                    sb.append("  ".repeat(indent + 1));
+                    elements.get(i).appendJson(sb, indent + 1);
+                    if (i < elements.size() - 1) {
+                        sb.append(',');
+                    }
+                    sb.append('\n');
+                }
+                sb.append("  ".repeat(indent)).append(']');
+            }
+            case JsonString(var value) -> sb.append('"').append(escapeString(value)).append('"');
+            case JsonNumber(var value) -> {
+                if (!Double.isFinite(value)) {
+                    sb.append("null");
+                } else if (value == Math.rint(value) && Math.abs(value) <= Long.MAX_VALUE) {
+                    sb.append((long) value);
+                } else {
+                    sb.append(value);
+                }
+            }
+            case JsonBoolean(var value) -> sb.append(value);
+            case JsonNull _ -> sb.append("null");
+        }
+    }
+
+    private static String escapeString(String s) {
+        if (s == null) return "";
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                case '\b' -> out.append("\\b");
+                case '\f' -> out.append("\\f");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
+        }
+        return out.toString();
+    }
+
     record JsonObject(Map<String, JsonValue> members) implements JsonValue {
         public JsonObject {
-            members = (members == null) ? Map.of() : Map.copyOf(members);
+            members = (members == null) ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(members));
         }
 
         public Optional<JsonValue> get(String key) {

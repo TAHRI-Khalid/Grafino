@@ -31,6 +31,8 @@ import java.util.regex.Pattern;
  */
 public class VariableTable extends VBox {
 
+    private static final Pattern COUNTER_NAME_PATTERN = Pattern.compile("(?i)^C(\\d+)$");
+
     public enum FilterCategory {
         ALL("Toutes"),
         INPUTS("🟢 Entrées (%I)"),
@@ -200,13 +202,13 @@ public class VariableTable extends VBox {
         applyTabStyle(internalBtn);
     }
 
-    @SuppressWarnings({"unchecked", "deprecation"})
+    @SuppressWarnings("unchecked")
     private void setupTableView() {
         table.setEditable(true);
         SortedList<Variable> sortedData = new SortedList<>(filteredData);
         sortedData.comparatorProperty().bind(table.comparatorProperty());
         table.setItems(sortedData);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         // 1. Colonne Portée (Scope) avec ComboBox
         scopeCol.setCellValueFactory(cellData -> cellData.getValue().scopeProperty());
@@ -416,9 +418,8 @@ public class VariableTable extends VBox {
 
     private int getNextCounterNumber() {
         int max = 0;
-        Pattern pattern = Pattern.compile("(?i)^C(\\d+)$");
         for (Variable v : masterData) {
-            Matcher m = pattern.matcher(v.getName());
+            Matcher m = COUNTER_NAME_PATTERN.matcher(v.getName());
             if (m.find()) {
                 try {
                     max = Math.max(max, Integer.parseInt(m.group(1)));

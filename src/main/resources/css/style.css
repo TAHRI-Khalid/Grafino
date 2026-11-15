@@ -198,3 +198,54 @@
     -fx-text-fill: #8C9095;
     -fx-font-size: 11px;
 }
+
+/* =========================================================
+   Onglets du tiroir inférieur (Variables / Chronogramme)
+   ========================================================= */
+.bottom-tab-active {
+    -fx-background-color: #008184;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+    -fx-padding: 3 9 3 9;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+}
+
+.bottom-tab-inactive {
+    -fx-background-color: transparent;
+    -fx-text-fill: #64748B;
+    -fx-font-weight: normal;
+    -fx-font-size: 11px;
+    -fx-padding: 3 9 3 9;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+}
+
+/* =========================================================
+   Sections repliables (CollapsibleSection)
+   ========================================================= */
+.collapsible-header {
+    -fx-cursor: hand;
+    -fx-padding: 4px 6px;
+    -fx-background-color: transparent;
+    -fx-background-radius: 4px;
+}
+
+.collapsible-header:hover {
+    -fx-background-color: #E5F5F5;
+}
+
+.collapsible-icon {
+    -fx-font-size: 14px;
+}
+
+.collapsible-chevron {
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #64748B;
+}
+
+.collapsible-header:hover .collapsible-chevron {
+    -fx-text-fill: #008184;
+}

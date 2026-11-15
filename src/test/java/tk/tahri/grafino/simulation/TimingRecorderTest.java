@@ -187,11 +187,41 @@ class TimingRecorderTest {
         assertTrue(window.getFirst().timestampMs() <= 50_000L);
         assertTrue(window.getLast().timestampMs() >= 60_000L);
 
-        // Vérifier que resetStartTime vide bien les anciens échantillons pour garantir la monotonie temporelle
+        // Vérifier que resetStartTime vide bien les anciens échantillons et canaux pour garantir l'isolation
         recorder.resetStartTime();
         assertEquals(0, recorder.getSampleCount());
+        assertTrue(recorder.getRegisteredStepNames().isEmpty());
+        assertTrue(recorder.getRegisteredInputNames().isEmpty());
+        assertTrue(recorder.getRegisteredOutputNames().isEmpty());
+        assertTrue(recorder.getRegisteredCounterNames().isEmpty());
         recorder.recordTick(500_000L, state, null, List.of("X0"), List.of(), List.of(), List.of());
         assertEquals(1, recorder.getSampleCount());
         assertEquals(0L, recorder.getTotalDurationMs());
+    }
+
+    @Test
+    @DisplayName("Buffer circulaire O(1) : débordement FIFO, fenêtrage et recherche dichotomique après rotation")
+    void testCircularBufferWrapAround() {
+        TimingRecorder recorder = new TimingRecorder(5);
+        SimulationState state = new SimulationState();
+
+        // Enregistrer 8 échantillons dans un buffer de capacité 5 (temps 0, 100, ..., 700 ms)
+        for (int i = 0; i < 8; i++) {
+            recorder.recordTick(1000L + i * 100L, state, null, List.of("X0"), List.of(), List.of(), List.of());
+        }
+
+        assertEquals(5, recorder.getSampleCount());
+        List<TimingSample> all = recorder.getSamples();
+        assertEquals(5, all.size());
+        assertEquals(300L, all.getFirst().timestampMs());
+        assertEquals(700L, all.getLast().timestampMs());
+        assertEquals(700L, recorder.getTotalDurationMs());
+
+        List<TimingSample> window = recorder.getSamplesInWindow(400L, 600L);
+        assertEquals(3, window.size());
+        assertEquals(400L, window.getFirst().timestampMs());
+        assertEquals(600L, window.getLast().timestampMs());
+
+        assertEquals(500L, recorder.findSampleAt(520L).orElseThrow().timestampMs());
     }
 }

@@ -9,7 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Moteur de persistance pour les programmes SFC (CEI 61131-3) au format JSON standardisé (.sfc et .tk).
@@ -41,115 +43,106 @@ public class SfcStorage {
     // ---------------- Sérialisation JSON ----------------
 
     public static String toJson(SfcProgram program) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append("  \"schemaVersion\": \"1.0-IEC61131-3\",\n");
-        sb.append("  \"programName\": \"").append(escape(program.programName())).append("\",\n");
+        Map<String, JsonValue> root = new LinkedHashMap<>();
+        root.put("schemaVersion", new JsonValue.JsonString("1.0-IEC61131-3"));
+        root.put("programName", new JsonValue.JsonString(program.programName() != null ? program.programName() : ""));
 
-        // 1. Variables IEC
-        sb.append("  \"variables\": [\n");
-        for (int i = 0; i < program.variables().size(); i++) {
-            IecVariable v = program.variables().get(i);
-            sb.append("    {\n");
-            sb.append("      \"name\": \"").append(escape(v.name())).append("\",\n");
-            sb.append("      \"type\": \"").append(v.type().name()).append("\",\n");
-            sb.append("      \"scope\": \"").append(v.scope().name()).append("\",\n");
-            sb.append("      \"hardwareAddress\": \"").append(escape(v.hardwareAddress())).append("\",\n");
-            sb.append("      \"initialValue\": \"").append(escape(v.initialValue())).append("\",\n");
-            sb.append("      \"description\": \"").append(escape(v.description())).append("\"\n");
-            sb.append("    }").append(i < program.variables().size() - 1 ? "," : "").append("\n");
-        }
-        sb.append("  ],\n");
+        root.put("variables", new JsonValue.JsonArray(program.variables().stream()
+                .map(SfcStorage::toJsonVariable)
+                .toList()));
+        root.put("steps", new JsonValue.JsonArray(program.steps().stream()
+                .map(SfcStorage::toJsonStep)
+                .toList()));
+        root.put("transitions", new JsonValue.JsonArray(program.transitions().stream()
+                .map(SfcStorage::toJsonTransition)
+                .toList()));
+        root.put("branches", new JsonValue.JsonArray(program.branches().stream()
+                .map(SfcStorage::toJsonBranch)
+                .toList()));
+        root.put("links", new JsonValue.JsonArray(program.links().stream()
+                .map(SfcStorage::toJsonLink)
+                .toList()));
 
-        // 2. Étapes (Steps)
-        sb.append("  \"steps\": [\n");
-        for (int i = 0; i < program.steps().size(); i++) {
-            SfcStep s = program.steps().get(i);
-            sb.append("    {\n");
-            sb.append("      \"id\": \"").append(escape(s.id())).append("\",\n");
-            sb.append("      \"name\": \"").append(escape(s.name())).append("\",\n");
-            sb.append("      \"number\": ").append(s.number()).append(",\n");
-            sb.append("      \"isInitial\": ").append(s.isInitial()).append(",\n");
-            sb.append("      \"x\": ").append(s.x()).append(",\n");
-            sb.append("      \"y\": ").append(s.y()).append(",\n");
-            sb.append("      \"actionBlocks\": [\n");
-            for (int j = 0; j < s.actionBlocks().size(); j++) {
-                SfcActionBlock a = s.actionBlocks().get(j);
-                sb.append("        {\n");
-                sb.append("          \"qualifier\": \"").append(a.qualifier().name()).append("\",\n");
-                sb.append("          \"variableName\": \"").append(escape(a.variableName())).append("\",\n");
-                sb.append("          \"durationMs\": ").append(a.duration() != null ? a.duration().toMillis() : "null").append(",\n");
-                sb.append("          \"formattedDuration\": ").append(a.duration() != null ? "\"" + a.formattedDuration() + "\"" : "null").append(",\n");
-                sb.append("          \"inlineCondition\": ").append(a.inlineCondition() != null ? "\"" + escape(a.inlineCondition()) + "\"" : "null").append("\n");
-                sb.append("        }").append(j < s.actionBlocks().size() - 1 ? "," : "").append("\n");
-            }
-            sb.append("      ]\n");
-            sb.append("    }").append(i < program.steps().size() - 1 ? "," : "").append("\n");
-        }
-        sb.append("  ],\n");
+        return new JsonValue.JsonObject(root).toJson();
+    }
 
-        // 3. Transitions
-        sb.append("  \"transitions\": [\n");
-        for (int i = 0; i < program.transitions().size(); i++) {
-            SfcTransition t = program.transitions().get(i);
-            sb.append("    {\n");
-            sb.append("      \"id\": \"").append(escape(t.id())).append("\",\n");
-            sb.append("      \"name\": \"").append(escape(t.name())).append("\",\n");
-            sb.append("      \"number\": ").append(t.number()).append(",\n");
-            sb.append("      \"conditionST\": \"").append(escape(t.conditionST())).append("\",\n");
-            sb.append("      \"x\": ").append(t.x()).append(",\n");
-            sb.append("      \"y\": ").append(t.y()).append("\n");
-            sb.append("    }").append(i < program.transitions().size() - 1 ? "," : "").append("\n");
-        }
-        sb.append("  ],\n");
+    private static JsonValue toJsonVariable(IecVariable v) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("name", new JsonValue.JsonString(nonNull(v.name())));
+        map.put("type", new JsonValue.JsonString(v.type().name()));
+        map.put("scope", new JsonValue.JsonString(v.scope().name()));
+        map.put("hardwareAddress", new JsonValue.JsonString(nonNull(v.hardwareAddress())));
+        map.put("initialValue", new JsonValue.JsonString(nonNull(v.initialValue())));
+        map.put("description", new JsonValue.JsonString(nonNull(v.description())));
+        return new JsonValue.JsonObject(map);
+    }
 
-        // 4. Branches (Aiguillages & Synchronisations ET/OU)
-        sb.append("  \"branches\": [\n");
-        for (int i = 0; i < program.branches().size(); i++) {
-            SfcBranch b = program.branches().get(i);
-            sb.append("    {\n");
-            sb.append("      \"id\": \"").append(escape(b.id())).append("\",\n");
-            sb.append("      \"name\": \"").append(escape(b.name())).append("\",\n");
-            sb.append("      \"type\": \"").append(b.type().name()).append("\",\n");
-            sb.append("      \"x\": ").append(b.x()).append(",\n");
-            sb.append("      \"y\": ").append(b.y()).append(",\n");
-            sb.append("      \"upstreamIds\": [");
-            for (int u = 0; u < b.upstreamIds().size(); u++) {
-                sb.append("\"").append(escape(b.upstreamIds().get(u))).append("\"");
-                if (u < b.upstreamIds().size() - 1) sb.append(", ");
-            }
-            sb.append("],\n");
-            sb.append("      \"downstreamIds\": [");
-            for (int d = 0; d < b.downstreamIds().size(); d++) {
-                sb.append("\"").append(escape(b.downstreamIds().get(d))).append("\"");
-                if (d < b.downstreamIds().size() - 1) sb.append(", ");
-            }
-            sb.append("]\n");
-            sb.append("    }").append(i < program.branches().size() - 1 ? "," : "").append("\n");
-        }
-        sb.append("  ],\n");
+    private static JsonValue toJsonStep(SfcStep s) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("id", new JsonValue.JsonString(nonNull(s.id())));
+        map.put("name", new JsonValue.JsonString(nonNull(s.name())));
+        map.put("number", new JsonValue.JsonNumber(s.number()));
+        map.put("isInitial", s.isInitial() ? JsonValue.JsonBoolean.TRUE : JsonValue.JsonBoolean.FALSE);
+        map.put("x", new JsonValue.JsonNumber(s.x()));
+        map.put("y", new JsonValue.JsonNumber(s.y()));
+        map.put("actionBlocks", new JsonValue.JsonArray(s.actionBlocks().stream()
+                .map(SfcStorage::toJsonActionBlock)
+                .toList()));
+        return new JsonValue.JsonObject(map);
+    }
 
-        // 5. Liaisons orientées (Links)
-        sb.append("  \"links\": [\n");
-        for (int i = 0; i < program.links().size(); i++) {
-            SfcLink l = program.links().get(i);
-            sb.append("    {\n");
-            sb.append("      \"id\": \"").append(escape(l.id())).append("\",\n");
-            sb.append("      \"sourceId\": \"").append(escape(l.sourceId())).append("\",\n");
-            sb.append("      \"targetId\": \"").append(escape(l.targetId())).append("\",\n");
-            sb.append("      \"intermediatePoints\": [");
-            for (int p = 0; p < l.intermediatePoints().size(); p++) {
-                SfcPoint pt = l.intermediatePoints().get(p);
-                sb.append("[").append(pt.x()).append(", ").append(pt.y()).append("]");
-                if (p < l.intermediatePoints().size() - 1) sb.append(", ");
-            }
-            sb.append("]\n");
-            sb.append("    }").append(i < program.links().size() - 1 ? "," : "").append("\n");
-        }
-        sb.append("  ]\n");
-        sb.append("}\n");
+    private static JsonValue toJsonActionBlock(SfcActionBlock a) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("qualifier", new JsonValue.JsonString(a.qualifier().name()));
+        map.put("variableName", new JsonValue.JsonString(nonNull(a.variableName())));
+        map.put("durationMs", a.duration() != null ? new JsonValue.JsonNumber(a.duration().toMillis()) : JsonValue.JsonNull.INSTANCE);
+        map.put("formattedDuration", a.duration() != null ? new JsonValue.JsonString(a.formattedDuration()) : JsonValue.JsonNull.INSTANCE);
+        map.put("inlineCondition", a.inlineCondition() != null ? new JsonValue.JsonString(a.inlineCondition()) : JsonValue.JsonNull.INSTANCE);
+        return new JsonValue.JsonObject(map);
+    }
 
-        return sb.toString();
+    private static JsonValue toJsonTransition(SfcTransition t) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("id", new JsonValue.JsonString(nonNull(t.id())));
+        map.put("name", new JsonValue.JsonString(nonNull(t.name())));
+        map.put("number", new JsonValue.JsonNumber(t.number()));
+        map.put("conditionST", new JsonValue.JsonString(nonNull(t.conditionST())));
+        map.put("x", new JsonValue.JsonNumber(t.x()));
+        map.put("y", new JsonValue.JsonNumber(t.y()));
+        return new JsonValue.JsonObject(map);
+    }
+
+    private static JsonValue toJsonBranch(SfcBranch b) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("id", new JsonValue.JsonString(nonNull(b.id())));
+        map.put("name", new JsonValue.JsonString(nonNull(b.name())));
+        map.put("type", new JsonValue.JsonString(b.type().name()));
+        map.put("x", new JsonValue.JsonNumber(b.x()));
+        map.put("y", new JsonValue.JsonNumber(b.y()));
+        map.put("upstreamIds", new JsonValue.JsonArray(b.upstreamIds().stream()
+                .<JsonValue>map(id -> new JsonValue.JsonString(nonNull(id)))
+                .toList()));
+        map.put("downstreamIds", new JsonValue.JsonArray(b.downstreamIds().stream()
+                .<JsonValue>map(id -> new JsonValue.JsonString(nonNull(id)))
+                .toList()));
+        return new JsonValue.JsonObject(map);
+    }
+
+    private static JsonValue toJsonLink(SfcLink l) {
+        Map<String, JsonValue> map = new LinkedHashMap<>();
+        map.put("id", new JsonValue.JsonString(nonNull(l.id())));
+        map.put("sourceId", new JsonValue.JsonString(nonNull(l.sourceId())));
+        map.put("targetId", new JsonValue.JsonString(nonNull(l.targetId())));
+        map.put("intermediatePoints", new JsonValue.JsonArray(l.intermediatePoints().stream()
+                .<JsonValue>map(pt -> new JsonValue.JsonArray(List.of(
+                        new JsonValue.JsonNumber(pt.x()),
+                        new JsonValue.JsonNumber(pt.y()))))
+                .toList()));
+        return new JsonValue.JsonObject(map);
+    }
+
+    private static String nonNull(String s) {
+        return (s == null) ? "" : s;
     }
 
     // ---------------- Désérialisation JSON ----------------
@@ -157,7 +150,7 @@ public class SfcStorage {
     public static SfcProgram fromJson(String json) {
         JsonValue parsed = JsonParser.parse(json);
         if (!(parsed instanceof JsonValue.JsonObject root)) {
-            return SfcProgram.createDefault("Empty_POU");
+            throw new IllegalArgumentException("Format de projet SFC/Grafcet invalide : objet JSON attendu à la racine.");
         }
 
         String programName = root.getString("programName", root.getString("name", "POU_Main"));
@@ -335,34 +328,9 @@ public class SfcStorage {
     }
 
     public static Duration parseIecDuration(String iecTime) {
-        if (iecTime == null || iecTime.isBlank()) return null;
-        String s = iecTime.toUpperCase().trim();
-        if (s.startsWith("T#") || s.startsWith("TIME#")) {
-            s = s.substring(s.indexOf('#') + 1);
+        if (iecTime == null || iecTime.isBlank()) {
+            return null;
         }
-
-        try {
-            if (s.endsWith("MS")) {
-                long val = Long.parseLong(s.replace("MS", "").trim());
-                return Duration.ofMillis(val);
-            } else if (s.endsWith("S")) {
-                long val = Long.parseLong(s.replace("S", "").trim());
-                return Duration.ofSeconds(val);
-            } else if (s.endsWith("M")) {
-                long val = Long.parseLong(s.replace("M", "").trim());
-                return Duration.ofMinutes(val);
-            }
-        } catch (Exception ignored) {}
-
-        return Duration.ofSeconds(1);
-    }
-
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        return IecDurationParser.parse(iecTime).orElse(Duration.ofSeconds(1));
     }
 }

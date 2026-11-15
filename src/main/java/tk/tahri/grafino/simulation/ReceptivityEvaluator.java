@@ -29,6 +29,15 @@ public class ReceptivityEvaluator {
             "^[Xx](\\d+)$"
     );
 
+    private static final Pattern EMBEDDED_GRAFCET_TIMER_PATTERN = Pattern.compile(
+            "(?:([a-zA-Z_][a-zA-Z0-9_]*)\\s*/\\s*)?([Xx]\\d+|[a-zA-Z_][a-zA-Z0-9_]*)\\s*/\\s*(\\d+(?:\\.\\d+)?)\\s*(ms|s|min|m|h)"
+    );
+
+    private static final Pattern EMBEDDED_ST_TIMER_PATTERN = Pattern.compile(
+            "\\b([Xx]\\d+|Step_?\\d+|[a-zA-Z_][a-zA-Z0-9_]*)\\.t\\s*(?:>=|>|=)\\s*T#(\\d+(?:\\.\\d+)?)(ms|s|min|m|h)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
+
     /**
      * Évalue si la réceptivité est VRAIE à l'instant currentTimeMs dans l'état donné.
      *
@@ -123,9 +132,16 @@ public class ReceptivityEvaluator {
                                                    SimulationState state,
                                                    long currentTimeMs,
                                                    Function<String, Optional<String>> stepResolver) {
-        // Pattern pour détecter un temporisateur au format t/Xi/d ou Xi.t >= T#d dans une expression complexe
-        Pattern timerPattern = Pattern.compile("(?:([a-zA-Z_][a-zA-Z0-9_]*)\\s*/\\s*)?([Xx]\\d+|[a-zA-Z_][a-zA-Z0-9_]*)\\s*/\\s*(\\d+(?:\\.\\d+)?)\\s*(ms|s|min|m|h)");
-        Matcher matcher = timerPattern.matcher(expr);
+        String afterSt = replaceTimerPattern(EMBEDDED_ST_TIMER_PATTERN, expr, state, currentTimeMs, stepResolver);
+        return replaceTimerPattern(EMBEDDED_GRAFCET_TIMER_PATTERN, afterSt, state, currentTimeMs, stepResolver);
+    }
+
+    private static String replaceTimerPattern(Pattern pattern,
+                                              String expr,
+                                              SimulationState state,
+                                              long currentTimeMs,
+                                              Function<String, Optional<String>> stepResolver) {
+        Matcher matcher = pattern.matcher(expr);
         StringBuilder sb = new StringBuilder();
         while (matcher.find()) {
             String timerStr = matcher.group(0);
@@ -181,9 +197,18 @@ public class ReceptivityEvaluator {
                 tokens.add("NOT");
                 i++;
             } else {
-                // Identifiant ou mot-clé
+                // Identifiant, mot-clé ou adresse matérielle IEC (%I0.0, %Q0.1, %M0.0)
                 int start = i;
-                while (i < len && !isDelimiter(expr.charAt(i))) {
+                boolean isHardwareAddress = (c == '%');
+                while (i < len) {
+                    char ch = expr.charAt(i);
+                    if (isHardwareAddress && ch == '.' && i + 1 < len && Character.isDigit(expr.charAt(i + 1))) {
+                        i++;
+                        continue;
+                    }
+                    if (isDelimiter(ch)) {
+                        break;
+                    }
                     i++;
                 }
                 String word = expr.substring(start, i).trim();

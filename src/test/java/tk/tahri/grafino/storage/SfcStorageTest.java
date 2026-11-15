@@ -193,4 +193,20 @@ class SfcStorageTest {
         assertEquals(1, program.transitions().size());
         assertEquals("m", program.transitions().get(0).conditionST());
     }
+
+    @Test
+    @DisplayName("Rejet des fichiers JSON vides ou sans objet racine et échappement complet RFC 8259")
+    void testInvalidRootRejectionAndJsonEscaping() {
+        assertThrows(IllegalArgumentException.class, () -> SfcStorage.fromJson(""));
+        assertThrows(IllegalArgumentException.class, () -> SfcStorage.fromJson("[]"));
+        assertThrows(IllegalArgumentException.class, () -> SfcStorage.fromJson("null"));
+
+        String special = "Ligne1\b\f\n\r\t\u0007\"\\fin";
+        String json = new JsonValue.JsonString(special).toJson().trim();
+        JsonValue reparsed = JsonParser.parse(json);
+        assertEquals(special, ((JsonValue.JsonString) reparsed).value());
+
+        assertEquals("null", new JsonValue.JsonNumber(Double.NaN).toJson().trim());
+        assertEquals("null", new JsonValue.JsonNumber(Double.POSITIVE_INFINITY).toJson().trim());
+    }
 }

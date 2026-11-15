@@ -128,9 +128,9 @@ tk.tahri.grafino/
 │   ├── SimulationState.java   # Marquage instantané des étapes (Xn), horodatages Tn, entrées/sorties et compteurs
 │   ├── ReceptivityEvaluator.java # Évaluateur booléen (NOT, AND, OR), temporisateurs t/Xi/d et tests compteurs
 │   ├── SimulationStepResult.java # Rapport d'évolution cyclique (transitions franchies, étapes activées/désactivées)
-│   ├── GrafcetSimulator.java  # Moteur d'évolution cyclique synchrone appliquant les 5 règles fondamentales CEI 60848
+│   ├── GrafcetSimulator.java  # Moteur d'évolution cyclique synchrone appliquant les 5 règles fondamentales CEI 60848 (N, S, R, L, D, P/P1/P0)
 │   ├── TimingSample.java      # Record d'instantané temporel des signaux Xn, %I, %Q, Cn et transitions franchies
-│   └── TimingRecorder.java    # Buffer circulaire d'échantillonnage temporel, recherche dichotomique et export CSV
+│   └── TimingRecorder.java    # Buffer circulaire O(1) d'échantillonnage temporel, recherche dichotomique O(log N) et export CSV UTF-8
 │
 ├── component/                 # Composants visuels pour le Canvas JavaFX
 │   ├── Component.java         # Classe de base des éléments graphiques (Teal #008184, sélection jaune #FFCC00)
@@ -143,11 +143,18 @@ tk.tahri.grafino/
 │   └── Variable.java          # Modèle observable avec validation et couplage portée/type/adresse CEI 61131-3
 │
 └── ui/                        # Interface Utilisateur JavaFX inspirée d'Arduino IDE & TIA Portal
+    ├── canvas/                # Services modulaires du Canvas (rendu, topologie, mapping SfcProgram, historique Undo/Redo)
+    │   ├── GrafcetHistoryManager.java  # Gestionnaire Annuler / Rétablir (Undo / Redo) sur instantanés SfcProgram
+    │   ├── GrafcetProgramMapper.java   # Conversion bidirectionnelle Canvas <-> SfcProgram CEI 61131-3
+    │   ├── GrafcetRenderer.java        # Rendu grille, guides, lasso, Ghost Preview et export PNG
+    │   └── GrafcetTopologyService.java # Calculs topologiques, anti-chevauchement et Auto-Layout BFS
     ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces et états de survol)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, onglets Variables / Chronogramme et gestion de projet
-    ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, export PNG, multi-sélection Lasso, Ghost Preview)
+    ├── ProjectSessionController.java # Contrôleur de session (.sfc/.tk), état modifié et confirmation de fermeture
+    ├── SimulationCoordinator.java    # Coordonnateur de la simulation synchrone et des diagnostics temps réel
+    ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, Undo/Redo, multi-sélection Lasso, Ghost Preview)
     ├── ActionBar.java         # Barre d'action contextuelle verticale fixe à gauche (séquences T+S, divergences/convergences ET/OU, boucle S0, insertion sur lien)
     ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, badge linting, simulation)
     ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
@@ -202,6 +209,7 @@ L'interface associe les codes visuels emblématiques de **l'IDE Arduino** et la 
 | **`Ctrl + S`** | **Enregistrer le projet actif** (`.sfc`) |
 | **`Ctrl + Shift + S`** | **Enregistrer sous un nouveau nom ou format** |
 | **`Ctrl + E`** | **Exporter en image PNG haute résolution** (pour rapports de TP) |
+| **`Ctrl + Z`** / **`Ctrl + Y`** | **Annuler / Rétablir** la dernière modification sur le schéma |
 | **`Ctrl + K`** | **Ouvrir / Basculer sur le Chronogramme d'Évolution Multi-voies** |
 | **`T`** ou **`Entrée`** | Insérer la Transition suivante après l'Étape sélectionnée |
 | **`S`** ou **`Entrée`** | Insérer l'Étape suivante après la Transition sélectionnée |

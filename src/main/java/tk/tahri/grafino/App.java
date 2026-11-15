@@ -2,8 +2,6 @@ package tk.tahri.grafino;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 import tk.tahri.grafino.ui.MainUI;
 

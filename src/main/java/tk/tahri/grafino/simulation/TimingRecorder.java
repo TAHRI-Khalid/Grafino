@@ -13,7 +13,9 @@ public class TimingRecorder {
     public static final int DEFAULT_MAX_SAMPLES = 10_000;
 
     private final int maxSamples;
-    private final List<TimingSample> samples = new ArrayList<>();
+    private final TimingSample[] buffer;
+    private int head = 0;
+    private int count = 0;
     private final Set<String> registeredStepNames = new LinkedHashSet<>();
     private final Set<String> registeredInputNames = new LinkedHashSet<>();
     private final Set<String> registeredOutputNames = new LinkedHashSet<>();
@@ -28,6 +30,7 @@ public class TimingRecorder {
 
     public TimingRecorder(int maxSamples) {
         this.maxSamples = Math.max(1, maxSamples);
+        this.buffer = new TimingSample[this.maxSamples];
     }
 
     /**
@@ -91,21 +94,37 @@ public class TimingRecorder {
                 ? stepResult.firedTransitionIds()
                 : List.of();
 
-        // Ajout avec gestion de la taille maximale (file circulaire FIFO)
-        if (samples.size() >= maxSamples) {
-            samples.removeFirst();
+        // Ajout O(1) dans le buffer circulaire FIFO
+        appendSample(new TimingSample(relativeTimeMs, stepMap, inMap, outMap, counterMap, fired));
+    }
+
+    private void appendSample(TimingSample sample) {
+        if (count < maxSamples) {
+            buffer[(head + count) % maxSamples] = sample;
+            count++;
+        } else {
+            buffer[head] = sample;
+            head = (head + 1) % maxSamples;
         }
-        samples.add(new TimingSample(relativeTimeMs, stepMap, inMap, outMap, counterMap, fired));
+    }
+
+    private TimingSample sampleAt(int logicalIndex) {
+        return buffer[(head + logicalIndex) % maxSamples];
     }
 
     public synchronized void clear() {
-        samples.clear();
+        Arrays.fill(buffer, null);
+        head = 0;
+        count = 0;
+        registeredStepNames.clear();
+        registeredInputNames.clear();
+        registeredOutputNames.clear();
+        registeredCounterNames.clear();
         simulationStartTimeMs = -1;
     }
 
     public synchronized void resetStartTime() {
-        samples.clear();
-        simulationStartTimeMs = -1;
+        clear();
     }
 
     public synchronized boolean isRecording() {
@@ -117,7 +136,14 @@ public class TimingRecorder {
     }
 
     public synchronized List<TimingSample> getSamples() {
-        return List.copyOf(samples);
+        if (count == 0) {
+            return List.of();
+        }
+        List<TimingSample> copy = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            copy.add(sampleAt(i));
+        }
+        return Collections.unmodifiableList(copy);
     }
 
     /**
@@ -125,27 +151,30 @@ public class TimingRecorder {
      * incluant l'échantillon immédiatement précédent et suivant pour assurer la continuité du tracé sans copier tout l'historique.
      */
     public synchronized List<TimingSample> getSamplesInWindow(long startTimeMs, long endTimeMs) {
-        if (samples.isEmpty()) {
+        if (count == 0) {
             return List.of();
         }
-        int n = samples.size();
         int fromIdx = findFloorIndex(startTimeMs);
         int toIdx = findCeilingIndex(endTimeMs);
         fromIdx = Math.max(0, fromIdx);
-        toIdx = Math.min(n, toIdx + 1);
+        toIdx = Math.min(count, toIdx + 1);
         if (fromIdx >= toIdx) {
-            return List.of(samples.getLast());
+            return List.of(sampleAt(count - 1));
         }
-        return List.copyOf(samples.subList(fromIdx, toIdx));
+        List<TimingSample> window = new ArrayList<>(toIdx - fromIdx);
+        for (int i = fromIdx; i < toIdx; i++) {
+            window.add(sampleAt(i));
+        }
+        return Collections.unmodifiableList(window);
     }
 
     private int findFloorIndex(long targetTimeMs) {
         int low = 0;
-        int high = samples.size() - 1;
+        int high = count - 1;
         int result = 0;
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            if (samples.get(mid).timestampMs() <= targetTimeMs) {
+            if (sampleAt(mid).timestampMs() <= targetTimeMs) {
                 result = mid;
                 low = mid + 1;
             } else {
@@ -157,11 +186,11 @@ public class TimingRecorder {
 
     private int findCeilingIndex(long targetTimeMs) {
         int low = 0;
-        int high = samples.size() - 1;
+        int high = count - 1;
         int result = high;
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            if (samples.get(mid).timestampMs() >= targetTimeMs) {
+            if (sampleAt(mid).timestampMs() >= targetTimeMs) {
                 result = mid;
                 high = mid - 1;
             } else {
@@ -172,12 +201,12 @@ public class TimingRecorder {
     }
 
     public synchronized int getSampleCount() {
-        return samples.size();
+        return count;
     }
 
     public synchronized long getTotalDurationMs() {
-        if (samples.isEmpty()) return 0;
-        return samples.getLast().timestampMs();
+        if (count == 0) return 0;
+        return sampleAt(count - 1).timestampMs();
     }
 
     public synchronized Set<String> getRegisteredStepNames() {
@@ -200,32 +229,37 @@ public class TimingRecorder {
      * Recherche l'échantillon le plus proche d'un temps donné (en millisecondes).
      */
     public synchronized Optional<TimingSample> findSampleAt(long targetTimeMs) {
-        if (samples.isEmpty()) return Optional.empty();
-        if (targetTimeMs <= samples.getFirst().timestampMs()) {
-            return Optional.of(samples.getFirst());
+        if (count == 0) return Optional.empty();
+        TimingSample first = sampleAt(0);
+        if (targetTimeMs <= first.timestampMs()) {
+            return Optional.of(first);
         }
-        if (targetTimeMs >= samples.getLast().timestampMs()) {
-            return Optional.of(samples.getLast());
+        TimingSample last = sampleAt(count - 1);
+        if (targetTimeMs >= last.timestampMs()) {
+            return Optional.of(last);
         }
 
         // Recherche par dichotomie
         int low = 0;
-        int high = samples.size() - 1;
+        int high = count - 1;
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            long midVal = samples.get(mid).timestampMs();
+            TimingSample midSample = sampleAt(mid);
+            long midVal = midSample.timestampMs();
             if (midVal < targetTimeMs) {
                 low = mid + 1;
             } else if (midVal > targetTimeMs) {
                 high = mid - 1;
             } else {
-                return Optional.of(samples.get(mid));
+                return Optional.of(midSample);
             }
         }
         // Prendre le plus proche entre high et low
-        long diffLow = Math.abs(samples.get(low).timestampMs() - targetTimeMs);
-        long diffHigh = Math.abs(samples.get(high).timestampMs() - targetTimeMs);
-        return Optional.of(diffLow < diffHigh ? samples.get(low) : samples.get(high));
+        TimingSample lowSample = sampleAt(low);
+        TimingSample highSample = sampleAt(high);
+        long diffLow = Math.abs(lowSample.timestampMs() - targetTimeMs);
+        long diffHigh = Math.abs(highSample.timestampMs() - targetTimeMs);
+        return Optional.of(diffLow < diffHigh ? lowSample : highSample);
     }
 
     /**
@@ -241,7 +275,8 @@ public class TimingRecorder {
         for (String c : registeredCounterNames) sb.append(";Counter_").append(c);
         sb.append(";Fired_Transitions\n");
 
-        for (TimingSample sample : samples) {
+        for (int i = 0; i < count; i++) {
+            TimingSample sample = sampleAt(i);
             sb.append(sample.timestampMs()).append(";");
             sb.append(String.format(Locale.US, "%.3f", sample.timestampMs() / 1000.0));
 

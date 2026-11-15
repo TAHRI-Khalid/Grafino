@@ -44,6 +44,16 @@ public record SfcCounterOperation(
             Pattern.CASE_INSENSITIVE
     );
 
+    private static final Pattern INCREMENT_PATTERN = Pattern.compile(
+            "^([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\+\\s*(\\d+)$",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern DECREMENT_PATTERN = Pattern.compile(
+            "^([a-zA-Z_][a-zA-Z0-9_]*)\\s*-\\s*(\\d+)$",
+            Pattern.CASE_INSENSITIVE
+    );
+
     public SfcCounterOperation {
         Objects.requireNonNull(counterName, "Le nom du compteur est obligatoire.");
         Objects.requireNonNull(type, "Le type d'opération est obligatoire.");
@@ -114,16 +124,14 @@ public record SfcCounterOperation(
         String expr = m.group(2).trim();
 
         // 1. Incrément : C1 + k ou k + C1
-        Pattern incPattern = Pattern.compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\+\\s*(\\d+)$", Pattern.CASE_INSENSITIVE);
-        Matcher incMatcher = incPattern.matcher(expr);
+        Matcher incMatcher = INCREMENT_PATTERN.matcher(expr);
         if (incMatcher.matches() && incMatcher.group(1).equalsIgnoreCase(varName)) {
             int step = Integer.parseInt(incMatcher.group(2));
             return Optional.of(new SfcCounterOperation(varName, OperationType.INCREMENT, step));
         }
 
         // 2. Décrément : C1 - k
-        Pattern decPattern = Pattern.compile("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*-\\s*(\\d+)$", Pattern.CASE_INSENSITIVE);
-        Matcher decMatcher = decPattern.matcher(expr);
+        Matcher decMatcher = DECREMENT_PATTERN.matcher(expr);
         if (decMatcher.matches() && decMatcher.group(1).equalsIgnoreCase(varName)) {
             int step = Integer.parseInt(decMatcher.group(2));
             return Optional.of(new SfcCounterOperation(varName, OperationType.DECREMENT, step));

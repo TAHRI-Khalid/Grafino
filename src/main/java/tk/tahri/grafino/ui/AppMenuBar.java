@@ -30,6 +30,8 @@ public class AppMenuBar extends MenuBar {
     private final MenuItem exitItem = new MenuItem("✕ Quitter");
 
     // Éléments du menu Édition
+    private final MenuItem undoItem = new MenuItem("↩ Annuler");
+    private final MenuItem redoItem = new MenuItem("↪ Rétablir");
     private final MenuItem autoLayoutItem = new MenuItem("📐 Aligner & Centrer (Auto-Layout)");
     private final MenuItem deleteItem = new MenuItem("🗑 Supprimer la sélection");
     private final MenuItem deselectItem = new MenuItem("Désélectionner tout");
@@ -76,11 +78,18 @@ public class AppMenuBar extends MenuBar {
         );
 
         // 2. Menu Édition
+        undoItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN));
+        redoItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN));
+        undoItem.setDisable(true);
+        redoItem.setDisable(true);
         autoLayoutItem.setAccelerator(new KeyCodeCombination(KeyCode.L, KeyCombination.SHORTCUT_DOWN));
         deleteItem.setAccelerator(new KeyCodeCombination(KeyCode.DELETE));
         deselectItem.setAccelerator(new KeyCodeCombination(KeyCode.ESCAPE));
 
         editMenu.getItems().addAll(
+                undoItem,
+                redoItem,
+                new SeparatorMenuItem(),
                 autoLayoutItem,
                 deleteItem,
                 new SeparatorMenuItem(),
@@ -121,6 +130,19 @@ public class AppMenuBar extends MenuBar {
         );
 
         this.getMenus().addAll(fileMenu, editMenu, viewMenu, simMenu, helpMenu);
+    }
+
+    public void setOnUndoClick(EventHandler<ActionEvent> event) {
+        this.undoItem.setOnAction(event);
+    }
+
+    public void setOnRedoClick(EventHandler<ActionEvent> event) {
+        this.redoItem.setOnAction(event);
+    }
+
+    public void updateUndoRedoState(boolean canUndo, boolean canRedo) {
+        this.undoItem.setDisable(!canUndo);
+        this.redoItem.setDisable(!canRedo);
     }
 
     public void setOnAutoLayoutClick(EventHandler<ActionEvent> event) {

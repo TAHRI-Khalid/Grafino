@@ -160,16 +160,7 @@ public record SfcTimerCondition(
     }
 
     public static Duration parseDuration(double value, String unit) {
-        if (value < 0) {
-            throw new IllegalArgumentException("La durée d'une temporisation ne peut pas être négative.");
-        }
-        String u = (unit == null) ? "s" : unit.trim().toLowerCase(Locale.ROOT);
-        return switch (u) {
-            case "ms" -> Duration.ofMillis((long) value);
-            case "min", "m" -> Duration.ofMillis((long) (value * 60_000));
-            case "h" -> Duration.ofMillis((long) (value * 3_600_000));
-            default -> Duration.ofMillis((long) (value * 1000)); // "s" par défaut
-        };
+        return IecDurationParser.fromValueAndUnit(value, unit);
     }
 
     public static String normalizeStepRef(String stepRef) {

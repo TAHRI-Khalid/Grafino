@@ -17,8 +17,9 @@ import tk.tahri.grafino.simulation.TimingRecorder;
 import tk.tahri.grafino.simulation.TimingSample;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -707,8 +708,8 @@ public class TimingDiagramPanel extends VBox {
 
         File file = fileChooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
         if (file != null) {
-            try (FileWriter writer = new FileWriter(file)) {
-                writer.write(recorder.exportToCsv());
+            try {
+                Files.writeString(file.toPath(), recorder.exportToCsv(), StandardCharsets.UTF_8);
                 infoLabel.setText("Relevés exportés avec succès : " + file.getName());
             } catch (IOException ex) {
                 Alert alert = new Alert(Alert.AlertType.ERROR);

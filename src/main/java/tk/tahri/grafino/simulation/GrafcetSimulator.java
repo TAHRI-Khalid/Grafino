@@ -40,6 +40,7 @@ public class GrafcetSimulator {
     private final Set<String> knownOutputVariables = new LinkedHashSet<>();
     private final Set<String> knownInputVariables = new LinkedHashSet<>();
     private final SimulationState state = new SimulationState();
+    private final Set<String> pulseOutputs = new HashSet<>();
     private final List<SfcValidationMessage> recordedRuntimeAlerts = new ArrayList<>();
 
     public GrafcetSimulator() {
@@ -199,6 +200,7 @@ public class GrafcetSimulator {
     public void reset() {
         long now = System.currentTimeMillis();
         state.reset();
+        pulseOutputs.clear();
         recordedRuntimeAlerts.clear();
 
         for (StepNode s : steps.values()) {
@@ -385,6 +387,8 @@ public class GrafcetSimulator {
             }
         }
 
+        pulseOutputs.clear();
+
         if (firedTransitions.isEmpty()) {
             // Aucune transition franchie : simple rafraîchissement des sorties temporisées
             updateOutputs(currentTimeMs);
@@ -415,7 +419,13 @@ public class GrafcetSimulator {
             state.setStepActive(stepId, true, currentTimeMs);
         }
 
-        // Exécution des actions sur activation des nouvelles étapes
+        // Exécution des actions sur activation et désactivation (P0) des étapes
+        for (String stepId : effectiveDeactivated) {
+            StepNode node = steps.get(stepId);
+            if (node != null) {
+                applyStepDeactivationActions(node);
+            }
+        }
         for (String stepId : newlyActivated) {
             StepNode node = steps.get(stepId);
             if (node != null) {
@@ -469,17 +479,28 @@ public class GrafcetSimulator {
                 continue;
             }
 
-            // 2. Qualificateurs mémorisés S / R
+            // 2. Qualificateurs mémorisés S / R et impulsionnels P / P1
             if (action.qualifier() == SfcQualifier.S) {
                 state.latchOutputSet(varName, true);
             } else if (action.qualifier() == SfcQualifier.R) {
                 state.latchOutputSet(varName, false);
+            } else if (action.qualifier() == SfcQualifier.P || action.qualifier() == SfcQualifier.P1) {
+                pulseOutputs.add(SimulationState.normalizeKey(varName));
+            }
+        }
+    }
+
+    private void applyStepDeactivationActions(StepNode step) {
+        for (SfcActionBlock action : step.actionBlocks()) {
+            if (action.qualifier() == SfcQualifier.P0
+                    && SfcCounterOperation.parse(action.variableName()).isEmpty()) {
+                pulseOutputs.add(SimulationState.normalizeKey(action.variableName()));
             }
         }
     }
 
     private void updateOutputs(long currentTimeMs) {
-        Set<String> outputsToTurnOn = new HashSet<>();
+        Set<String> outputsToTurnOn = new HashSet<>(pulseOutputs);
 
         // 1. Ajouter les sorties mémorisées par S (Set)
         for (String outVar : knownOutputVariables) {
@@ -504,7 +525,7 @@ public class GrafcetSimulator {
                 }
 
                 switch (action.qualifier()) {
-                    case N, P, P1 -> outputsToTurnOn.add(varName);
+                    case N -> outputsToTurnOn.add(varName);
                     case L -> {
                         if (action.duration() != null && elapsedMs < action.duration().toMillis()) {
                             outputsToTurnOn.add(varName);

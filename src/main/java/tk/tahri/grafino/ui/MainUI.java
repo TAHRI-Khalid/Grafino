@@ -10,17 +10,11 @@ import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import tk.tahri.grafino.component.*;
-import tk.tahri.grafino.model.SfcActionBlock;
 import tk.tahri.grafino.model.SfcProgram;
-import tk.tahri.grafino.model.SfcQualifier;
-import tk.tahri.grafino.model.SfcValidationMessage;
-import tk.tahri.grafino.simulation.GrafcetSimulator;
 import tk.tahri.grafino.simulation.TimingRecorder;
 import tk.tahri.grafino.simulation.TimingSample;
-import tk.tahri.grafino.storage.SfcStorage;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,13 +48,8 @@ public class MainUI extends BorderPane {
 
     private boolean isTableCollapsed = true;
     private double lastDividerPosition = 0.68;
-    private SimulationPanel activeSimulationPanel = null;
-    private DiagnosticsPanel diagnosticsPanel = null;
-
-    // Gestion du fichier actif (Axe 1 : Sécurisation du workflow)
-    private File currentFile = null;
-    private String currentProjectName = "Nouveau_Projet";
-    private SfcProgram lastSavedProgram = null;
+    private final ProjectSessionController sessionController;
+    private final SimulationCoordinator simulationCoordinator;
 
     public enum CloseChoice {
         SAVE,
@@ -72,11 +61,6 @@ public class MainUI extends BorderPane {
     public interface CloseConfirmationHandler {
         CloseChoice prompt(String projectName);
     }
-
-    // Fournisseurs configurables pour tests unitaires automatisés
-    private CloseConfirmationHandler closeConfirmationHandler = defaultCloseConfirmationHandler();
-    private java.util.function.Function<FileChooser, File> saveFileChooser = fc ->
-            fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
 
     private CloseConfirmationHandler defaultCloseConfirmationHandler() {
         return projectName -> {
@@ -105,14 +89,49 @@ public class MainUI extends BorderPane {
 
     public MainUI() {
         this.timingDiagramPanel = new TimingDiagramPanel(timingRecorder, this::onRestoreTimingState);
+        this.sessionController = new ProjectSessionController(
+                this,
+                grafcet,
+                variableTable,
+                defaultCloseConfirmationHandler(),
+                fc -> fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null),
+                this::setStatus,
+                this::setStatusError
+        );
+        this.simulationCoordinator = new SimulationCoordinator(
+                this,
+                grafcet,
+                variableTable,
+                menuBar,
+                timingRecorder,
+                sessionController::getCurrentProjectName,
+                sessionController::updateWindowTitle,
+                () -> {
+                    if (!isTableCollapsed && currentBottomView == BottomViewMode.TIMING) {
+                        timingDiagramPanel.redraw();
+                    }
+                },
+                this::setStatus
+        );
+        this.sessionController.setHooks(
+                simulationCoordinator::refreshDiagnostics,
+                () -> {
+                    if (simulationCoordinator.isSimulationActive()) {
+                        simulationCoordinator.stopSimulation();
+                    }
+                }
+        );
 
         // 1. Barre de menus principale
         this.setTop(menuBar);
 
         // 2. Initialisation du Grafcet
-        grafcet.createInitialStep();
+        grafcet.setVariablesSupplier(variableTable::getVariables);
+        grafcet.setOnHistoryChanged(() -> menuBar.updateUndoRedoState(grafcet.canUndo(), grafcet.canRedo()));
+        grafcet.clearDiagram();
         grafcet.startRender();
-        this.lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
+        sessionController.setLastSavedProgram(
+                grafcet.toProgram(sessionController.getCurrentProjectName(), variableTable.getVariables()));
 
         // 3. Configuration de la vue partagée centrale (SplitPane Grafcet / Variables)
         setupCenterSplitPane();
@@ -251,11 +270,10 @@ public class MainUI extends BorderPane {
     }
 
     private void updateBottomTabStyles() {
-        String activeStyle = "-fx-background-color: " + AppTheme.PRIMARY_TEAL + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 9 3 9; -fx-background-radius: 4px; -fx-cursor: hand;";
-        String inactiveStyle = "-fx-background-color: transparent; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-weight: normal; -fx-font-size: 11px; -fx-padding: 3 9 3 9; -fx-background-radius: 4px; -fx-cursor: hand;";
-
-        tabVariablesBtn.setStyle(currentBottomView == BottomViewMode.VARIABLES ? activeStyle : inactiveStyle);
-        tabTimingBtn.setStyle(currentBottomView == BottomViewMode.TIMING ? activeStyle : inactiveStyle);
+        tabVariablesBtn.getStyleClass().removeAll("bottom-tab-active", "bottom-tab-inactive");
+        tabTimingBtn.getStyleClass().removeAll("bottom-tab-active", "bottom-tab-inactive");
+        tabVariablesBtn.getStyleClass().add(currentBottomView == BottomViewMode.VARIABLES ? "bottom-tab-active" : "bottom-tab-inactive");
+        tabTimingBtn.getStyleClass().add(currentBottomView == BottomViewMode.TIMING ? "bottom-tab-active" : "bottom-tab-inactive");
     }
 
     private void onRestoreTimingState(TimingSample sample) {
@@ -273,6 +291,8 @@ public class MainUI extends BorderPane {
     }
 
     private void setupMenuBarEvents(AppMenuBar menuBar) {
+        menuBar.setOnUndoClick(event -> grafcet.undo());
+        menuBar.setOnRedoClick(event -> grafcet.redo());
         menuBar.setOnAutoLayoutClick(event -> grafcet.autoLayout());
         menuBar.setOnDeleteClick(event -> grafcet.deleteSelected());
         menuBar.setOnDeselectClick(event -> {
@@ -308,7 +328,7 @@ public class MainUI extends BorderPane {
 
     private void setupSelectionListener() {
         grafcet.setOnSelectionChange(selectedComponent -> {
-            if (activeSimulationPanel != null) {
+            if (simulationCoordinator.isSimulationActive()) {
                 // En mode simulation, le panneau droit reste le pupitre virtuel interactif
                 return;
             }
@@ -321,11 +341,7 @@ public class MainUI extends BorderPane {
                                     grafcet.redraw();
                                     refreshDiagnostics();
                                 }, () -> {
-                                    if (diagnosticsPanel != null) {
-                                        this.setRight(diagnosticsPanel);
-                                    } else {
-                                        this.setRight(null);
-                                    }
+                                    simulationCoordinator.restoreIdleRightPanel();
                                 });
                         this.setRight(sideProperty);
                         setStatus("Étape S" + step.getNumber() + " sélectionnée");
@@ -341,22 +357,14 @@ public class MainUI extends BorderPane {
                                     grafcet.redraw();
                                     refreshDiagnostics();
                                 }, () -> {
-                                    if (diagnosticsPanel != null) {
-                                        this.setRight(diagnosticsPanel);
-                                    } else {
-                                        this.setRight(null);
-                                    }
+                                    simulationCoordinator.restoreIdleRightPanel();
                                 });
                         this.setRight(sideProperty);
                         setStatus("Transition T" + transition.getNumber() + " sélectionnée");
                     }
                 }
             } else {
-                if (diagnosticsPanel != null) {
-                    this.setRight(diagnosticsPanel);
-                } else {
-                    this.setRight(null);
-                }
+                simulationCoordinator.restoreIdleRightPanel();
                 setStatus("Prêt");
             }
         });
@@ -427,45 +435,36 @@ public class MainUI extends BorderPane {
 
         refreshDiagnostics();
 
-        if (activeSimulationPanel != null) {
+        if (simulationCoordinator.isSimulationActive()) {
             // Ne pas écraser le pupitre de simulation
             return;
         }
 
         // Rafraîchir le panneau latéral si un élément est actuellement sélectionné
         grafcet.getSelectedComponent().ifPresent(component -> {
-            if (component instanceof Step step) {
-                var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
-                        variableTable.getCounterVariables(),
-                        () -> {
-                            grafcet.redraw();
-                            refreshDiagnostics();
-                        }, () -> {
-                            if (diagnosticsPanel != null) {
-                                this.setRight(diagnosticsPanel);
-                            } else {
-                                this.setRight(null);
-                            }
-                        });
-                this.setRight(sideProperty);
-            } else if (component instanceof Transition transition) {
-                List<Step> availableSteps = grafcet.getComponents().stream()
-                        .filter(Step.class::isInstance)
-                        .map(Step.class::cast)
-                        .toList();
-                var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
-                        variableTable.getCounterVariables(),
-                        () -> {
-                            grafcet.redraw();
-                            refreshDiagnostics();
-                        }, () -> {
-                            if (diagnosticsPanel != null) {
-                                this.setRight(diagnosticsPanel);
-                            } else {
-                                this.setRight(null);
-                            }
-                        });
-                this.setRight(sideProperty);
+            switch (component) {
+                case Step step -> {
+                    var sideProperty = new StepProperty(step, variableTable.getOutputVariables(),
+                            variableTable.getCounterVariables(),
+                            () -> {
+                                grafcet.redraw();
+                                refreshDiagnostics();
+                            }, simulationCoordinator::restoreIdleRightPanel);
+                    this.setRight(sideProperty);
+                }
+                case Transition transition -> {
+                    List<Step> availableSteps = grafcet.getComponents().stream()
+                            .filter(Step.class::isInstance)
+                            .map(Step.class::cast)
+                            .toList();
+                    var sideProperty = new TransitionProperty(transition, variableTable.getInputVariables(), availableSteps,
+                            variableTable.getCounterVariables(),
+                            () -> {
+                                grafcet.redraw();
+                                refreshDiagnostics();
+                            }, simulationCoordinator::restoreIdleRightPanel);
+                    this.setRight(sideProperty);
+                }
             }
         });
     }
@@ -529,242 +528,51 @@ public class MainUI extends BorderPane {
      * Vérifie si le diagramme ou les variables ont été modifiés depuis le dernier enregistrement.
      */
     public boolean isModified() {
-        SfcProgram current = grafcet.toProgram(currentProjectName, variableTable.getVariables());
-        if (lastSavedProgram == null) {
-            return !grafcet.isDiagramEmpty() || !variableTable.getVariables().isEmpty();
-        }
-        return !current.equals(lastSavedProgram);
+        return sessionController.isModified();
     }
 
-    /**
-     * Lors de l'opération de fermeture (fermeture de l'application, nouveau projet, ouverture),
-     * vérifie si les modifications sont enregistrées ou non.
-     * Si non, demande à l'utilisateur de choisir s'il veut enregistrer, abandonner ou annuler.
-     *
-     * @return true si l'opération peut continuer (fermeture acceptée), false si annulée.
-     */
     public boolean confirmSaveOrDiscardBeforeClosing() {
-        if (!isModified()) {
-            return true;
-        }
-
-        CloseChoice choice = closeConfirmationHandler.prompt(currentProjectName);
-        if (choice == null || choice == CloseChoice.CANCEL) {
-            return false;
-        }
-
-        if (choice == CloseChoice.SAVE) {
-            boolean saved = onSaveProject();
-            if (saved && activeSimulationPanel != null) {
-                stopSimulation();
-            }
-            return saved;
-        }
-
-        if (choice == CloseChoice.DISCARD) {
-            if (activeSimulationPanel != null) {
-                stopSimulation();
-            }
-            return true;
-        }
-
-        return false;
+        return sessionController.confirmSaveOrDiscardBeforeClosing();
     }
 
-    /**
-     * Déclenche une demande de fermeture de l'application avec vérification des modifications.
-     */
     public void requestClose() {
-        if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
-            javafx.stage.WindowEvent closeEvent = new javafx.stage.WindowEvent(stage, javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST);
-            stage.fireEvent(closeEvent);
-            if (closeEvent.isConsumed()) {
-                return;
-            }
-            if (stage.getOnCloseRequest() == null) {
-                if (!confirmSaveOrDiscardBeforeClosing()) {
-                    return;
-                }
-            }
-            stage.close();
-        } else {
-            if (confirmSaveOrDiscardBeforeClosing()) {
-                javafx.application.Platform.exit();
-            }
-        }
+        sessionController.requestClose();
     }
-
-    // ==========================================
-    // PERSISTANCE & MENU FICHIER (AXE 1)
-    // ==========================================
 
     public void onNewProject() {
-        if (!confirmSaveOrDiscardBeforeClosing()) {
-            return;
-        }
-
-        currentFile = null;
-        currentProjectName = "Nouveau_Projet";
-        grafcet.clearDiagram();
-        variableTable.clear();
-        lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
-        updateWindowTitle();
-        refreshDiagnostics();
-        setStatus("Nouveau projet initialisé");
+        sessionController.onNewProject();
     }
 
     public void onOpenProject() {
-        if (!confirmSaveOrDiscardBeforeClosing()) {
-            return;
-        }
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Ouvrir un programme Grafcet / SFC");
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Programmes SFC / Grafcet (*.sfc, *.tk)", "*.sfc", "*.tk"),
-                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*")
-        );
-
-        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
-            fileChooser.setInitialDirectory(currentFile.getParentFile());
-        }
-
-        File file = fileChooser.showOpenDialog(getScene() != null ? getScene().getWindow() : null);
-        if (file != null) {
-            try {
-                SfcProgram loaded = SfcStorage.load(file);
-
-                // 1. Recharger la table des variables
-                List<Variable> vars = loaded.variables().stream()
-                        .map(Variable::fromIecVariable)
-                        .toList();
-                variableTable.setVariables(vars);
-
-                // 2. Reconstruire le diagramme graphique Grafcet
-                grafcet.loadFromProgram(loaded, variableTable.getVariables());
-
-                currentFile = file;
-                currentProjectName = loaded.programName();
-                lastSavedProgram = grafcet.toProgram(currentProjectName, variableTable.getVariables());
-                updateWindowTitle();
-                refreshDiagnostics();
-                setStatus("Programme chargé avec succès : " + file.getName());
-            } catch (Exception ex) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Erreur de chargement");
-                alert.setHeaderText("Impossible d'ouvrir le fichier SFC / Grafcet");
-                alert.setContentText("Détail de l'erreur : " + ex.getMessage());
-                alert.showAndWait();
-                setStatusError("Échec de l'ouverture du fichier : " + ex.getMessage());
-            }
-        }
+        sessionController.onOpenProject();
     }
 
     public boolean onSaveProject() {
-        if (currentFile == null) {
-            return onSaveAsProject();
-        } else {
-            return doSave(currentFile);
-        }
+        return sessionController.onSaveProject();
     }
 
     public boolean onSaveAsProject() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Enregistrer le programme Grafcet / SFC");
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Programme SFC CEI 61131-3 (*.sfc)", "*.sfc"),
-                new FileChooser.ExtensionFilter("Fichier Grafcet rétrocompatible (*.tk)", "*.tk"),
-                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*")
-        );
-
-        String defaultName = (currentFile != null)
-                ? currentFile.getName()
-                : (currentProjectName + ".sfc");
-        fileChooser.setInitialFileName(defaultName);
-
-        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
-            fileChooser.setInitialDirectory(currentFile.getParentFile());
-        }
-
-        File file = saveFileChooser.apply(fileChooser);
-        if (file != null) {
-            return doSave(file);
-        }
-        return false;
+        return sessionController.onSaveAsProject();
     }
 
     public boolean doSave(File targetFile) {
-        try {
-            String baseName = targetFile.getName();
-            if (baseName.contains(".")) {
-                baseName = baseName.substring(0, baseName.lastIndexOf('.'));
-            }
-            currentProjectName = baseName;
-
-            SfcProgram program = grafcet.toProgram(currentProjectName, variableTable.getVariables());
-            SfcStorage.save(program, targetFile);
-
-            currentFile = targetFile;
-            lastSavedProgram = program;
-            updateWindowTitle();
-            setStatus("Programme enregistré : " + targetFile.getName());
-            return true;
-        } catch (Exception ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Erreur d'enregistrement");
-            alert.setHeaderText("Impossible d'enregistrer le fichier SFC");
-            alert.setContentText("Détail de l'erreur : " + ex.getMessage());
-            alert.showAndWait();
-            setStatusError("Échec de l'enregistrement : " + ex.getMessage());
-            return false;
-        }
+        return sessionController.doSave(targetFile);
     }
 
     public void onExportPng() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Exporter le Grafcet en image PNG haute résolution");
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Image PNG (*.png)", "*.png")
-        );
-        String defaultName = currentProjectName + ".png";
-        fileChooser.setInitialFileName(defaultName);
-
-        if (currentFile != null && currentFile.getParentFile() != null && currentFile.getParentFile().exists()) {
-            fileChooser.setInitialDirectory(currentFile.getParentFile());
-        }
-
-        File file = fileChooser.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
-        if (file != null) {
-            try {
-                grafcet.exportToPng(file, currentProjectName, 2.0);
-                setStatus("Export PNG réussi : " + file.getName());
-            } catch (Exception ex) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Erreur d'exportation");
-                alert.setHeaderText("Impossible d'exporter l'image PNG");
-                alert.setContentText("Détail de l'erreur : " + ex.getMessage());
-                alert.showAndWait();
-                setStatusError("Échec de l'export PNG : " + ex.getMessage());
-            }
-        }
+        sessionController.onExportPng();
     }
 
     public void updateWindowTitle() {
-        if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
-            String dirtyMarker = isModified() ? " *" : "";
-            String display = (currentFile != null)
-                    ? (currentFile.getName() + dirtyMarker)
-                    : (currentProjectName + dirtyMarker + " (non enregistré)");
-            stage.setTitle("Grafino — " + display);
-        }
+        sessionController.updateWindowTitle();
     }
 
     public SfcProgram getLastSavedProgram() {
-        return lastSavedProgram;
+        return sessionController.getLastSavedProgram();
     }
 
     public void setLastSavedProgram(SfcProgram lastSavedProgram) {
-        this.lastSavedProgram = lastSavedProgram;
+        sessionController.setLastSavedProgram(lastSavedProgram);
         updateWindowTitle();
     }
 
@@ -781,203 +589,46 @@ public class MainUI extends BorderPane {
     }
 
     public File getCurrentFile() {
-        return currentFile;
+        return sessionController.getCurrentFile();
     }
 
     public void setCurrentFile(File currentFile) {
-        this.currentFile = currentFile;
+        sessionController.setCurrentFile(currentFile);
         updateWindowTitle();
     }
 
     public String getCurrentProjectName() {
-        return currentProjectName;
+        return sessionController.getCurrentProjectName();
     }
 
     public void setCurrentProjectName(String currentProjectName) {
-        this.currentProjectName = (currentProjectName != null && !currentProjectName.isBlank())
-                ? currentProjectName
-                : "Nouveau_Projet";
+        sessionController.setCurrentProjectName(
+                (currentProjectName != null && !currentProjectName.isBlank()) ? currentProjectName : "Nouveau_Projet");
         updateWindowTitle();
     }
 
     public void setCloseConfirmationHandler(CloseConfirmationHandler handler) {
-        this.closeConfirmationHandler = (handler != null) ? handler : defaultCloseConfirmationHandler();
+        sessionController.setCloseConfirmationHandler((handler != null) ? handler : defaultCloseConfirmationHandler());
     }
 
     public CloseConfirmationHandler getCloseConfirmationHandler() {
-        return closeConfirmationHandler;
+        return sessionController.getCloseConfirmationHandler();
     }
 
     void setSaveFileChooser(java.util.function.Function<FileChooser, File> saveFileChooser) {
-        this.saveFileChooser = (saveFileChooser != null) ? saveFileChooser : fc ->
-                fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null);
+        sessionController.setSaveFileChooser((saveFileChooser != null) ? saveFileChooser : fc ->
+                fc.showSaveDialog(getScene() != null ? getScene().getWindow() : null));
     }
-
-    // ==========================================
-    // GESTION DU MODE DE SIMULATION SYNCHRONE
-    // ==========================================
 
     private void toggleSimulation() {
-        if (activeSimulationPanel != null) {
-            stopSimulation();
-        } else {
-            startSimulation();
-        }
+        simulationCoordinator.toggleSimulation();
     }
-
-    private void startSimulation() {
-        if (activeSimulationPanel != null) {
-            stopSimulation();
-            return;
-        }
-
-        GrafcetSimulator simulator = new GrafcetSimulator();
-
-        // 1. Enregistrement des variables IEC déclarées dans la table
-        for (Variable v : variableTable.getInputVariables()) {
-            simulator.getState().setBooleanVariable(v.getName(), false);
-            simulator.registerInputVariable(v.getName());
-        }
-        for (Variable v : variableTable.getOutputVariables()) {
-            simulator.getState().setBooleanVariable(v.getName(), false);
-            simulator.registerOutputVariable(v.getName());
-        }
-        for (Variable v : variableTable.getCounterVariables()) {
-            simulator.getState().setCounterValue(v.getName(), 0);
-        }
-
-        // 2. Enregistrement des étapes et conversion de leurs blocs d'actions
-        for (StepAndTransitionCommonBehavior comp : grafcet.getComponents()) {
-            if (comp instanceof Step step) {
-                String id = "s" + step.getNumber();
-                List<SfcActionBlock> actionBlocks = new ArrayList<>();
-                for (Action a : step.getActions()) {
-                    SfcQualifier qual = SfcQualifier.N;
-                    if (a.qualifier() != null) {
-                        try {
-                            qual = SfcQualifier.valueOf(a.qualifier().trim().toUpperCase());
-                        } catch (IllegalArgumentException ignored) {}
-                    }
-                    String varName = a.getDisplayText();
-                    if (varName == null || varName.isBlank()) {
-                        varName = "ACTION";
-                    }
-                    java.time.Duration dur = qual.isTimed() ? java.time.Duration.ofSeconds(2) : null;
-                    actionBlocks.add(new SfcActionBlock(qual, varName, dur, null));
-                }
-                simulator.registerStep(id, "Step" + step.getNumber(), step.getNumber(), step.isInitial(), actionBlocks);
-            }
-        }
-
-        // 3. Enregistrement des transitions avec leurs liaisons amont/aval
-        for (StepAndTransitionCommonBehavior comp : grafcet.getComponents()) {
-            if (comp instanceof Transition trans) {
-                String id = "t" + trans.getNumber();
-                Set<String> upStepIds = trans.getParentSteps().stream()
-                        .map(s -> "s" + s.getNumber())
-                        .collect(Collectors.toSet());
-                Set<String> downStepIds = trans.getLinksToChildren().stream()
-                        .map(Link::getChildComponent)
-                        .filter(Step.class::isInstance)
-                        .map(Step.class::cast)
-                        .map(s -> "s" + s.getNumber())
-                        .collect(Collectors.toSet());
-
-                simulator.registerTransition(id, "T" + trans.getNumber(), trans.getNumber(),
-                        trans.getReceptivity(), upStepIds, downStepIds);
-            }
-        }
-
-        // Initialisation du simulateur à la situation initiale
-        simulator.reset();
-        timingRecorder.resetStartTime();
-
-        // Désélectionner tout élément graphique
-        grafcet.getComponents().forEach(c -> c.setSelected(false));
-        grafcet.fireSelectionChange(Optional.empty());
-
-        // Créer le pupitre de commande interactif avec liaison au chronogramme (rafraîchi uniquement si visible)
-        activeSimulationPanel = new SimulationPanel(
-                simulator,
-                grafcet,
-                variableTable.getInputVariables(),
-                variableTable.getOutputVariables(),
-                variableTable.getCounterVariables(),
-                timingRecorder,
-                () -> {
-                    if (!isTableCollapsed && currentBottomView == BottomViewMode.TIMING) {
-                        timingDiagramPanel.redraw();
-                    }
-                },
-                this::stopSimulation
-        );
-
-        this.setRight(activeSimulationPanel);
-        menuBar.setSimulationActive(true);
-        setStatus("Simulation synchrone démarrée");
-    }
-
-    private void stopSimulation() {
-        if (activeSimulationPanel != null) {
-            SimulationPanel panel = activeSimulationPanel;
-            activeSimulationPanel = null; // Mettre à null en premier pour briser toute récursion
-            panel.stop();
-        }
-        if (diagnosticsPanel != null) {
-            this.setRight(diagnosticsPanel);
-        } else {
-            this.setRight(null);
-        }
-        menuBar.setSimulationActive(false);
-        grafcet.clearSimulationVisuals();
-        refreshDiagnostics();
-        setStatus("Simulation arrêtée");
-    }
-
-    // ==========================================
-    // DIAGNOSTIC & LINTING NORMATIF (AXE 2)
-    // ==========================================
 
     private void toggleDiagnosticsPanel() {
-        if (activeSimulationPanel != null) {
-            setStatus("Veuillez arrêter la simulation pour inspecter les diagnostics");
-            return;
-        }
-
-        if (diagnosticsPanel != null && this.getRight() == diagnosticsPanel) {
-            this.setRight(null);
-            diagnosticsPanel = null;
-        } else {
-            diagnosticsPanel = new DiagnosticsPanel(this::onSelectDiagnosticElement, () -> {
-                this.setRight(null);
-                diagnosticsPanel = null;
-            });
-            refreshDiagnostics();
-            this.setRight(diagnosticsPanel);
-        }
+        simulationCoordinator.toggleDiagnosticsPanel();
     }
 
     public void refreshDiagnostics() {
-        updateWindowTitle();
-        try {
-            SfcProgram program = grafcet.toProgram(currentProjectName, variableTable.getVariables());
-            List<SfcValidationMessage> messages = program.validate();
-            long errorCount = messages.stream().filter(SfcValidationMessage::isError).count();
-            long warningCount = messages.stream().filter(SfcValidationMessage::isWarning).count();
-            menuBar.setDiagnosticsStatus(errorCount, warningCount);
-            grafcet.updateDiagnosticsVisuals(messages);
-            if (diagnosticsPanel != null) {
-                diagnosticsPanel.setMessages(messages);
-            }
-        } catch (Exception ignored) {
-            // Diagramme en cours d'édition
-        }
-    }
-
-    private void onSelectDiagnosticElement(String elementId) {
-        if (elementId != null && !elementId.isBlank()) {
-            grafcet.selectComponentByReference(elementId);
-            setStatus("Élément inspecté : " + elementId);
-        }
+        simulationCoordinator.refreshDiagnostics();
     }
 }

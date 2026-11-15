@@ -6,6 +6,7 @@ import tk.tahri.grafino.model.*;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -322,5 +323,67 @@ class GrafcetSimulatorTest {
         simulator.setInput("e_0", true);
         assertTrue(simulator.getInput("E_0"));
         assertTrue(simulator.getInput("e_0"));
+    }
+
+    @Test
+    @DisplayName("Qualificateurs impulsionnels P, P1 (activation) et P0 (désactivation)")
+    void testPulseQualifiersSemantics() {
+        var simulator = new GrafcetSimulator();
+        simulator.registerOutputVariable("IMP_ACT");
+        simulator.registerOutputVariable("IMP_DEACT");
+
+        simulator.registerStep("s0", "Init", 0, true, List.of());
+        simulator.registerStep("s1", "Work", 1, false, List.of(
+                new SfcActionBlock(SfcQualifier.P, "IMP_ACT"),
+                new SfcActionBlock(SfcQualifier.P0, "IMP_DEACT")
+        ));
+        simulator.registerStep("s2", "End", 2, false, List.of());
+
+        simulator.registerTransition("t1", "T1", 1, "go", Set.of("s0"), Set.of("s1"));
+        simulator.registerTransition("t2", "T2", 2, "done", Set.of("s1"), Set.of("s2"));
+
+        simulator.reset();
+        assertFalse(simulator.isOutputActive("IMP_ACT"));
+        assertFalse(simulator.isOutputActive("IMP_DEACT"));
+
+        // Activation de s1 : IMP_ACT doit être à 1 uniquement sur ce cycle
+        simulator.setInput("go", true);
+        simulator.step();
+        assertTrue(simulator.isStepActive("s1"));
+        assertTrue(simulator.isOutputActive("IMP_ACT"));
+        assertFalse(simulator.isOutputActive("IMP_DEACT"));
+
+        // Cycle suivant sans transition : IMP_ACT doit retomber à 0 même si s1 reste active
+        simulator.step();
+        assertTrue(simulator.isStepActive("s1"));
+        assertFalse(simulator.isOutputActive("IMP_ACT"));
+
+        // Désactivation de s1 : IMP_DEACT (P0) doit être à 1 uniquement sur ce cycle
+        simulator.setInput("done", true);
+        simulator.step();
+        assertTrue(simulator.isStepActive("s2"));
+        assertTrue(simulator.isOutputActive("IMP_DEACT"));
+
+        simulator.step();
+        assertFalse(simulator.isOutputActive("IMP_DEACT"));
+    }
+
+    @Test
+    @DisplayName("Réceptivités : Adresses matérielles %I0.0 et temporisateurs ST imbriqués")
+    void testHardwareAddressAndEmbeddedStTimerReceptivity() {
+        var state = new SimulationState();
+        state.setBooleanVariable("%I0.0", true);
+        state.setBooleanVariable("%I0.1", false);
+        state.setStepActive("s1", true, 1000L);
+
+        assertTrue(ReceptivityEvaluator.evaluate("%I0.0", state, 1000L, null));
+        assertFalse(ReceptivityEvaluator.evaluate("%I0.0.%I0.1", state, 1000L, null));
+        assertTrue(ReceptivityEvaluator.evaluate("%I0.0 + %I0.1", state, 1000L, null));
+
+        // Temporisateur ST imbriqué : %I0.0 AND X1.t >= T#5s
+        assertFalse(ReceptivityEvaluator.evaluate("%I0.0 AND X1.t >= T#5s", state, 3000L,
+                ref -> "X1".equalsIgnoreCase(ref) ? Optional.of("s1") : Optional.empty()));
+        assertTrue(ReceptivityEvaluator.evaluate("%I0.0 AND X1.t >= T#5s", state, 6000L,
+                ref -> "X1".equalsIgnoreCase(ref) ? Optional.of("s1") : Optional.empty()));
     }
 }

@@ -59,12 +59,15 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
 
         double badgeX;
         double badgeY;
-        if (this instanceof Step) {
-            badgeX = getX() + 2;
-            badgeY = getY() + GAP + 2;
-        } else {
-            badgeX = getX() + UNIT_WIDTH / 4 - 28;
-            badgeY = getY() + UNIT_HEIGHT / 2 - 14;
+        switch (this) {
+            case Step _ -> {
+                badgeX = getX() + 2;
+                badgeY = getY() + GAP + 2;
+            }
+            case Transition _ -> {
+                badgeX = getX() + UNIT_WIDTH / 4 - 28;
+                badgeY = getY() + UNIT_HEIGHT / 2 - 14;
+            }
         }
 
         double r = 8.5;

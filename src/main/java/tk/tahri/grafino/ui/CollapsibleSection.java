@@ -33,11 +33,11 @@ public class CollapsibleSection extends VBox {
         // En-tête interactif
         header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
-        applyHeaderStyle(false);
+        header.getStyleClass().add("collapsible-header");
 
         if (icon != null && !icon.isBlank()) {
             var iconLbl = new Label(icon);
-            iconLbl.setStyle("-fx-font-size: 14px;");
+            iconLbl.getStyleClass().add("collapsible-icon");
             header.getChildren().add(iconLbl);
         }
 
@@ -58,15 +58,11 @@ public class CollapsibleSection extends VBox {
         header.getChildren().add(spacer);
 
         chevron = new Label(initiallyExpanded ? "▼" : "▶");
-        chevron.setStyle("-fx-font-size: 11.5px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-weight: bold;");
+        chevron.getStyleClass().add("collapsible-chevron");
         header.getChildren().add(chevron);
 
-        // Feedback au survol de la souris
-        header.setOnMouseEntered(e -> applyHeaderStyle(true));
-        header.setOnMouseExited(e -> applyHeaderStyle(false));
-
         // Clic sur l'en-tête pour déplier / replier
-        header.setOnMouseClicked(e -> setExpanded(!expanded));
+        header.setOnMouseClicked(_ -> setExpanded(!expanded));
 
         // Boîte de contenu
         contentBox = new VBox(8);
@@ -77,16 +73,6 @@ public class CollapsibleSection extends VBox {
         contentBox.setManaged(initiallyExpanded);
 
         this.getChildren().addAll(header, contentBox);
-    }
-
-    private void applyHeaderStyle(boolean hovered) {
-        String bg = hovered ? AppTheme.TEAL_LIGHT_BG : "transparent";
-        header.setStyle("-fx-cursor: hand; -fx-padding: 4px 6px; -fx-background-color: " + bg +
-                "; -fx-background-radius: 4px;");
-        if (chevron != null) {
-            chevron.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " +
-                    (hovered ? AppTheme.PRIMARY_TEAL : AppTheme.TEXT_MUTED) + ";");
-        }
     }
 
     public void setExpanded(boolean expanded) {
