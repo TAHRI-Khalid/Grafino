@@ -478,7 +478,12 @@ public class Grafcet extends Pane {
             if (event.isControlDown() && event.getCode() == KeyCode.L) {
                 autoLayout();
                 event.consume();
-            } else if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
+                return;
+            }
+            if (event.isControlDown() || event.isShortcutDown() || event.isMetaDown() || event.isAltDown()) {
+                return;
+            }
+            if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
                 deleteSelected();
                 event.consume();
             } else if (event.getCode() == KeyCode.ESCAPE) {
@@ -777,8 +782,8 @@ public class Grafcet extends Pane {
         this.getChildren().add(controlsBox);
 
         Runnable updatePosition = () -> {
-            double boxW = 42;
-            double boxH = 3 * 38 + 2 * 8;
+            double boxW = 46;
+            double boxH = 3 * 44 + 2 * 8;
             controlsBox.setLayoutX(Math.max(12, this.getWidth() - boxW - 18));
             controlsBox.setLayoutY(Math.max(12, this.getHeight() - boxH - 18));
         };
@@ -790,7 +795,7 @@ public class Grafcet extends Pane {
 
     private Button createCircularCanvasButton(String symbol, String tooltipText, Runnable action) {
         Button btn = new Button(symbol);
-        double size = 38.0;
+        double size = 44.0;
         btn.setMinSize(size, size);
         btn.setPrefSize(size, size);
         btn.setMaxSize(size, size);
@@ -802,9 +807,9 @@ public class Grafcet extends Pane {
                 "-fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";" +
                 "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
                 "-fx-border-width: 1.5px;" +
-                "-fx-background-radius: 19px;" +
-                "-fx-border-radius: 19px;" +
-                "-fx-font-size: 16px;" +
+                "-fx-background-radius: 22px;" +
+                "-fx-border-radius: 22px;" +
+                "-fx-font-size: 22px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-padding: 0;" +
                 "-fx-cursor: hand;";
@@ -814,9 +819,9 @@ public class Grafcet extends Pane {
                 "-fx-text-fill: #FFFFFF;" +
                 "-fx-border-color: " + AppTheme.PRIMARY_TEAL + ";" +
                 "-fx-border-width: 1.5px;" +
-                "-fx-background-radius: 19px;" +
-                "-fx-border-radius: 19px;" +
-                "-fx-font-size: 16px;" +
+                "-fx-background-radius: 22px;" +
+                "-fx-border-radius: 22px;" +
+                "-fx-font-size: 22px;" +
                 "-fx-font-weight: bold;" +
                 "-fx-padding: 0;" +
                 "-fx-cursor: hand;";

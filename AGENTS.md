@@ -19,7 +19,8 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Aimantation magnétique automatique (*Smart Snapping* à $\pm 14\text{ px}$) avec lignes guides de repère.
    * Bornage vertical anti-chevauchement lors du déplacement à la souris ou au clavier (`clampPositionWithoutOverlap`, `MIN_VERTICAL_GAP = 16 px`), y compris en multi-sélection (`clampGroupDeltaY`), empêchant un composant de recouvrir un voisin ou de transformer une liaison descendante directe en fausse boucle ascendante.
    * Auto-Layout et centrage hiérarchique instantané (`Ctrl + L` / menu `Édition > Aligner & Centrer`).
-   * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
+   * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`44 px`, police `22 px` : `＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
+   * Raccourcis clavier globaux protégés : `Grafcet.setupKeyboardEvents()` laisse remonter les combinaisons avec modificateur (`Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + T`, etc.) vers `MainUI` et `AppMenuBar`.
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
    * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), puces cliquables avec états de survol pour les entrées `%I` (`TransitionProperty`) et sorties `%Q` (`StepProperty`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
 2. **Sécurisation du flux de travail étudiant & Persistance UI** :
@@ -46,7 +47,7 @@ Le nom **Grafino** symbolise la passerelle entre :
      - Marqueurs ambrés de franchissement de transitions ($T_n$).
      - Curseur d'inspection avec restauration d'état sur le Grafcet (*Time Travel* pédagogique).
      - Curseur de mesure différentielle $\Delta t$ et exportation des relevés au format CSV pour les comptes-rendus de TP.
-4. **Simulation synchrone interactive haute performance** (pas-à-pas et temps réel, forçage des entrées capteurs `%I`, observation des préactionneurs de sortie `%Q` avec lampes témoins industrielles et compteurs INT, déduplication insensible à la casse des variables, mise en cache différentielle des états visuels et mutualisation des effets `DropShadow` pour zéro surcharge CSS/GPU).
+4. **Simulation synchrone interactive haute performance** (`SimulationPanel`, `prefWidth = 415 px`) : simulation pas-à-pas et temps réel, contrôles regroupés (3 boutons `Pause/Reprendre`, `Pas-à-pas`, `Arrêter` sur une ligne, `Reset` devant `Cycle` et `Vitesse`), affichage dense en **grille 3 colonnes** des entrées `%I` (tuiles centrées avec boutons empilés `Poussoir` / `Interrupteur`), des sorties `%Q` (lampes témoins circulaires `Circle(10)` avec halo) et des compteurs `INT` (tuiles circulaires violettes assorties), retours visuels `hover` / `press` unifiés (`applyInteractiveStyles`), déduplication insensible à la casse des variables, mise en cache différentielle des états visuels et mutualisation des effets `DropShadow` pour zéro surcharge CSS/GPU.
 5. **Génération directe de code cible** (croquis Arduino C++ `.ino` et Structured Text ST CEI 61131-3).
 
 ---

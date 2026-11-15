@@ -64,26 +64,10 @@ public class MainUI extends BorderPane {
 
     private CloseConfirmationHandler defaultCloseConfirmationHandler() {
         return projectName -> {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("Fermeture de Grafino");
-            alert.setHeaderText("Enregistrer les modifications apportées au projet '" + projectName + "' ?");
-            alert.setContentText("Des modifications n'ont pas été enregistrées.\n"
-                    + "Voulez-vous enregistrer les changements avant de fermer, ou abandonner les modifications ?");
-
-            ButtonType btnSave = new ButtonType("Enregistrer", ButtonBar.ButtonData.YES);
-            ButtonType btnDiscard = new ButtonType("Abandonner", ButtonBar.ButtonData.NO);
-            ButtonType btnCancel = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-            alert.getButtonTypes().setAll(btnSave, btnDiscard, btnCancel);
-
-            Optional<ButtonType> choice = alert.showAndWait();
-            if (choice.isEmpty() || choice.get() == btnCancel) {
-                return CloseChoice.CANCEL;
-            } else if (choice.get() == btnSave) {
-                return CloseChoice.SAVE;
-            } else {
-                return CloseChoice.DISCARD;
-            }
+            javafx.stage.Window owner = getScene() != null ? getScene().getWindow() : null;
+            SaveConfirmationDialog dialog = new SaveConfirmationDialog(owner, projectName);
+            Optional<CloseChoice> choice = dialog.showAndWait();
+            return choice.orElse(CloseChoice.CANCEL);
         };
     }
 

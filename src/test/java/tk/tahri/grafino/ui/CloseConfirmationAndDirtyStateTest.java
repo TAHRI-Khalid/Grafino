@@ -298,30 +298,38 @@ class CloseConfirmationAndDirtyStateTest {
     }
 
     @Test
-    @DisplayName("Le dialogue de confirmation par défaut contient les boutons Enregistrer, Abandonner et Annuler")
+    @DisplayName("Le dialogue de confirmation stylisé contient les boutons Enregistrer, Abandonner et Annuler avec le thème Grafino")
     void testDefaultDialogConfiguration() throws Exception {
         java.util.concurrent.CompletableFuture<List<String>> buttonLabelsFuture = new java.util.concurrent.CompletableFuture<>();
         java.util.concurrent.CompletableFuture<String> titleFuture = new java.util.concurrent.CompletableFuture<>();
+        java.util.concurrent.CompletableFuture<Boolean> styledFuture = new java.util.concurrent.CompletableFuture<>();
 
         javafx.application.Platform.runLater(() -> {
             try {
-                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
-                alert.setTitle("Fermeture de Grafino");
-                alert.setHeaderText("Enregistrer les modifications apportées au projet 'Projet_Test' ?");
-                javafx.scene.control.ButtonType btnSave = new javafx.scene.control.ButtonType("Enregistrer", javafx.scene.control.ButtonBar.ButtonData.YES);
-                javafx.scene.control.ButtonType btnDiscard = new javafx.scene.control.ButtonType("Abandonner", javafx.scene.control.ButtonBar.ButtonData.NO);
-                javafx.scene.control.ButtonType btnCancel = new javafx.scene.control.ButtonType("Annuler", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
-                alert.getButtonTypes().setAll(btnSave, btnDiscard, btnCancel);
+                SaveConfirmationDialog dialog = new SaveConfirmationDialog(null, "Projet_Test");
+                javafx.scene.control.DialogPane pane = dialog.getDialogPane();
+                boolean hasStyleClass = pane.getStyleClass().contains("grafino-dialog");
+                boolean hasStylesheet = pane.getStylesheets().stream().anyMatch(s -> s.contains("style.css"));
+                boolean saveIsDefault = pane.lookupButton(dialog.getSaveButtonType()) instanceof javafx.scene.control.Button b && b.isDefaultButton();
+                boolean cancelIsCancel = pane.lookupButton(dialog.getCancelButtonType()) instanceof javafx.scene.control.Button b && b.isCancelButton();
 
-                titleFuture.complete(alert.getTitle());
-                buttonLabelsFuture.complete(alert.getButtonTypes().stream().map(javafx.scene.control.ButtonType::getText).toList());
+                boolean converterOk = dialog.getResultConverter().call(dialog.getSaveButtonType()) == MainUI.CloseChoice.SAVE
+                        && dialog.getResultConverter().call(dialog.getDiscardButtonType()) == MainUI.CloseChoice.DISCARD
+                        && dialog.getResultConverter().call(dialog.getCancelButtonType()) == MainUI.CloseChoice.CANCEL
+                        && dialog.getResultConverter().call(null) == MainUI.CloseChoice.CANCEL;
+
+                titleFuture.complete(dialog.getTitle());
+                styledFuture.complete(hasStyleClass && hasStylesheet && saveIsDefault && cancelIsCancel && converterOk);
+                buttonLabelsFuture.complete(pane.getButtonTypes().stream().map(javafx.scene.control.ButtonType::getText).toList());
             } catch (Throwable t) {
                 buttonLabelsFuture.completeExceptionally(t);
             }
         });
 
-        assertEquals("Fermeture de Grafino", titleFuture.get(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals("Grafino — Enregistrement", titleFuture.get(5, java.util.concurrent.TimeUnit.SECONDS));
         List<String> labels = buttonLabelsFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
-        assertEquals(List.of("Enregistrer", "Abandonner", "Annuler"), labels);
+        assertTrue(labels.containsAll(List.of("Enregistrer", "Abandonner", "Annuler")));
+        assertEquals(3, labels.size());
+        assertTrue(styledFuture.get(5, java.util.concurrent.TimeUnit.SECONDS));
     }
 }

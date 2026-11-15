@@ -249,3 +249,27 @@
 .collapsible-header:hover .collapsible-chevron {
     -fx-text-fill: #008184;
 }
+
+/* =========================================================
+   Dialogues modaux Grafino (SaveConfirmationDialog)
+   ========================================================= */
+.dialog-pane.grafino-dialog {
+    -fx-background-color: #F7F9FA;
+    -fx-padding: 0;
+}
+
+.dialog-pane.grafino-dialog > .content {
+    -fx-padding: 0;
+}
+
+.dialog-pane.grafino-dialog > .button-bar {
+    -fx-background-color: #F7F9FA;
+    -fx-border-color: #E1E4E8;
+    -fx-border-width: 1px 0 0 0;
+    -fx-padding: 0;
+}
+
+.dialog-pane.grafino-dialog > .button-bar > .container {
+    -fx-padding: 14px 22px 18px 22px;
+    -fx-spacing: 10px;
+}
