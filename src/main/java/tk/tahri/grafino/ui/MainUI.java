@@ -50,6 +50,7 @@ public class MainUI extends BorderPane {
     private double lastDividerPosition = 0.68;
     private final ProjectSessionController sessionController;
     private final SimulationCoordinator simulationCoordinator;
+    private final java.util.function.Consumer<AppTheme.DisplayScale> displayScaleListener;
 
     public enum CloseChoice {
         SAVE,
@@ -156,6 +157,18 @@ public class MainUI extends BorderPane {
 
         // 10. Premier calcul de linting normatif
         refreshDiagnostics();
+
+        // 11. Échelle typographique globale (Normal / Confort / Projecteur)
+        this.setStyle(AppTheme.rootFontStyle());
+        this.displayScaleListener = scale -> {
+            this.setStyle(AppTheme.rootFontStyle());
+            grafcet.redraw();
+            if (!isTableCollapsed && currentBottomView == BottomViewMode.TIMING) {
+                timingDiagramPanel.redraw();
+            }
+            setStatus("Taille de l'interface : " + scale.getLabel());
+        };
+        AppTheme.addScaleListener(this.displayScaleListener);
     }
 
     private void setupCenterSplitPane() {
@@ -181,7 +194,7 @@ public class MainUI extends BorderPane {
         tabsBox.setAlignment(Pos.CENTER_LEFT);
         tabsBox.getChildren().addAll(tabVariablesBtn, tabTimingBtn);
 
-        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        tableSummaryLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -245,7 +258,7 @@ public class MainUI extends BorderPane {
             timingDiagramPanel.setManaged(true);
             timingDiagramPanel.redraw();
             tableSummaryLabel.setText("📈 Chronogramme multi-voies : " + timingRecorder.getSampleCount() + " échantillons");
-            tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+            tableSummaryLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
         }
 
         if (isTableCollapsed) {
@@ -415,7 +428,7 @@ public class MainUI extends BorderPane {
         long outCount = variableTable.getOutputVariables().size();
         long intCount = variableTable.getVariables().size() - inCount - outCount;
         tableSummaryLabel.setText(inCount + " Entrée(s) %I | " + outCount + " Sortie(s) %Q | " + intCount + " Interne(s)");
-        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        tableSummaryLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         refreshDiagnostics();
 
@@ -495,13 +508,13 @@ public class MainUI extends BorderPane {
     private void setStatus(String message) {
         if (message != null && !message.isBlank()) {
             tableSummaryLabel.setText(message);
-            tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+            tableSummaryLabel.setStyle("-fx-font-size: 0.85em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
         }
     }
 
     private void setStatusError(String errorMessage) {
         tableSummaryLabel.setText("⚠ " + errorMessage);
-        tableSummaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.RED_DANGER + ";");
+        tableSummaryLabel.setStyle("-fx-font-size: 0.85em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.RED_DANGER + ";");
     }
 
     // ==========================================

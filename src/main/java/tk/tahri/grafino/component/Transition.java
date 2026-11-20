@@ -7,6 +7,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
+import tk.tahri.grafino.ui.AppTheme;
 
 public non-sealed class Transition extends StepAndTransitionCommonBehavior {
     private static int transitionCounter = 0;
@@ -112,14 +113,14 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
         // Repère de transition à gauche (ex: T1)
         ctx.setTextAlign(TextAlignment.RIGHT);
         ctx.setFill(Color.DARKORANGE);
-        ctx.setFont(Font.font("", FontWeight.BOLD, 14));
+        ctx.setFont(AppTheme.canvasFont("", FontWeight.BOLD, 14));
         ctx.setTextBaseline(VPos.CENTER);
         ctx.fillText("T" + this.number, left - 6, midY);
 
         // Réceptivité normalisée CEI 60848 à droite (ex: 1, dcy, a . b)
         ctx.setTextAlign(TextAlignment.LEFT);
         ctx.setFill(MAIN_COLOR);
-        ctx.setFont(Font.font("Monospaced", FontWeight.BOLD, 15));
+        ctx.setFont(AppTheme.canvasFont("Monospaced", FontWeight.BOLD, 15));
         ctx.setTextBaseline(VPos.CENTER);
         String rec = (receptivity == null || receptivity.isBlank()) ? "1" : receptivity;
         ctx.fillText(rec, right + 8, midY);
@@ -160,14 +161,14 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
             // Repère T<n> vert éclatant
             ctx.setTextAlign(TextAlignment.RIGHT);
             ctx.setFill(Color.rgb(16, 185, 129));
-            ctx.setFont(Font.font("", FontWeight.BOLD, 14));
+            ctx.setFont(AppTheme.canvasFont("", FontWeight.BOLD, 14));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText("T" + this.number, left - 6, midY);
 
             // Réceptivité vraie en vert éclatant avec symbole de validation
             ctx.setTextAlign(TextAlignment.LEFT);
             ctx.setFill(Color.rgb(5, 150, 105)); // Vert foncé soutenu lisible
-            ctx.setFont(Font.font("Monospaced", FontWeight.BOLD, 15));
+            ctx.setFont(AppTheme.canvasFont("Monospaced", FontWeight.BOLD, 15));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText("✓ " + rec, right + 8, midY);
 
@@ -182,14 +183,14 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
             // Repère T<n> ambré
             ctx.setTextAlign(TextAlignment.RIGHT);
             ctx.setFill(Color.rgb(217, 119, 6));
-            ctx.setFont(Font.font("", FontWeight.BOLD, 14));
+            ctx.setFont(AppTheme.canvasFont("", FontWeight.BOLD, 14));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText("T" + this.number, left - 6, midY);
 
             // Réceptivité fausse en rouge-orangé avec symbole d'attente
             ctx.setTextAlign(TextAlignment.LEFT);
             ctx.setFill(Color.rgb(220, 38, 38)); // Rouge explicite
-            ctx.setFont(Font.font("Monospaced", FontWeight.BOLD, 15));
+            ctx.setFont(AppTheme.canvasFont("Monospaced", FontWeight.BOLD, 15));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText("⏳ " + rec, right + 8, midY);
 
@@ -204,14 +205,14 @@ public non-sealed class Transition extends StepAndTransitionCommonBehavior {
             // Repère T<n> grisé
             ctx.setTextAlign(TextAlignment.RIGHT);
             ctx.setFill(Color.rgb(148, 163, 184));
-            ctx.setFont(Font.font("", FontWeight.NORMAL, 13));
+            ctx.setFont(AppTheme.canvasFont("", FontWeight.NORMAL, 13));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText("T" + this.number, left - 6, midY);
 
             // Réceptivité grisée
             ctx.setTextAlign(TextAlignment.LEFT);
             ctx.setFill(Color.rgb(148, 163, 184));
-            ctx.setFont(Font.font("Monospaced", FontWeight.NORMAL, 14));
+            ctx.setFont(AppTheme.canvasFont("Monospaced", FontWeight.NORMAL, 14));
             ctx.setTextBaseline(VPos.CENTER);
             ctx.fillText(rec, right + 8, midY);
         }

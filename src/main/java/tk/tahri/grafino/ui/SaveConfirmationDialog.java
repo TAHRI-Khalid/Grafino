@@ -32,7 +32,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-border-color: " + AppTheme.PRIMARY_TEAL + ";" +
             "-fx-text-fill: #FFFFFF;" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 16px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -43,7 +43,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-border-color: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
             "-fx-text-fill: #FFFFFF;" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 16px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -54,7 +54,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-border-color: " + AppTheme.RED_BORDER + ";" +
             "-fx-text-fill: " + AppTheme.RED_DANGER + ";" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 14px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -65,7 +65,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-border-color: " + AppTheme.RED_DANGER + ";" +
             "-fx-text-fill: " + AppTheme.RED_DANGER + ";" +
             "-fx-font-weight: bold;" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 14px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -75,7 +75,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-background-color: " + AppTheme.CARD_BG + ";" +
             "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
             "-fx-text-fill: " + AppTheme.TEXT_MAIN + ";" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 14px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -85,7 +85,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
             "-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
             "-fx-border-color: " + AppTheme.ACCENT_TEAL + ";" +
             "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
-            "-fx-font-size: 13px;" +
+            "-fx-font-size: 1.0em;" +
             "-fx-padding: 7px 14px;" +
             "-fx-background-radius: 6px;" +
             "-fx-border-radius: 6px;" +
@@ -107,7 +107,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
 
         DialogPane pane = getDialogPane();
         pane.getStyleClass().add("grafino-dialog");
-        pane.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-padding: 0;");
+        pane.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + "; -fx-padding: 0; " + AppTheme.rootFontStyle());
 
         URL cssUrl = getClass().getResource("/css/style.css");
         if (cssUrl != null) {
@@ -155,12 +155,12 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
                 "-fx-background-radius: 10px;"
         );
         Label iconLabel = new Label("💾");
-        iconLabel.setStyle("-fx-font-size: 20px;");
+        iconLabel.setStyle("-fx-font-size: 1.54em;");
         iconBadge.getChildren().add(iconLabel);
 
         Label titleLabel = new Label("Enregistrer les modifications ?");
         titleLabel.setStyle(
-                "-fx-font-size: 15.5px;" +
+                "-fx-font-size: 1.19em;" +
                 "-fx-font-weight: bold;" +
                 "-fx-text-fill: " + AppTheme.TEXT_MAIN + ";"
         );
@@ -198,7 +198,7 @@ public class SaveConfirmationDialog extends Dialog<MainUI.CloseChoice> {
         messageLabel.setWrapText(true);
         messageLabel.setMaxWidth(390);
         messageLabel.setStyle(
-                "-fx-font-size: 13px;" +
+                "-fx-font-size: 1.0em;" +
                 "-fx-text-fill: " + AppTheme.TEXT_MUTED + ";" +
                 "-fx-line-spacing: 3px;"
         );

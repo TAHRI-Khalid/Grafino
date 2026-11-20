@@ -51,9 +51,21 @@ public class TimingDiagramPanel extends VBox {
     private static final double MIN_PIXELS_PER_SEC = 20.0;
     private static final double MAX_PIXELS_PER_SEC = 500.0;
     private static final double MAX_CANVAS_WIDTH = 2048.0;
-    private static final double CHANNEL_HEIGHT = 32.0;
-    private static final double HEADER_HEIGHT = 28.0;
-    private static final double LABEL_COLUMN_WIDTH = 130.0;
+    private static final double BASE_CHANNEL_HEIGHT = 32.0;
+    private static final double BASE_HEADER_HEIGHT = 28.0;
+    private static final double BASE_LABEL_COLUMN_WIDTH = 130.0;
+
+    private static double channelHeight() {
+        return Math.round(BASE_CHANNEL_HEIGHT * AppTheme.getCanvasFontScale());
+    }
+
+    private static double headerHeight() {
+        return Math.round(BASE_HEADER_HEIGHT * AppTheme.getCanvasFontScale());
+    }
+
+    private static double labelColumnWidth() {
+        return Math.round(BASE_LABEL_COLUMN_WIDTH * AppTheme.getCanvasFontScale());
+    }
 
     // Fenêtre temporelle glissante (évite d'agrandir le Canvas à l'infini et de saturer la VRAM GPU)
     private double timeOffsetSec = 0.0;
@@ -167,7 +179,7 @@ public class TimingDiagramPanel extends VBox {
         exportCsvBtn.setTooltip(new Tooltip("Exporter les relevés dans un fichier CSV pour compte-rendu de TP"));
         exportCsvBtn.setOnAction(e -> onExportCsv());
 
-        infoLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+        infoLabel.setStyle("-fx-font-size: 0.85em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -211,7 +223,7 @@ public class TimingDiagramPanel extends VBox {
             if (e.getButton() != MouseButton.PRIMARY) return;
 
             double mouseX = e.getX();
-            if (mouseX < LABEL_COLUMN_WIDTH) return;
+            if (mouseX < labelColumnWidth()) return;
 
             double timeSec = xToTime(mouseX);
             double maxTimeSec = recorder.getTotalDurationMs() / 1000.0;
@@ -270,7 +282,7 @@ public class TimingDiagramPanel extends VBox {
                 double delta = (Math.abs(e.getDeltaX()) > Math.abs(e.getDeltaY())) ? e.getDeltaX() : e.getDeltaY();
                 double shiftSec = -delta / pixelsPerSecond;
                 double maxTimeSec = recorder.getTotalDurationMs() / 1000.0;
-                double visibleSpanSec = Math.max(1.0, (canvas.getWidth() - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
+                double visibleSpanSec = Math.max(1.0, (canvas.getWidth() - labelColumnWidth()) / pixelsPerSecond);
                 double maxOffset = Math.max(0.0, maxTimeSec - visibleSpanSec * 0.5);
                 timeOffsetSec = Math.max(0.0, Math.min(maxOffset, timeOffsetSec + shiftSec));
                 autoFollowLive = (timeOffsetSec >= maxOffset - 0.1);
@@ -295,7 +307,7 @@ public class TimingDiagramPanel extends VBox {
         }
 
         refreshChannelsList();
-        double reqHeight = HEADER_HEIGHT + (activeChannels.size() * CHANNEL_HEIGHT) + 20.0;
+        double reqHeight = headerHeight() + (activeChannels.size() * channelHeight()) + 20.0;
         double targetHeight = Math.max(reqHeight, 200.0);
         if (Math.abs(canvas.getHeight() - targetHeight) > 1.5) {
             canvas.setHeight(targetHeight);
@@ -333,7 +345,7 @@ public class TimingDiagramPanel extends VBox {
         if (w <= 0 || h <= 0) return;
 
         double totalDurationSec = recorder.getTotalDurationMs() / 1000.0;
-        double plotWidth = Math.max(100.0, w - LABEL_COLUMN_WIDTH);
+        double plotWidth = Math.max(100.0, w - labelColumnWidth());
         double visibleSpanSec = plotWidth / pixelsPerSecond;
 
         // Suivi automatique du front temps réel (comme un oscilloscope / analyseur logique)
@@ -357,7 +369,7 @@ public class TimingDiagramPanel extends VBox {
         // Clipping sur la zone de tracé à droite de la colonne des noms de voies
         ctx.save();
         ctx.beginPath();
-        ctx.rect(LABEL_COLUMN_WIDTH, 0, w - LABEL_COLUMN_WIDTH, h);
+        ctx.rect(labelColumnWidth(), 0, w - labelColumnWidth(), h);
         ctx.clip();
 
         // 1. Grille temporelle et graduation (Règle des secondes)
@@ -367,11 +379,11 @@ public class TimingDiagramPanel extends VBox {
         drawTransitionFiredMarkers(visibleSamples, h);
 
         // 3. Tracé des formes d'ondes pour chaque canal
-        double currentY = HEADER_HEIGHT;
+        double currentY = headerHeight();
         for (int i = 0; i < activeChannels.size(); i++) {
             Channel ch = activeChannels.get(i);
-            drawWaveform(ch, visibleSamples, currentY, CHANNEL_HEIGHT, totalDurationSec);
-            currentY += CHANNEL_HEIGHT;
+            drawWaveform(ch, visibleSamples, currentY, channelHeight(), totalDurationSec);
+            currentY += channelHeight();
         }
 
         // 4. Curseurs interactifs
@@ -390,7 +402,7 @@ public class TimingDiagramPanel extends VBox {
 
     private void drawTimeGrid(double w, double h, double visibleSpanSec) {
         ctx.setLineWidth(1.0);
-        ctx.setFont(Font.font("Consolas", FontWeight.NORMAL, 10));
+        ctx.setFont(AppTheme.canvasFont("Consolas", FontWeight.NORMAL, 10));
 
         // Déterminer le pas temporel en fonction du zoom
         double timeStep = 1.0; // secondes
@@ -403,26 +415,26 @@ public class TimingDiagramPanel extends VBox {
 
         // Bandeau d'en-tête temporel
         ctx.setFill(Color.web(AppTheme.PANEL_BG));
-        ctx.fillRect(LABEL_COLUMN_WIDTH, 0, w - LABEL_COLUMN_WIDTH, HEADER_HEIGHT);
+        ctx.fillRect(labelColumnWidth(), 0, w - labelColumnWidth(), headerHeight());
         ctx.setStroke(Color.web(AppTheme.BORDER_COLOR));
-        ctx.strokeLine(LABEL_COLUMN_WIDTH, HEADER_HEIGHT, w, HEADER_HEIGHT);
+        ctx.strokeLine(labelColumnWidth(), headerHeight(), w, headerHeight());
 
         for (double t = Math.max(0.0, firstTick); t <= maxTime; t += timeStep) {
             double x = cx(t);
-            if (x < LABEL_COLUMN_WIDTH - 20) continue;
+            if (x < labelColumnWidth() - 20) continue;
             if (x > w + 20) break;
 
             // Ligne verticale de grille
             ctx.setStroke(Color.web("#F1F5F9")); // Gris très doux
-            ctx.strokeLine(x, HEADER_HEIGHT, x, h);
+            ctx.strokeLine(x, headerHeight(), x, h);
 
             // Graduations dans l'en-tête
             ctx.setStroke(Color.web(AppTheme.BORDER_COLOR));
-            ctx.strokeLine(x, HEADER_HEIGHT - 6, x, HEADER_HEIGHT);
+            ctx.strokeLine(x, headerHeight() - 6, x, headerHeight());
 
             ctx.setFill(Color.web(AppTheme.TEXT_MUTED));
             String timeText = String.format(Locale.US, (timeStep < 1.0 ? "%.1fs" : "%.0fs"), t);
-            ctx.fillText(timeText, x + 2, HEADER_HEIGHT - 8);
+            ctx.fillText(timeText, x + 2, headerHeight() - 8);
         }
     }
 
@@ -433,11 +445,11 @@ public class TimingDiagramPanel extends VBox {
         for (TimingSample s : samples) {
             if (!s.firedTransitions().isEmpty()) {
                 double x = cx(s.timestampMs() / 1000.0);
-                if (x < LABEL_COLUMN_WIDTH || x > canvas.getWidth()) continue;
+                if (x < labelColumnWidth() || x > canvas.getWidth()) continue;
 
                 // Ligne ambrée
                 ctx.setStroke(Color.web("#F59E0B", 0.6)); // Ambre
-                ctx.strokeLine(x, HEADER_HEIGHT, x, h);
+                ctx.strokeLine(x, headerHeight(), x, h);
 
                 // Badge transition dans l'en-tête
                 ctx.setFill(Color.web("#FEF3C7"));
@@ -446,7 +458,7 @@ public class TimingDiagramPanel extends VBox {
                 ctx.strokeRect(x - 10, 2, 20, 14);
 
                 ctx.setFill(Color.web("#92400E"));
-                ctx.setFont(Font.font("Consolas", FontWeight.BOLD, 9));
+                ctx.setFont(AppTheme.canvasFont("Consolas", FontWeight.BOLD, 9));
                 String label = s.firedTransitions().getFirst();
                 ctx.fillText(label, x - 8, 12);
             }
@@ -460,12 +472,12 @@ public class TimingDiagramPanel extends VBox {
         // Ligne de référence zéro (repos)
         ctx.setStroke(Color.web("#E2E8F0"));
         ctx.setLineWidth(0.8);
-        ctx.strokeLine(LABEL_COLUMN_WIDTH, lowY, canvas.getWidth(), lowY);
+        ctx.strokeLine(labelColumnWidth(), lowY, canvas.getWidth(), lowY);
 
         if (samples.isEmpty()) return;
 
         ctx.setStroke(ch.color());
-        ctx.setLineWidth(2.0);
+        ctx.setLineWidth(2.0 * AppTheme.getCanvasFontScale());
 
         if ("COUNTER".equals(ch.type())) {
             // Signal analogique en marche d'escalier
@@ -489,7 +501,7 @@ public class TimingDiagramPanel extends VBox {
                     ctx.strokeLine(segStartX, prevY, curX, prevY);
                     ctx.strokeLine(curX, prevY, curX, curY);
                     ctx.setFill(ch.color());
-                    ctx.setFont(Font.font("Consolas", FontWeight.BOLD, 9));
+                    ctx.setFont(AppTheme.canvasFont("Consolas", FontWeight.BOLD, 9));
                     ctx.fillText(String.valueOf(curVal), curX + 2, curY - 2);
                     segStartX = curX;
                     prevY = curY;
@@ -552,34 +564,38 @@ public class TimingDiagramPanel extends VBox {
     private void drawChannelsHeaderColumn(double h) {
         // Fond de la colonne d'en-tête des voies
         ctx.setFill(Color.web(AppTheme.PANEL_BG));
-        ctx.fillRect(0, 0, LABEL_COLUMN_WIDTH, h);
+        ctx.fillRect(0, 0, labelColumnWidth(), h);
         ctx.setStroke(Color.web(AppTheme.BORDER_COLOR));
-        ctx.strokeLine(LABEL_COLUMN_WIDTH, 0, LABEL_COLUMN_WIDTH, h);
+        ctx.strokeLine(labelColumnWidth(), 0, labelColumnWidth(), h);
 
         // En-tête de la colonne
+        double headH = headerHeight();
+        double chH = channelHeight();
+        double colW = labelColumnWidth();
         ctx.setFill(Color.web(AppTheme.TEXT_MUTED));
-        ctx.setFont(Font.font("System", FontWeight.BOLD, 10));
-        ctx.fillText("SIGNAUX / VOIES", 10, 18);
+        ctx.setFont(AppTheme.canvasFont("System", FontWeight.BOLD, 10));
+        ctx.fillText("SIGNAUX / VOIES", 10, headH * 0.64);
 
         // Dessin des étiquettes de chaque canal
-        double currentY = HEADER_HEIGHT;
+        double currentY = headH;
         for (Channel ch : activeChannels) {
             // Séparateur horizontal
             ctx.setStroke(Color.web(AppTheme.BORDER_COLOR));
-            ctx.strokeLine(0, currentY, LABEL_COLUMN_WIDTH, currentY);
+            ctx.strokeLine(0, currentY, colW, currentY);
 
             // Puce couleur du canal
+            double dotSize = Math.round(8 * AppTheme.getCanvasFontScale());
             ctx.setFill(ch.color());
-            ctx.fillOval(10, currentY + 10, 8, 8);
+            ctx.fillOval(10, currentY + (chH - dotSize) / 2.0, dotSize, dotSize);
 
             // Nom du canal
             ctx.setFill(Color.web(AppTheme.TEXT_MAIN));
-            ctx.setFont(Font.font("Consolas", FontWeight.BOLD, 11));
-            ctx.fillText(ch.name(), 24, currentY + 18);
+            ctx.setFont(AppTheme.canvasFont("Consolas", FontWeight.BOLD, 11));
+            ctx.fillText(ch.name(), 14 + dotSize, currentY + chH * 0.58);
 
             // Badge de type (%I, %Q, Step, INT)
             ctx.setFill(Color.web(AppTheme.TEXT_MUTED));
-            ctx.setFont(Font.font("System", FontWeight.NORMAL, 9));
+            ctx.setFont(AppTheme.canvasFont("System", FontWeight.NORMAL, 9));
             String typeBadge = switch (ch.type()) {
                 case "STEP" -> "Étape";
                 case "INPUT" -> "%I";
@@ -587,9 +603,9 @@ public class TimingDiagramPanel extends VBox {
                 case "COUNTER" -> "Compteur";
                 default -> "";
             };
-            ctx.fillText(typeBadge, LABEL_COLUMN_WIDTH - 42, currentY + 18);
+            ctx.fillText(typeBadge, colW - AppTheme.scaledCanvasFont(44), currentY + chH * 0.58);
 
-            currentY += CHANNEL_HEIGHT;
+            currentY += chH;
         }
     }
 
@@ -630,7 +646,7 @@ public class TimingDiagramPanel extends VBox {
             if (activeCursorSec >= 0) {
                 double leftX = Math.min(cx(activeCursorSec), mx);
                 double rightX = Math.max(cx(activeCursorSec), mx);
-                double midY = HEADER_HEIGHT / 2.0;
+                double midY = headerHeight() / 2.0;
 
                 ctx.setStroke(Color.web("#1E40AF"));
                 ctx.setLineWidth(1.0);
@@ -639,18 +655,18 @@ public class TimingDiagramPanel extends VBox {
                 double dt = Math.abs(activeCursorSec - measureCursorTimeSec);
                 String dtText = String.format(Locale.US, "Δt = %.2fs", dt);
                 ctx.setFill(Color.web("#1E3A8A"));
-                ctx.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
+                ctx.setFont(AppTheme.canvasFont("Consolas", FontWeight.BOLD, 10));
                 ctx.fillText(dtText, (leftX + rightX) / 2.0 - 24, midY - 3);
             }
         }
     }
 
     private double cx(double timeSec) {
-        return LABEL_COLUMN_WIDTH + ((timeSec - timeOffsetSec) * pixelsPerSecond);
+        return labelColumnWidth() + ((timeSec - timeOffsetSec) * pixelsPerSecond);
     }
 
     private double xToTime(double x) {
-        return timeOffsetSec + ((x - LABEL_COLUMN_WIDTH) / pixelsPerSecond);
+        return timeOffsetSec + ((x - labelColumnWidth()) / pixelsPerSecond);
     }
 
     private void updateInfoLabel() {

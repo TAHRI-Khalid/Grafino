@@ -8,6 +8,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import tk.tahri.grafino.ui.AppTheme;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,8 +105,6 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
         drawNormalComponent();
     }
 
-    private static final Font ACTION_FONT = Font.font("", FontWeight.BOLD, 14);
-    private static final Font QUALIFIER_FONT = Font.font("", FontWeight.BOLD, 12);
     private static final Text TEXT_MEASURER = new Text();
     private static final java.util.Map<String, Double> WIDTH_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -126,8 +125,8 @@ public non-sealed class Step extends StepAndTransitionCommonBehavior {
             return;
         }
 
-        var font = ACTION_FONT;
-        var qualFont = QUALIFIER_FONT;
+        var font = AppTheme.canvasFont("", FontWeight.BOLD, 14);
+        var qualFont = AppTheme.canvasFont("", FontWeight.BOLD, 12);
 
         // Ligne de liaison horizontale vers le premier bloc action
         ctx.strokeLine(getX() + UNIT_WIDTH, getY() + UNIT_HEIGHT / 2, getX() + UNIT_WIDTH + GAP, getY() + UNIT_HEIGHT / 2);

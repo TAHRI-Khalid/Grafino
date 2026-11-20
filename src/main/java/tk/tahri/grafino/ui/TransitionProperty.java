@@ -44,8 +44,7 @@ public class TransitionProperty extends VBox {
 
     public TransitionProperty(Transition transition, List<Variable> inputVariables, List<Step> availableSteps,
                               List<Variable> counterVariables, Runnable onModified, Runnable onClose) {
-        this.setPrefWidth(390);
-        this.setMinWidth(350);
+        AppTheme.bindScaledPanelWidth(this, 390, 350);
         this.setSpacing(10);
         this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -56,11 +55,11 @@ public class TransitionProperty extends VBox {
 
         var titleBox = new VBox(2);
         var subTitle = new Label("PROPRIÉTÉS DE LA TRANSITION");
-        subTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 0.88em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var badge = new Label("Transition T" + transition.getNumber());
         badge.setStyle(AppTheme.pillBadgeStyle(AppTheme.ORANGE_LIGHT_BG, AppTheme.ORANGE) +
-                "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 14px;");
+                "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.08em;");
         titleBox.getChildren().addAll(subTitle, badge);
 
         var spacer = new Region();
@@ -165,7 +164,7 @@ public class TransitionProperty extends VBox {
 
         if (inputVariables == null || inputVariables.isEmpty()) {
             var emptyLabel = new Label("Aucune entrée %I définie dans la table.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
             box.getChildren().add(emptyLabel);
         } else {
             var chipsPane = new FlowPane(5, 5);
@@ -292,7 +291,7 @@ public class TransitionProperty extends VBox {
         timerNameField.setPromptText("t, t1...");
 
         var repHint = new Label("(générique 't')");
-        repHint.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+        repHint.setStyle("-fx-font-size: 0.77em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
 
         repRow.getChildren().addAll(repLbl, timerNameField, repHint);
         box.getChildren().add(repRow);
@@ -319,10 +318,10 @@ public class TransitionProperty extends VBox {
         previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
 
         var prevTitle = new Label("Aperçu :");
-        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevTitle.setStyle("-fx-font-size: 0.77em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         var prevValue = new Label();
-        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         previewBox.getChildren().addAll(prevTitle, prevValue);
         box.getChildren().add(previewBox);
@@ -371,7 +370,7 @@ public class TransitionProperty extends VBox {
 
         if (counterVariables == null || counterVariables.isEmpty()) {
             var emptyLabel = new Label("Aucun compteur (variable INT) défini dans la table.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
             emptyLabel.setWrapText(true);
             box.getChildren().add(emptyLabel);
             return box;
@@ -420,10 +419,10 @@ public class TransitionProperty extends VBox {
         previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
 
         var prevTitle = new Label("Aperçu :");
-        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevTitle.setStyle("-fx-font-size: 0.77em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         var prevValue = new Label();
-        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         previewBox.getChildren().addAll(prevTitle, prevValue);
         box.getChildren().add(previewBox);

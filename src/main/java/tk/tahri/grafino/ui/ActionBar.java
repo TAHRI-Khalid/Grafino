@@ -388,7 +388,7 @@ public class ActionBar extends VBox {
                 "-fx-background-color: " + bgHex + ";" +
                 "-fx-text-fill: " + textHex + ";" +
                 "-fx-font-weight: bold;" +
-                "-fx-font-size: 13.5px;" +
+                "-fx-font-size: 1.04em;" +
                 "-fx-padding: 4px 2px;" +
                 "-fx-background-radius: 9px;"
         );

@@ -25,8 +25,7 @@ public class DiagnosticsPanel extends VBox {
         this.onSelectElement = onSelectElement;
         this.onClose = onClose;
 
-        this.setPrefWidth(410);
-        this.setMinWidth(360);
+        AppTheme.bindScaledPanelWidth(this, 410, 360);
         this.setSpacing(12);
         this.setPadding(new Insets(14));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -49,10 +48,10 @@ public class DiagnosticsPanel extends VBox {
 
         var titleBox = new VBox(4);
         var subTitle = new Label("INSPECTION NORMATIVE & LINTING");
-        subTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         summaryBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.GREEN_LIGHT_BG, AppTheme.GREEN_SUCCESS) +
-                "; -fx-border-color: " + AppTheme.GREEN_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13.5px;");
+                "; -fx-border-color: " + AppTheme.GREEN_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.04em;");
 
         titleBox.getChildren().addAll(subTitle, summaryBadge);
 
@@ -79,14 +78,14 @@ public class DiagnosticsPanel extends VBox {
         if (messages == null || messages.isEmpty()) {
             summaryBadge.setText("✓ 100% Conforme CEI 61131-3");
             summaryBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.GREEN_LIGHT_BG, AppTheme.GREEN_SUCCESS) +
-                    "; -fx-border-color: " + AppTheme.GREEN_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13.5px;");
+                    "; -fx-border-color: " + AppTheme.GREEN_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.04em;");
 
             var okCard = new VBox(8);
             okCard.setStyle(AppTheme.CARD_STYLE);
             okCard.setAlignment(Pos.CENTER_LEFT);
 
             var okTitle = new Label("✓ Aucune anomalie détectée");
-            okTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + "; -fx-font-size: 15px;");
+            okTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + "; -fx-font-size: 1.15em;");
 
             var okDesc = new Label("Toutes les règles fondamentales sont respectées :\n" +
                     " • Étape initiale présente (Règle 1 CEI 60848)\n" +
@@ -94,7 +93,7 @@ public class DiagnosticsPanel extends VBox {
                     " • Cohérence des divergences/convergences ET & OU\n" +
                     " • Syntaxe ST, temporisations t/Xi/d et variables E/S\n" +
                     " • Symétrie Set/Reset et qualificateur P sur compteurs");
-            okDesc.setStyle("-fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-line-spacing: 3px;");
+            okDesc.setStyle("-fx-font-size: 1.00em; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-line-spacing: 3px;");
 
             okCard.getChildren().addAll(okTitle, okDesc);
             listContainer.getChildren().add(okCard);
@@ -107,11 +106,11 @@ public class DiagnosticsPanel extends VBox {
         if (errorCount > 0) {
             summaryBadge.setText(errorCount + " Erreur(s) · " + warnCount + " Avertissement(s)");
             summaryBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.RED_LIGHT_BG, AppTheme.RED_DANGER) +
-                    "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13.5px;");
+                    "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.04em;");
         } else {
             summaryBadge.setText(warnCount + " Avertissement(s)");
             summaryBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.ORANGE_LIGHT_BG, AppTheme.ORANGE) +
-                    "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 13.5px;");
+                    "; -fx-border-color: " + AppTheme.ORANGE_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.04em;");
         }
 
         for (SfcValidationMessage msg : messages) {
@@ -130,16 +129,16 @@ public class DiagnosticsPanel extends VBox {
 
         Label levelBadge = new Label(msg.isError() ? "✕ ERREUR" : "⚠ AVERTISSEMENT");
         if (msg.isError()) {
-            levelBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.RED_LIGHT_BG, AppTheme.RED_DANGER) + "; -fx-font-size: 12px;");
+            levelBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.RED_LIGHT_BG, AppTheme.RED_DANGER) + "; -fx-font-size: 0.92em;");
         } else {
-            levelBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.ORANGE_LIGHT_BG, AppTheme.ORANGE) + "; -fx-font-size: 12px;");
+            levelBadge.setStyle(AppTheme.pillBadgeStyle(AppTheme.ORANGE_LIGHT_BG, AppTheme.ORANGE) + "; -fx-font-size: 0.92em;");
         }
 
         topRow.getChildren().add(levelBadge);
 
         if (msg.elementId() != null && !msg.elementId().isBlank()) {
             Label elemBadge = new Label(formatElementRef(msg.elementId()));
-            elemBadge.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 12.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+            elemBadge.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 0.96em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
             topRow.getChildren().add(elemBadge);
         }
 
@@ -150,7 +149,7 @@ public class DiagnosticsPanel extends VBox {
         if (msg.elementId() != null && !msg.elementId().isBlank()) {
             Button inspectBtn = new Button("🔍 Localiser");
             inspectBtn.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-text-fill: " + AppTheme.PRIMARY_TEAL +
-                    "; -fx-font-size: 12px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 4 9 4 9; -fx-background-radius: 5px;");
+                    "; -fx-font-size: 0.92em; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 4 9 4 9; -fx-background-radius: 5px;");
             inspectBtn.setTooltip(new Tooltip("Sélectionner cet élément sur le Canvas pour le modifier"));
             inspectBtn.setOnAction(e -> {
                 if (onSelectElement != null) {
@@ -165,14 +164,14 @@ public class DiagnosticsPanel extends VBox {
         // Référence de la règle normative (ex: CEI 60848 — Règle 1)
         if (msg.ruleReference() != null && !msg.ruleReference().isBlank()) {
             Label ruleLbl = new Label("📖 " + msg.ruleReference());
-            ruleLbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
+            ruleLbl.setStyle("-fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";");
             card.getChildren().add(ruleLbl);
         }
 
         // Constat de l'erreur
         Label desc = new Label(msg.message());
         desc.setWrapText(true);
-        desc.setStyle("-fx-font-size: 13.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 2px;");
+        desc.setStyle("-fx-font-size: 1.04em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 2px;");
         card.getChildren().add(desc);
 
         // Explication pédagogique ("Pourquoi est-ce une erreur & Comment la résoudre soi-même")
@@ -181,11 +180,11 @@ public class DiagnosticsPanel extends VBox {
             hintBox.setStyle("-fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 8px 10px;");
 
             Label hintTitle = new Label("💡 Comprendre & Corriger :");
-            hintTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #0F766E;");
+            hintTitle.setStyle("-fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: #0F766E;");
 
             Label hintText = new Label(msg.pedagogicalHint());
             hintText.setWrapText(true);
-            hintText.setStyle("-fx-font-size: 12.5px; -fx-text-fill: #475569; -fx-line-spacing: 2px;");
+            hintText.setStyle("-fx-font-size: 0.96em; -fx-text-fill: #475569; -fx-line-spacing: 2px;");
 
             hintBox.getChildren().addAll(hintTitle, hintText);
             card.getChildren().add(hintBox);

@@ -22,7 +22,8 @@ Le nom **Grafino** symbolise la passerelle entre :
    * Navigation Pan & Zoom fluide centré sur le curseur (`Ctrl + Molette`) et **boutons circulaires flottants sur le Canvas** (`44 px`, police `22 px` : `＋` Zoom +, `－` Zoom -, `⌖` Centrer l'intégralité du diagramme au milieu de la page).
    * Raccourcis clavier globaux protégés : `Grafcet.setupKeyboardEvents()` laisse remonter les combinaisons avec modificateur (`Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + T`, etc.) vers `MainUI` et `AppMenuBar`.
    * Édition in-place directe sur le Canvas (double-clic pour éditer réceptivités et étapes).
-   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`12px`–`15px`), puces cliquables avec états de survol pour les entrées `%I` (`TransitionProperty`) et sorties `%Q` (`StepProperty`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
+   * Panneaux latéraux d'édition en **accordéons repliables ergonomiques** (`CollapsibleSection`) avec typographie agrandie et lisible (`em` relatifs à l'échelle UI), puces cliquables avec états de survol pour les entrées `%I` (`TransitionProperty`) et sorties `%Q` (`StepProperty`), évitant toute surcharge visuelle et intégrant un défilement `ScrollPane` fluide sur toutes résolutions.
+   * **Mode Projecteur & Échelle typographique globale** (`AppTheme.DisplayScale` : `Normale 100%`, `Grande 120%`, `Projecteur 140%`, raccourci `Ctrl + Shift + P` / menu `Affichage > Taille du texte`) : mise à l'échelle dynamique à chaud de toute l'interface (`style.css` en `em`), des largeurs des panneaux latéraux (`bindScaledPanelWidth`), des polices du Canvas Grafcet (`AppTheme.canvasFont(...)`) et du Chronogramme (`TimingDiagramPanel`), avec persistance via `java.util.prefs.Preferences`.
 2. **Sécurisation du flux de travail étudiant & Persistance UI** :
    * Menu Fichier complet (`Nouveau`, `Ouvrir`, `Enregistrer`, `Enregistrer sous`, `Exporter PNG`).
    * Raccourcis clavier universels (`Ctrl + N`, `Ctrl + O`, `Ctrl + S`, `Ctrl + Shift + S`, `Ctrl + E`).
@@ -149,7 +150,7 @@ tk.tahri.grafino/
     │   ├── GrafcetProgramMapper.java   # Conversion bidirectionnelle Canvas <-> SfcProgram CEI 61131-3
     │   ├── GrafcetRenderer.java        # Rendu grille, guides, lasso, Ghost Preview et export PNG
     │   └── GrafcetTopologyService.java # Calculs topologiques, anti-chevauchement et Auto-Layout BFS
-    ├── AppTheme.java          # Design tokens & charte visuelle (Teal Arduino #008184, cartes, puces et états de survol)
+    ├── AppTheme.java          # Design tokens, charte visuelle (Teal Arduino #008184) et échelle typographique DisplayScale (Normal / Confort / Projecteur)
     ├── CollapsibleSection.java# Sections en accordéon repliables (chevron dynamique ▼/▶, badges contextuels, scroll fluide)
     ├── DiagnosticsPanel.java  # Panneau latéral d'inspection normative et linting en direct (CEI 60848 & CEI 61131-3)
     ├── MainUI.java            # Fenêtre principale avec SplitPane vertical, onglets Variables / Chronogramme et gestion de projet

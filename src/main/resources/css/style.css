@@ -1,3 +1,7 @@
+.root {
+    -fx-font-size: 13px;
+}
+
 * {
     -fx-main-color: #008184;
     -fx-accent-color: #00979D;
@@ -18,7 +22,7 @@
 }
 
 .property-title {
-    -fx-font-size: 30px;
+    -fx-font-size: 2.3em;
 }
 
 .property-box{
@@ -39,21 +43,21 @@
 }
 
 .table-view .column-header, .table-view .column-header-background .filler {
-    -fx-pref-height: 32px;
+    -fx-pref-height: 2.45em;
     -fx-background-color: -fx-accent-color;
 }
 
 .table-view .column-header .label {
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-size: 15px;
+    -fx-font-size: 1.15em;
 }
 
 .table-view .cell {
     -fx-text-fill: #000;
     -fx-alignment: center-left;
-    -fx-font-size: 16px;
-    -fx-pref-height: 32px;
+    -fx-font-size: 1.23em;
+    -fx-pref-height: 2.45em;
     -fx-padding: 0px;
 
 }
@@ -68,7 +72,7 @@
 }
 
 .table-view .text-field {
-    -fx-font-size: 14px;
+    -fx-font-size: 1.08em;
     -fx-background-color: #fff;
     -fx-background-radius: 0px;
     -fx-padding: 3px;
@@ -82,7 +86,7 @@
 }
 .action-btn{
     -fx-background-color: -fx-accent-color;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.08em;
     -fx-font-weight: bold;
     -fx-wrap-text: true;
     -fx-text-fill: #fff;
@@ -104,13 +108,13 @@
 }
 
 .action-control Label {
-    -fx-font-size: 15px;
+    -fx-font-size: 1.15em;
     -fx-text-fill: #ffffff;
     -fx-font-weight: bold;
 }
 
 .action-control Button {
-    -fx-font-size: 16px;
+    -fx-font-size: 1.23em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-accent-selection-color;
     -fx-background-color: -fx-selection-color;
@@ -160,7 +164,7 @@
 
 .top-menu-bar .menu > .label {
     -fx-text-fill: #FFFFFF;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.96em;
 }
 
 .top-menu-bar .context-menu {
@@ -184,7 +188,7 @@
 
 .top-menu-bar .menu-item .label {
     -fx-text-fill: #232527;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.96em;
     -fx-font-weight: normal;
 }
 
@@ -196,7 +200,7 @@
 
 .top-menu-bar .menu-item .accelerator-text {
     -fx-text-fill: #8C9095;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.85em;
 }
 
 /* =========================================================
@@ -206,7 +210,7 @@
     -fx-background-color: #008184;
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.9em;
     -fx-padding: 3 9 3 9;
     -fx-background-radius: 4px;
     -fx-cursor: hand;
@@ -216,7 +220,7 @@
     -fx-background-color: transparent;
     -fx-text-fill: #64748B;
     -fx-font-weight: normal;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.9em;
     -fx-padding: 3 9 3 9;
     -fx-background-radius: 4px;
     -fx-cursor: hand;
@@ -237,11 +241,11 @@
 }
 
 .collapsible-icon {
-    -fx-font-size: 14px;
+    -fx-font-size: 1.08em;
 }
 
 .collapsible-chevron {
-    -fx-font-size: 11.5px;
+    -fx-font-size: 0.88em;
     -fx-font-weight: bold;
     -fx-text-fill: #64748B;
 }

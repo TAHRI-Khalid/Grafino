@@ -122,24 +122,24 @@ public class VariableTable extends VBox {
 
         // Boutons d'ajout rapide avec couleurs sémantiques distinctes
         var addInputBtn = new Button("＋ Entrée (%I)");
-        String inputStyle = "-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
-        String inputHover = "-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String inputStyle = "-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String inputHover = "-fx-background-color: #059669; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
         addInputBtn.setStyle(inputStyle);
         addInputBtn.setOnMouseEntered(e -> addInputBtn.setStyle(inputHover));
         addInputBtn.setOnMouseExited(e -> addInputBtn.setStyle(inputStyle));
         addInputBtn.setOnAction(e -> addQuickInput());
 
         var addOutputBtn = new Button("＋ Sortie (%Q)");
-        String outputStyle = "-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
-        String outputHover = "-fx-background-color: #0369A1; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String outputStyle = "-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String outputHover = "-fx-background-color: #0369A1; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
         addOutputBtn.setStyle(outputStyle);
         addOutputBtn.setOnMouseEntered(e -> addOutputBtn.setStyle(outputHover));
         addOutputBtn.setOnMouseExited(e -> addOutputBtn.setStyle(outputStyle));
         addOutputBtn.setOnAction(e -> addQuickOutput());
 
         var addInternalBtn = new Button("＋ Mémoire (%M)");
-        String internalStyle = "-fx-background-color: #7C3AED; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
-        String internalHover = "-fx-background-color: #6D28D9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String internalStyle = "-fx-background-color: #7C3AED; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
+        String internalHover = "-fx-background-color: #6D28D9; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 5 12 5 12; -fx-background-radius: 6; -fx-cursor: hand;";
         addInternalBtn.setStyle(internalStyle);
         addInternalBtn.setOnMouseEntered(e -> addInternalBtn.setStyle(internalHover));
         addInternalBtn.setOnMouseExited(e -> addInternalBtn.setStyle(internalStyle));
@@ -147,7 +147,7 @@ public class VariableTable extends VBox {
 
         var deleteBtn = new Button("🗑");
         deleteBtn.setTooltip(new Tooltip("Supprimer la variable sélectionnée"));
-        deleteBtn.setStyle("-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 8 4 8; -fx-background-radius: 6; -fx-cursor: hand;");
+        deleteBtn.setStyle("-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-border-color: " + AppTheme.RED_BORDER + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-weight: bold; -fx-font-size: 0.85em; -fx-padding: 4 8 4 8; -fx-background-radius: 6; -fx-cursor: hand;");
         deleteBtn.setOnAction(e -> removeSelectedVariable());
 
         bar.getChildren().addAll(tabsBox, searchField, spacer, addInputBtn, addOutputBtn, addInternalBtn, deleteBtn);
@@ -181,7 +181,7 @@ public class VariableTable extends VBox {
                     "-fx-text-fill: " + textDark + ";" +
                     "-fx-font-weight: bold;" +
                     "-fx-padding: 5 12 5 12;" +
-                    "-fx-font-size: 11px;" +
+                    "-fx-font-size: 0.85em;" +
                     "-fx-background-radius: 4 4 0 0;" +
                     "-fx-cursor: hand;");
         } else {
@@ -190,7 +190,7 @@ public class VariableTable extends VBox {
                     "-fx-text-fill: " + AppTheme.TEXT_MUTED + ";" +
                     "-fx-font-weight: bold;" +
                     "-fx-padding: 5 12 5 12;" +
-                    "-fx-font-size: 11px;" +
+                    "-fx-font-size: 0.85em;" +
                     "-fx-cursor: hand;");
         }
     }
@@ -282,7 +282,7 @@ public class VariableTable extends VBox {
             private final Tooltip invalidTooltip = new Tooltip("Format CEI 61131-3 attendu : %I0.0..%I0.7, %I1.0, %Q0.1, %M0.0, %IW2...");
 
             {
-                textField.setStyle("-fx-padding: 2 6 2 6; -fx-font-size: 13px;");
+                textField.setStyle("-fx-padding: 2 6 2 6; -fx-font-size: 1.0em;");
                 textField.setOnAction(e -> applyAndCommit());
                 textField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
                     if (!isFocused && isEditing()) {

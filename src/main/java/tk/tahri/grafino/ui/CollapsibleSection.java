@@ -49,7 +49,7 @@ public class CollapsibleSection extends VBox {
         if (badgeText != null && !badgeText.isBlank()) {
             badgeLabel.setText(badgeText);
             badgeLabel.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                    "; -fx-font-size: 11.5px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
+                    "; -fx-font-size: 0.88em; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
             header.getChildren().add(badgeLabel);
         }
 
@@ -94,7 +94,7 @@ public class CollapsibleSection extends VBox {
         if (text != null && !text.isBlank()) {
             badgeLabel.setText(text);
             badgeLabel.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                    "; -fx-font-size: 11.5px; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
+                    "; -fx-font-size: 0.88em; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 10px;");
             if (!header.getChildren().contains(badgeLabel)) {
                 // Insérer juste après titleLabel
                 int titleIndex = header.getChildren().indexOf(titleLabel);

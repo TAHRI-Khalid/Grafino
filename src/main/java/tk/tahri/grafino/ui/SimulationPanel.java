@@ -67,41 +67,41 @@ public class SimulationPanel extends VBox {
             " -fx-border-radius: 5px; -fx-background-radius: 5px; -fx-padding: 6 7 6 7;";
 
     private static final String PUSH_IDLE_STYLE = "-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
     private static final String PUSH_HOVER_STYLE = "-fx-background-color: #CBD5E1; -fx-text-fill: #0F172A; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
     private static final String PUSH_ACTIVE_STYLE = "-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 4px;";
 
-    private static final String TOGGLE_IDLE_STYLE = "-fx-background-color: #F1F5F9; -fx-text-fill: #475569; -fx-font-weight: bold; -fx-font-size: 11px; " +
+    private static final String TOGGLE_IDLE_STYLE = "-fx-background-color: #F1F5F9; -fx-text-fill: #475569; -fx-font-weight: bold; -fx-font-size: 0.85em; " +
             "-fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #CBD5E1; -fx-border-radius: 4px;";
-    private static final String TOGGLE_IDLE_HOVER_STYLE = "-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-weight: bold; -fx-font-size: 11px; " +
+    private static final String TOGGLE_IDLE_HOVER_STYLE = "-fx-background-color: #E2E8F0; -fx-text-fill: #1E293B; -fx-font-weight: bold; -fx-font-size: 0.85em; " +
             "-fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #94A3B8; -fx-border-radius: 4px;";
-    private static final String TOGGLE_IDLE_PRESS_STYLE = "-fx-background-color: #CBD5E1; -fx-text-fill: #0F172A; -fx-font-weight: bold; -fx-font-size: 11px; " +
+    private static final String TOGGLE_IDLE_PRESS_STYLE = "-fx-background-color: #CBD5E1; -fx-text-fill: #0F172A; -fx-font-weight: bold; -fx-font-size: 0.85em; " +
             "-fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #64748B; -fx-border-radius: 4px;";
     private static final String TOGGLE_ACTIVE_STYLE = "-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #10B981; -fx-border-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #10B981; -fx-border-radius: 4px;";
     private static final String TOGGLE_ACTIVE_HOVER_STYLE = "-fx-background-color: #059669; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #059669; -fx-border-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #059669; -fx-border-radius: 4px;";
     private static final String TOGGLE_ACTIVE_PRESS_STYLE = "-fx-background-color: #047857; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #047857; -fx-border-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 3 7 3 7; -fx-background-radius: 4px; -fx-border-color: #047857; -fx-border-radius: 4px;";
 
     private static final String PRIMARY_PRESS_STYLE = "-fx-background-color: #006669; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 12 6 12;";
+            "-fx-font-size: 0.92em; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 12 6 12;";
     private static final String PAUSE_IDLE_STYLE = "-fx-background-color: #E67E22; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
     private static final String PAUSE_HOVER_STYLE = "-fx-background-color: #D35400; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
     private static final String PAUSE_PRESS_STYLE = "-fx-background-color: #B94A00; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-padding: 6 12 6 12; -fx-background-radius: 4px;";
     private static final String SECONDARY_PRESS_STYLE = "-fx-background-color: #E2E8F0; -fx-text-fill: #008184; -fx-border-color: #008184; " +
-            "-fx-border-radius: 4px; -fx-font-size: 12px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 5 11 5 11;";
+            "-fx-border-radius: 4px; -fx-font-size: 0.92em; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 5 11 5 11;";
     private static final String STOP_IDLE_STYLE = "-fx-background-color: #D9381E; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
     private static final String STOP_HOVER_STYLE = "-fx-background-color: #B91C1C; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
     private static final String STOP_PRESS_STYLE = "-fx-background-color: #991B1B; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-            "-fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
+            "-fx-font-size: 0.85em; -fx-cursor: hand; -fx-background-radius: 4px; -fx-padding: 6 10 6 10;";
 
     private final Map<String, ToggleButton> toggleButtons = new HashMap<>();
     private final Map<String, Label> inputLedIndicators = new HashMap<>();
@@ -166,8 +166,7 @@ public class SimulationPanel extends VBox {
         this.cachedOutNames = this.outputVariables.stream().map(Variable::getName).toList();
         this.cachedCountNames = this.counterVariables.stream().map(Variable::getName).toList();
 
-        this.setPrefWidth(415);
-        this.setMinWidth(370);
+        AppTheme.bindScaledPanelWidth(this, 415, 370);
         this.setSpacing(10);
         this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -218,20 +217,20 @@ public class SimulationPanel extends VBox {
 
         var titleBox = new VBox(2);
         var subTitle = new Label("PUPITRE VIRTUEL & BANC D'ESSAI");
-        subTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 0.77em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var titleLbl = new Label("🎮 Simulation Synchrone");
-        titleLbl.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        titleLbl.setStyle("-fx-font-size: 1.08em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         titleBox.getChildren().addAll(subTitle, titleLbl);
 
         var spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        statusBadge.setStyle(AppTheme.pillBadgeStyle("#D1FAE5", "#065F46") + "; -fx-font-weight: bold; -fx-font-size: 11px;");
+        statusBadge.setStyle(AppTheme.pillBadgeStyle("#D1FAE5", "#065F46") + "; -fx-font-weight: bold; -fx-font-size: 0.85em;");
 
         var closeBtn = new Button("✕");
         closeBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + AppTheme.TEXT_MUTED +
-                "; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 2 6 2 6;");
+                "; -fx-font-size: 1.08em; -fx-cursor: hand; -fx-padding: 2 6 2 6;");
         closeBtn.setTooltip(new Tooltip("Arrêter et fermer le pupitre de simulation"));
         closeBtn.setOnAction(e -> stopAndClose());
 
@@ -298,20 +297,20 @@ public class SimulationPanel extends VBox {
             }
         });
 
-        cycleLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        cycleLabel.setStyle("-fx-font-size: 0.85em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         cycleLabel.setMinWidth(Region.USE_PREF_SIZE);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Label speedLbl = new Label("Vitesse :");
-        speedLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        speedLbl.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
         speedLbl.setMinWidth(Region.USE_PREF_SIZE);
 
         ComboBox<String> speedCombo = new ComboBox<>();
         speedCombo.getItems().addAll("Rapide (50ms)", "Normal (100ms)", "Pédagogique (500ms)", "Ralenti (1s)");
         speedCombo.setValue("Normal (100ms)");
-        speedCombo.setStyle("-fx-font-size: 11px;");
+        speedCombo.setStyle("-fx-font-size: 0.85em;");
         speedCombo.setOnAction(e -> {
             int ms = switch (speedCombo.getSelectionModel().getSelectedIndex()) {
                 case 0 -> 50;
@@ -389,7 +388,7 @@ public class SimulationPanel extends VBox {
 
         if (uniqueInputs.isEmpty()) {
             Label emptyLbl = new Label("Aucune entrée %I déclarée. Les transitions réceptives peuvent également être testées.");
-            emptyLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-wrap-text: true;");
+            emptyLbl.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-wrap-text: true;");
             box.getChildren().add(emptyLbl);
         } else {
             GridPane grid = createThreeColumnGrid();
@@ -422,7 +421,7 @@ public class SimulationPanel extends VBox {
         top.setAlignment(Pos.CENTER);
 
         Label nameLbl = new Label(displayName);
-        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 1.00em; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         nameLbl.setMinWidth(0);
         nameLbl.setTooltip(new Tooltip(displayName + " (" + address + ")"));
 
@@ -435,7 +434,7 @@ public class SimulationPanel extends VBox {
 
         // Adresse en sous-titre centré
         Label addrBadge = new Label(address);
-        addrBadge.setStyle(AppTheme.pillBadgeStyle("#DCFCE7", "#15803D") + "; -fx-font-size: 10px; -fx-padding: 1 6 1 6;");
+        addrBadge.setStyle(AppTheme.pillBadgeStyle("#DCFCE7", "#15803D") + "; -fx-font-size: 0.77em; -fx-padding: 1 6 1 6;");
 
         // Boutons empilés l'un sous l'autre : Poussoir et Interrupteur
         VBox actions = new VBox(4);
@@ -510,7 +509,7 @@ public class SimulationPanel extends VBox {
 
         if (uniqueOutputs.isEmpty()) {
             Label emptyLbl = new Label("Aucune sortie %Q déclarée.");
-            emptyLbl.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+            emptyLbl.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
             box.getChildren().add(emptyLbl);
         } else {
             GridPane grid = createThreeColumnGrid();
@@ -548,18 +547,18 @@ public class SimulationPanel extends VBox {
         HBox.setHgrow(info, Priority.ALWAYS);
 
         Label nameLbl = new Label(displayName);
-        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 1.00em; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         nameLbl.setTooltip(new Tooltip(displayName + " (" + address + ")"));
 
         HBox meta = new HBox(4);
         meta.setAlignment(Pos.CENTER_LEFT);
 
         Label addrBadge = new Label(address);
-        addrBadge.setStyle(AppTheme.pillBadgeStyle("#E0F2FE", "#0369A1") + "; -fx-font-size: 9.5px; -fx-padding: 1 4 1 4;");
+        addrBadge.setStyle(AppTheme.pillBadgeStyle("#E0F2FE", "#0369A1") + "; -fx-font-size: 0.73em; -fx-padding: 1 4 1 4;");
         addrBadge.setMinWidth(Region.USE_PREF_SIZE);
 
         Label stateLbl = new Label("OFF");
-        stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 10.5px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 0.81em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
         stateLbl.setMinWidth(Region.USE_PREF_SIZE);
         outputStateLabels.put(normKey, stateLbl);
 
@@ -613,7 +612,7 @@ public class SimulationPanel extends VBox {
         badgeCircle.setStrokeWidth(1.5);
 
         Label iconLbl = new Label("C");
-        iconLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 10px; -fx-text-fill: #7C3AED;");
+        iconLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 0.77em; -fx-text-fill: #7C3AED;");
         StackPane indicator = new StackPane(badgeCircle, iconLbl);
         indicator.setMinWidth(Region.USE_PREF_SIZE);
 
@@ -622,18 +621,18 @@ public class SimulationPanel extends VBox {
         HBox.setHgrow(info, Priority.ALWAYS);
 
         Label nameLbl = new Label(displayName);
-        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        nameLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 1.00em; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         nameLbl.setTooltip(new Tooltip(displayName + " (" + address + ")"));
 
         HBox meta = new HBox(4);
         meta.setAlignment(Pos.CENTER_LEFT);
 
         Label addrBadge = new Label(address);
-        addrBadge.setStyle(AppTheme.pillBadgeStyle("#EDE9FE", "#6D28D9") + "; -fx-font-size: 9.5px; -fx-padding: 1 4 1 4;");
+        addrBadge.setStyle(AppTheme.pillBadgeStyle("#EDE9FE", "#6D28D9") + "; -fx-font-size: 0.73em; -fx-padding: 1 4 1 4;");
         addrBadge.setMinWidth(Region.USE_PREF_SIZE);
 
         Label valLbl = new Label("0");
-        valLbl.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #7C3AED;");
+        valLbl.setStyle("-fx-font-family: 'JetBrains Mono', Consolas, monospace; -fx-font-size: 0.85em; -fx-font-weight: bold; -fx-text-fill: #7C3AED;");
         valLbl.setMinWidth(Region.USE_PREF_SIZE);
         counterValueLabels.put(normKey, valLbl);
 
@@ -745,7 +744,7 @@ public class SimulationPanel extends VBox {
                 }
                 if (stateLbl != null) {
                     stateLbl.setText("ON ●");
-                    stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 10.5px; -fx-text-fill: #0284C7;");
+                    stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 0.81em; -fx-text-fill: #0284C7;");
                 }
             } else {
                 // Lampe ÉTEINTE : gris neutre doux sans halo
@@ -757,7 +756,7 @@ public class SimulationPanel extends VBox {
                 }
                 if (stateLbl != null) {
                     stateLbl.setText("OFF");
-                    stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 10.5px; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+                    stateLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 0.81em; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
                 }
             }
         }
@@ -788,7 +787,7 @@ public class SimulationPanel extends VBox {
         if (runtimeMsgs.isEmpty()) {
             Label okLbl = new Label("✓ Aucun conflit d'exécution détecté (aiguillages OU, Set/Reset et synchronisations ET conformes).");
             okLbl.setWrapText(true);
-            okLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + ";");
+            okLbl.setStyle("-fx-font-size: 0.96em; -fx-text-fill: " + AppTheme.GREEN_SUCCESS + ";");
             runtimeAlertsContainer.getChildren().add(okLbl);
             return;
         }
@@ -801,19 +800,19 @@ public class SimulationPanel extends VBox {
                     "; -fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 9px;");
 
             Label ruleLbl = new Label((msg.isError() ? "✕ " : (msg.isWarning() ? "⚠ " : "ℹ ")) + msg.ruleReference());
-            ruleLbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " +
+            ruleLbl.setStyle("-fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " +
                     (msg.isError() ? AppTheme.RED_DANGER : (msg.isWarning() ? AppTheme.ORANGE : "#0369A1")) + ";");
 
             Label mLbl = new Label(msg.message());
             mLbl.setWrapText(true);
-            mLbl.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+            mLbl.setStyle("-fx-font-size: 1.00em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
 
             card.getChildren().addAll(ruleLbl, mLbl);
 
             if (msg.hasPedagogicalHint()) {
                 Label hintLbl = new Label("💡 " + msg.pedagogicalHint());
                 hintLbl.setWrapText(true);
-                hintLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569;");
+                hintLbl.setStyle("-fx-font-size: 0.92em; -fx-text-fill: #475569;");
                 card.getChildren().add(hintLbl);
             }
             runtimeAlertsContainer.getChildren().add(card);
@@ -826,13 +825,13 @@ public class SimulationPanel extends VBox {
             playPauseBtn.setText("⏸ Pause");
             playPauseBtn.setStyle(playPauseBtn.isHover() ? AppTheme.PRIMARY_BUTTON_HOVER_STYLE : AppTheme.PRIMARY_BUTTON_STYLE);
             statusBadge.setText("● EN COURS");
-            statusBadge.setStyle(AppTheme.pillBadgeStyle("#D1FAE5", "#065F46") + "; -fx-font-weight: bold; -fx-font-size: 11px;");
+            statusBadge.setStyle(AppTheme.pillBadgeStyle("#D1FAE5", "#065F46") + "; -fx-font-weight: bold; -fx-font-size: 0.85em;");
             simulationTimer.play();
         } else {
             playPauseBtn.setText("▶ Reprendre");
             playPauseBtn.setStyle(playPauseBtn.isHover() ? PAUSE_HOVER_STYLE : PAUSE_IDLE_STYLE);
             statusBadge.setText("⏸ PAUSE");
-            statusBadge.setStyle(AppTheme.pillBadgeStyle("#FEF3C7", "#92400E") + "; -fx-font-weight: bold; -fx-font-size: 11px;");
+            statusBadge.setStyle(AppTheme.pillBadgeStyle("#FEF3C7", "#92400E") + "; -fx-font-weight: bold; -fx-font-size: 0.85em;");
             simulationTimer.stop();
         }
     }
@@ -840,10 +839,10 @@ public class SimulationPanel extends VBox {
     private String getLedStyle(boolean active) {
         if (active) {
             return "-fx-background-color: #10B981; -fx-text-fill: #FFFFFF; -fx-font-weight: bold; " +
-                    "-fx-font-size: 11px; -fx-padding: 2 7 2 7; -fx-background-radius: 10px;";
+                    "-fx-font-size: 0.85em; -fx-padding: 2 7 2 7; -fx-background-radius: 10px;";
         } else {
             return "-fx-background-color: #E2E8F0; -fx-text-fill: #64748B; -fx-font-weight: bold; " +
-                    "-fx-font-size: 11px; -fx-padding: 2 7 2 7; -fx-background-radius: 10px;";
+                    "-fx-font-size: 0.85em; -fx-padding: 2 7 2 7; -fx-background-radius: 10px;";
         }
     }
 

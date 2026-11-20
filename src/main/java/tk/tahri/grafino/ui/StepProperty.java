@@ -41,8 +41,7 @@ public class StepProperty extends VBox {
     public StepProperty(Step step, List<Variable> outputVariables, List<Variable> counterVariables,
                         Runnable onModified, Runnable onClose) {
         this.onModified = onModified;
-        this.setPrefWidth(390);
-        this.setMinWidth(350);
+        AppTheme.bindScaledPanelWidth(this, 390, 350);
         this.setSpacing(10);
         this.setPadding(new Insets(12));
         this.setStyle(AppTheme.SIDEBAR_STYLE);
@@ -53,11 +52,11 @@ public class StepProperty extends VBox {
 
         var titleBox = new VBox(2);
         var subTitle = new Label("PROPRIÉTÉS DE L'ÉTAPE");
-        subTitle.setStyle("-fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
+        subTitle.setStyle("-fx-font-size: 0.88em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MUTED + ";");
 
         var badge = new Label("Étape S" + step.getNumber());
         badge.setStyle(AppTheme.pillBadgeStyle(AppTheme.TEAL_LIGHT_BG, AppTheme.PRIMARY_TEAL_DARK) +
-                "; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 14px;");
+                "; -fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + "; -fx-border-radius: 12px; -fx-font-size: 1.08em;");
         titleBox.getChildren().addAll(subTitle, badge);
 
         var spacer = new Region();
@@ -80,7 +79,7 @@ public class StepProperty extends VBox {
         initCard.setStyle(AppTheme.CARD_STYLE);
 
         var initCheckBox = new CheckBox("Étape Initiale (Double cadre CEI 60848)");
-        initCheckBox.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 12px; -fx-cursor: hand;");
+        initCheckBox.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 0.92em; -fx-cursor: hand;");
         initCheckBox.setSelected(step.isInitial());
         initCheckBox.setOnAction(e -> {
             step.setInitial(initCheckBox.isSelected());
@@ -162,7 +161,7 @@ public class StepProperty extends VBox {
         );
         qualifierCombo.getSelectionModel().select(0);
         qualifierCombo.setMaxWidth(Double.MAX_VALUE);
-        qualifierCombo.setStyle("-fx-font-size: 11px;");
+        qualifierCombo.setStyle("-fx-font-size: 0.85em;");
 
         // Champ de durée pour qualificateurs temporisés (L et D)
         var durationBox = new HBox(6);
@@ -175,7 +174,7 @@ public class StepProperty extends VBox {
         var unitCombo = new ComboBox<String>();
         unitCombo.getItems().addAll("s", "ms", "min");
         unitCombo.getSelectionModel().select(0);
-        unitCombo.setStyle("-fx-font-size: 11px;");
+        unitCombo.setStyle("-fx-font-size: 0.85em;");
         durationBox.getChildren().addAll(durationLabel, durationField, unitCombo);
         durationBox.setVisible(false);
         durationBox.setManaged(false);
@@ -195,7 +194,7 @@ public class StepProperty extends VBox {
 
         if (outputVariables == null || outputVariables.isEmpty()) {
             var emptyLabel = new Label("Aucune sortie %Q définie dans la table.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
             box.getChildren().add(emptyLabel);
         } else {
             var chipsPane = new FlowPane(5, 5);
@@ -236,7 +235,7 @@ public class StepProperty extends VBox {
 
         if (counterVariables == null || counterVariables.isEmpty()) {
             var emptyLabel = new Label("Aucun compteur (variable INT) défini dans la table.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
             emptyLabel.setWrapText(true);
             box.getChildren().add(emptyLabel);
             return box;
@@ -303,7 +302,7 @@ public class StepProperty extends VBox {
         var qualCombo = new ComboBox<String>();
         qualCombo.getItems().addAll("P (Pulse / Impulsion - Recommandé)", "N (Continu)");
         qualCombo.setValue("P (Pulse / Impulsion - Recommandé)");
-        qualCombo.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+        qualCombo.setStyle("-fx-font-size: 0.85em; -fx-font-weight: bold;");
         HBox.setHgrow(qualCombo, Priority.ALWAYS);
 
         qualRow.getChildren().addAll(qLbl, qualCombo);
@@ -315,10 +314,10 @@ public class StepProperty extends VBox {
         previewBox.setStyle("-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + "; -fx-padding: 6 10; -fx-background-radius: 6;");
 
         var prevTitle = new Label("Aperçu :");
-        prevTitle.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevTitle.setStyle("-fx-font-size: 0.77em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         var prevValue = new Label();
-        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
+        prevValue.setStyle("-fx-font-family: 'JetBrains Mono', monospace; -fx-font-size: 0.92em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.PRIMARY_TEAL + ";");
 
         previewBox.getChildren().addAll(prevTitle, prevValue);
         box.getChildren().add(previewBox);
@@ -404,7 +403,7 @@ public class StepProperty extends VBox {
 
         if (step.getActions().isEmpty()) {
             var emptyLabel = new Label("Aucune action associée à cette étape.");
-            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 4;");
+            emptyLabel.setStyle("-fx-font-size: 0.85em; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic; -fx-padding: 4;");
             listOfActions.getChildren().add(emptyLabel);
             return;
         }
@@ -436,11 +435,11 @@ public class StepProperty extends VBox {
             var varInfoBox = new VBox(1);
             String displayName = action.getDisplayText();
             var varName = new Label(displayName);
-            varName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 12px;");
+            varName.setStyle("-fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-font-size: 0.92em;");
 
             String subtitle = (action.variable() != null) ? action.variable().getAddress() : "Action Structured Text";
             var varAddr = new Label(subtitle);
-            varAddr.setStyle("-fx-font-size: 10px; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-family: 'JetBrains Mono', monospace;");
+            varAddr.setStyle("-fx-font-size: 0.77em; -fx-text-fill: " + AppTheme.TEXT_MUTED + "; -fx-font-family: 'JetBrains Mono', monospace;");
             varInfoBox.getChildren().addAll(varName, varAddr);
 
             var spacer = new Region();
@@ -448,8 +447,8 @@ public class StepProperty extends VBox {
 
             var delBtn = new Button("🗑");
             delBtn.setTooltip(new Tooltip("Supprimer cette action"));
-            String delStyle = "-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
-            String delHoverStyle = "-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 12px; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
+            String delStyle = "-fx-background-color: transparent; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 0.92em; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
+            String delHoverStyle = "-fx-background-color: " + AppTheme.RED_LIGHT_BG + "; -fx-text-fill: " + AppTheme.RED_DANGER + "; -fx-font-size: 0.92em; -fx-padding: 4px 6px; -fx-background-radius: 4px; -fx-cursor: hand;";
             delBtn.setStyle(delStyle);
             delBtn.setOnMouseEntered(e -> delBtn.setStyle(delHoverStyle));
             delBtn.setOnMouseExited(e -> delBtn.setStyle(delStyle));

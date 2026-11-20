@@ -1,6 +1,7 @@
 module tk.tahri.grafino {
     requires javafx.controls;
     requires java.desktop;
+    requires java.prefs;
     exports tk.tahri.grafino;
     exports tk.tahri.grafino.component;
     exports tk.tahri.grafino.ui;

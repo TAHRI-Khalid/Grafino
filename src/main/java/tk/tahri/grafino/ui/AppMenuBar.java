@@ -49,6 +49,8 @@ public class AppMenuBar extends MenuBar {
     private final MenuItem toggleTableItem = new MenuItem("📋 Table des Variables d'Automatismes");
     private final MenuItem toggleTimingItem = new MenuItem("📈 Chronogramme d'Évolution Multi-voies");
     private final MenuItem toggleDiagnosticsItem = new MenuItem("🔍 Inspection & Linting normatif");
+    private final Menu uiScaleMenu = new Menu("🖥 Taille du texte (Projecteur)");
+    private final MenuItem toggleProjectorScaleItem = new MenuItem("📽 Basculer Mode Projecteur (140%)");
     private final MenuItem zoomInItem = new MenuItem("＋ Zoom Avant");
     private final MenuItem zoomOutItem = new MenuItem("－ Zoom Arrière");
     private final MenuItem resetZoomItem = new MenuItem("🔍 Zoom 100% (Normal)");
@@ -108,6 +110,14 @@ public class AppMenuBar extends MenuBar {
         // 3. Menu Affichage
         toggleTableItem.setAccelerator(new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN));
         toggleTimingItem.setAccelerator(new KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN));
+        setupUiScaleMenu();
+        toggleProjectorScaleItem.setAccelerator(new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
+        toggleProjectorScaleItem.setOnAction(e -> {
+            AppTheme.DisplayScale next = AppTheme.getDisplayScale() == AppTheme.DisplayScale.PROJECTOR
+                    ? AppTheme.DisplayScale.NORMAL
+                    : AppTheme.DisplayScale.PROJECTOR;
+            AppTheme.setDisplayScale(next);
+        });
         zoomInItem.setAccelerator(new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN));
         zoomOutItem.setAccelerator(new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN));
         resetZoomItem.setAccelerator(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN));
@@ -116,6 +126,9 @@ public class AppMenuBar extends MenuBar {
                 toggleTableItem,
                 toggleTimingItem,
                 toggleDiagnosticsItem,
+                new SeparatorMenuItem(),
+                uiScaleMenu,
+                toggleProjectorScaleItem,
                 new SeparatorMenuItem(),
                 zoomInItem,
                 zoomOutItem,
@@ -139,6 +152,28 @@ public class AppMenuBar extends MenuBar {
         );
 
         this.getMenus().addAll(fileMenu, editMenu, viewMenu, simMenu, helpMenu);
+    }
+
+    private java.util.function.Consumer<AppTheme.DisplayScale> scaleSyncListener;
+
+    private void setupUiScaleMenu() {
+        var group = new ToggleGroup();
+        var itemMap = new java.util.EnumMap<AppTheme.DisplayScale, RadioMenuItem>(AppTheme.DisplayScale.class);
+        for (AppTheme.DisplayScale scale : AppTheme.DisplayScale.values()) {
+            var item = new RadioMenuItem(scale.getLabel());
+            item.setToggleGroup(group);
+            item.setSelected(scale == AppTheme.getDisplayScale());
+            item.setOnAction(e -> AppTheme.setDisplayScale(scale));
+            uiScaleMenu.getItems().add(item);
+            itemMap.put(scale, item);
+        }
+        scaleSyncListener = scale -> {
+            RadioMenuItem target = itemMap.get(scale);
+            if (target != null) {
+                target.setSelected(true);
+            }
+        };
+        AppTheme.addScaleListener(scaleSyncListener);
     }
 
     public void setOnUndoClick(EventHandler<ActionEvent> event) {
@@ -272,7 +307,8 @@ public class AppMenuBar extends MenuBar {
                 createSectionCard("Navigation & Affichage", new Node[]{
                         createShortcutRow("Ctrl + Molette", "Zoom fluide centré sur le curseur"),
                         createShortcutRow("Clic droit / milieu + Glisser", "Déplacement panoramique (Pan)"),
-                        createShortcutRow("Ctrl + T", "Déplier / Replier la table des variables")
+                        createShortcutRow("Ctrl + T", "Déplier / Replier la table des variables"),
+                        createShortcutRow("Ctrl + Shift + P", "Basculer le Mode Projecteur (texte 140%)")
                 }),
                 createSectionCard("Gestion de Projet", new Node[]{
                         createShortcutRow("Ctrl + N", "Nouveau projet"),
@@ -306,7 +342,7 @@ public class AppMenuBar extends MenuBar {
                 "l'ingénierie des automatismes industriels selon les normes internationales :"
         );
         descLabel.setWrapText(true);
-        descLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 2px;");
+        descLabel.setStyle("-fx-font-size: 1.0em; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 2px;");
 
         var normsCard = new VBox(10,
                 descLabel,
@@ -347,10 +383,10 @@ public class AppMenuBar extends MenuBar {
 
         // Bannière supérieure Arduino Teal
         var titleLbl = new Label(headerTitle);
-        titleLbl.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF;");
+        titleLbl.setStyle("-fx-font-size: 1.23em; -fx-font-weight: bold; -fx-text-fill: #FFFFFF;");
 
         var subtitleLbl = new Label(headerSubtitle);
-        subtitleLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: " + AppTheme.TEAL_LIGHT_BG + ";");
+        subtitleLbl.setStyle("-fx-font-size: 0.92em; -fx-text-fill: " + AppTheme.TEAL_LIGHT_BG + ";");
         subtitleLbl.setWrapText(true);
 
         var headerBox = new VBox(4, titleLbl, subtitleLbl);
@@ -380,7 +416,8 @@ public class AppMenuBar extends MenuBar {
         );
 
         var root = new VBox(headerBox, bodyWrapper, footerBox);
-        root.setPrefWidth(width);
+        root.setPrefWidth(AppTheme.scaledPanel(width));
+        root.setStyle(AppTheme.rootFontStyle());
 
         Scene scene = new Scene(root);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -420,7 +457,7 @@ public class AppMenuBar extends MenuBar {
                 "-fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + ";" +
                 "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
                 "-fx-font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;" +
-                "-fx-font-size: 11.5px;" +
+                "-fx-font-size: 0.88em;" +
                 "-fx-font-weight: bold;" +
                 "-fx-padding: 3px 8px;" +
                 "-fx-background-radius: 5px;" +
@@ -428,13 +465,13 @@ public class AppMenuBar extends MenuBar {
         );
 
         var keyContainer = new HBox(keyBadge);
-        keyContainer.setPrefWidth(195);
-        keyContainer.setMinWidth(195);
+        keyContainer.setPrefWidth(AppTheme.scaledPanel(195));
+        keyContainer.setMinWidth(AppTheme.scaledPanel(195));
         keyContainer.setAlignment(Pos.CENTER_LEFT);
 
         var descLbl = new Label(description);
         descLbl.setWrapText(true);
-        descLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        descLbl.setStyle("-fx-font-size: 0.96em; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         HBox.setHgrow(descLbl, Priority.ALWAYS);
 
         var row = new HBox(10, keyContainer, descLbl);
@@ -450,7 +487,7 @@ public class AppMenuBar extends MenuBar {
                 "-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
                 "-fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + ";" +
                 "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
-                "-fx-font-size: 11.5px;" +
+                "-fx-font-size: 0.88em;" +
                 "-fx-font-weight: bold;" +
                 "-fx-padding: 3px 8px;" +
                 "-fx-background-radius: 10px;" +
@@ -459,7 +496,7 @@ public class AppMenuBar extends MenuBar {
 
         var descLbl = new Label(description);
         descLbl.setWrapText(true);
-        descLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        descLbl.setStyle("-fx-font-size: 0.96em; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         HBox.setHgrow(descLbl, Priority.ALWAYS);
 
         var row = new HBox(10, badge, descLbl);
@@ -469,13 +506,13 @@ public class AppMenuBar extends MenuBar {
 
     private HBox createInfoRow(String label, String value) {
         var keyLbl = new Label(label);
-        keyLbl.setPrefWidth(115);
-        keyLbl.setMinWidth(115);
+        keyLbl.setPrefWidth(AppTheme.scaledPanel(115));
+        keyLbl.setMinWidth(AppTheme.scaledPanel(115));
         keyLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
 
         var valLbl = new Label(value);
         valLbl.setWrapText(true);
-        valLbl.setStyle("-fx-font-size: 12.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        valLbl.setStyle("-fx-font-size: 0.96em; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
         HBox.setHgrow(valLbl, Priority.ALWAYS);
 
         var row = new HBox(10, keyLbl, valLbl);

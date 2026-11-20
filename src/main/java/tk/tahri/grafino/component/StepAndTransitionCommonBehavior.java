@@ -7,6 +7,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
+import tk.tahri.grafino.ui.AppTheme;
 import tk.tahri.grafino.Handle;
 import tk.tahri.grafino.model.SfcValidationMessage;
 
@@ -238,7 +239,7 @@ public sealed abstract class StepAndTransitionCommonBehavior extends Component p
 
     protected void drawNumber(String number, Point2D position) {
         ctx.setFill(Color.DARKORANGE);
-        ctx.setFont(Font.font("", FontWeight.BOLD, 18));
+        ctx.setFont(AppTheme.canvasFont("", FontWeight.BOLD, 18));
         ctx.setTextBaseline(VPos.CENTER);
         ctx.fillText(number, position.getX(), position.getY());
     }
