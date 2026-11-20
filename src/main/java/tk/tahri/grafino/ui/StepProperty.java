@@ -108,10 +108,13 @@ public class StepProperty extends VBox {
 
         // --- Accordéon 2 : Opération sur Compteur CEI 61131-3 ---
         var counterNode = createCounterActionContent(step, counterVariables);
+        String counterBadgeText = (counterVariables != null && !counterVariables.isEmpty())
+                ? counterVariables.size() + " INT"
+                : null;
         var counterSection = new CollapsibleSection(
                 "🔢",
                 "Opération sur Compteur",
-                "CEI 61131-3",
+                counterBadgeText,
                 counterNode,
                 false // Replié par défaut pour économiser l'espace vertical
         );
@@ -231,6 +234,14 @@ public class StepProperty extends VBox {
     private Node createCounterActionContent(Step step, List<Variable> counterVariables) {
         var box = new VBox(8);
 
+        if (counterVariables == null || counterVariables.isEmpty()) {
+            var emptyLabel = new Label("Aucun compteur (variable INT) défini dans la table.");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setWrapText(true);
+            box.getChildren().add(emptyLabel);
+            return box;
+        }
+
         // Ligne 1 : Choix du compteur
         var counterRow = new HBox(8);
         counterRow.setAlignment(Pos.CENTER_LEFT);
@@ -239,19 +250,14 @@ public class StepProperty extends VBox {
         cLbl.setPrefWidth(85);
 
         var counterCombo = new ComboBox<String>();
-        counterCombo.setEditable(true);
         counterCombo.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(counterCombo, Priority.ALWAYS);
 
-        if (counterVariables != null && !counterVariables.isEmpty()) {
-            for (Variable v : counterVariables) {
-                counterCombo.getItems().add(v.getName());
-            }
+        for (Variable v : counterVariables) {
+            counterCombo.getItems().add(v.getName());
         }
-        if (counterCombo.getItems().isEmpty()) {
-            counterCombo.getItems().addAll("C1", "C2");
-        }
-        counterCombo.setValue(counterCombo.getItems().getFirst());
+        String defaultCounter = counterCombo.getItems().getFirst();
+        counterCombo.setValue(defaultCounter);
         counterRow.getChildren().addAll(cLbl, counterCombo);
         box.getChildren().add(counterRow);
 
@@ -319,7 +325,7 @@ public class StepProperty extends VBox {
 
         Runnable updatePreview = () -> {
             String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
-                    ? counterCombo.getValue().trim() : "C1";
+                    ? counterCombo.getValue().trim() : defaultCounter;
             int val = 1;
             try {
                 val = Integer.parseInt(valField.getText().trim());
@@ -363,7 +369,7 @@ public class StepProperty extends VBox {
         addCounterBtn.setOnMouseExited(e -> addCounterBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE));
         addCounterBtn.setOnAction(e -> {
             String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
-                    ? counterCombo.getValue().trim() : "C1";
+                    ? counterCombo.getValue().trim() : defaultCounter;
             int val = 1;
             try {
                 val = Integer.parseInt(valField.getText().trim());

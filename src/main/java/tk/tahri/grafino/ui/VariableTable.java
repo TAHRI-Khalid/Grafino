@@ -554,9 +554,7 @@ public class VariableTable extends VBox {
 
     public List<Variable> getCounterVariables() {
         return masterData.stream()
-                .filter(v -> v.getType() == IecDataType.INT || v.getType() == IecDataType.DINT
-                        || v.getType() == IecDataType.BYTE || v.getType() == IecDataType.WORD
-                        || v.getName().matches("(?i)^C\\d*$"))
+                .filter(v -> v.getType() == IecDataType.INT)
                 .toList();
     }
 

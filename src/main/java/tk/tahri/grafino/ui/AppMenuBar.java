@@ -3,10 +3,19 @@ package tk.tahri.grafino.ui;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.*;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 
 /**
  * Barre de menus principale de l'application Grafino.
@@ -244,43 +253,233 @@ public class AppMenuBar extends MenuBar {
     }
 
     private void showShortcutsDialog() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Raccourcis Clavier Grafino");
-        alert.setHeaderText("Raccourcis Clavier & Ergonomie Industrielle");
-        alert.setContentText(
-                "Édition interactive sur le Canvas :\n" +
-                " • T / Entrée : Insérer la transition suivante\n" +
-                " • S / Entrée : Insérer l'étape suivante\n" +
-                " • B : Ouvrir une branche (OU / ET)\n" +
-                " • Suppr / Retour arrière : Supprimer l'élément sélectionné\n" +
-                " • Double-clic : Éditer réceptivité ou numéro d'étape in-place\n" +
-                " • Ctrl + L : Aligner & Centrer tout le diagramme (Auto-Layout)\n\n" +
-                "Navigation & Affichage :\n" +
-                " • Ctrl + Molette : Zoom fluide centré sur le curseur\n" +
-                " • Clic droit / Clic milieu + Glisser : Déplacement panoramique (Pan)\n" +
-                " • Ctrl + T : Déplier / Replier la table des variables\n\n" +
-                "Gestion de Projet :\n" +
-                " • Ctrl + N : Nouveau projet\n" +
-                " • Ctrl + O : Ouvrir un fichier (.sfc, .tk)\n" +
-                " • Ctrl + S : Enregistrer le projet actif\n" +
-                " • Ctrl + Shift + S : Enregistrer sous un nouveau nom\n" +
-                " • Ctrl + E : Exporter en image PNG haute résolution (pour rapports)"
+        var content = new VBox(12);
+
+        content.getChildren().addAll(
+                createSectionCard("Édition interactive sur le Canvas", new Node[]{
+                        createShortcutRow("T / Entrée", "Insérer la transition suivante"),
+                        createShortcutRow("S / Entrée", "Insérer l'étape suivante"),
+                        createShortcutRow("Shift + Entrée", "Insérer une séquence complète (Transition + Étape)"),
+                        createShortcutRow("B", "Ouvrir une branche (OU / ET)"),
+                        createShortcutRow("C", "Créer une convergence"),
+                        createShortcutRow("R", "Boucle de reprise ascendante"),
+                        createShortcutRow("I", "Définir / basculer en étape initiale"),
+                        createShortcutRow("Suppr / Retour", "Supprimer l'élément sélectionné"),
+                        createShortcutRow("Double-clic", "Éditer réceptivité ou numéro d'étape in-place"),
+                        createShortcutRow("Ctrl + Z / Ctrl + Y", "Annuler / Rétablir"),
+                        createShortcutRow("Ctrl + L", "Aligner & Centrer tout le diagramme (Auto-Layout)")
+                }),
+                createSectionCard("Navigation & Affichage", new Node[]{
+                        createShortcutRow("Ctrl + Molette", "Zoom fluide centré sur le curseur"),
+                        createShortcutRow("Clic droit / milieu + Glisser", "Déplacement panoramique (Pan)"),
+                        createShortcutRow("Ctrl + T", "Déplier / Replier la table des variables")
+                }),
+                createSectionCard("Gestion de Projet", new Node[]{
+                        createShortcutRow("Ctrl + N", "Nouveau projet"),
+                        createShortcutRow("Ctrl + O", "Ouvrir un fichier (.sfc, .tk)"),
+                        createShortcutRow("Ctrl + S", "Enregistrer le projet actif"),
+                        createShortcutRow("Ctrl + Shift + S", "Enregistrer sous un nouveau nom"),
+                        createShortcutRow("Ctrl + E", "Exporter en image PNG haute résolution")
+                })
         );
-        alert.showAndWait();
+
+        var scrollPane = new ScrollPane(content);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setPrefViewportHeight(430);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-width: 0;");
+
+        showThemedDialog(
+                "Raccourcis Clavier Grafino",
+                "⌨  Raccourcis Clavier & Ergonomie",
+                "Productivité et édition rapide sur le Canvas Grafcet / SFC",
+                scrollPane,
+                580
+        );
     }
 
     private void showAboutDialog() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("À propos de Grafino");
-        alert.setHeaderText("Grafino — Environnement d'Automatismes Industriels");
-        alert.setContentText(
+        var content = new VBox(12);
+
+        var descLabel = new Label(
                 "Grafino est un logiciel pédagogique open-source dédié à l'enseignement et à " +
-                "l'ingénierie des automatismes industriels selon les normes internationales :\n\n" +
-                " • CEI 60848 (Spécification fonctionnelle Grafcet)\n" +
-                " • CEI 61131-3 (Programmation SFC, types de données & variables API)\n\n" +
-                "Version : 1.1.0\n" +
-                "Plateforme : Java 27 / JavaFX 27"
+                "l'ingénierie des automatismes industriels selon les normes internationales :"
         );
-        alert.showAndWait();
+        descLabel.setWrapText(true);
+        descLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: " + AppTheme.TEXT_MAIN + "; -fx-line-spacing: 2px;");
+
+        var normsCard = new VBox(10,
+                descLabel,
+                createNormRow("CEI 60848", "Spécification fonctionnelle Grafcet"),
+                createNormRow("CEI 61131-3", "Programmation SFC, types de données & variables API")
+        );
+        normsCard.setStyle(AppTheme.CARD_STYLE);
+
+        var infoCard = createSectionCard("Informations techniques", new Node[]{
+                createInfoRow("Version", "1.1.0"),
+                createInfoRow("Plateforme", "Java 27 / JavaFX 27"),
+                createInfoRow("Public cible", "BTS CRSA, BTS CIRA, BUT GEII, Écoles d'ingénieurs"),
+                createInfoRow("Licence", "Open-source pédagogique")
+        });
+
+        content.getChildren().addAll(normsCard, infoCard);
+
+        showThemedDialog(
+                "À propos de Grafino",
+                "⚡  Grafino",
+                "Environnement d'Automatismes Industriels — CEI 60848 & CEI 61131-3",
+                content,
+                520
+        );
+    }
+
+    private void showThemedDialog(String windowTitle, String headerTitle, String headerSubtitle, Node bodyNode, double width) {
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        if (this.getScene() != null) {
+            Window owner = this.getScene().getWindow();
+            if (owner != null) {
+                stage.initOwner(owner);
+            }
+        }
+        stage.setTitle(windowTitle);
+        stage.setResizable(false);
+
+        // Bannière supérieure Arduino Teal
+        var titleLbl = new Label(headerTitle);
+        titleLbl.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF;");
+
+        var subtitleLbl = new Label(headerSubtitle);
+        subtitleLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: " + AppTheme.TEAL_LIGHT_BG + ";");
+        subtitleLbl.setWrapText(true);
+
+        var headerBox = new VBox(4, titleLbl, subtitleLbl);
+        headerBox.setPadding(new Insets(16, 20, 16, 20));
+        headerBox.setStyle("-fx-background-color: " + AppTheme.PRIMARY_TEAL + ";");
+
+        // Corps principal
+        var bodyWrapper = new VBox(bodyNode);
+        bodyWrapper.setPadding(new Insets(16, 18, 16, 18));
+        bodyWrapper.setStyle("-fx-background-color: " + AppTheme.PANEL_BG + ";");
+        VBox.setVgrow(bodyNode, Priority.ALWAYS);
+
+        // Pied de page avec bouton Fermer
+        var closeBtn = new Button("Fermer");
+        closeBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE);
+        closeBtn.setOnMouseEntered(e -> closeBtn.setStyle(AppTheme.PRIMARY_BUTTON_HOVER_STYLE));
+        closeBtn.setOnMouseExited(e -> closeBtn.setStyle(AppTheme.PRIMARY_BUTTON_STYLE));
+        closeBtn.setOnAction(e -> stage.close());
+
+        var footerBox = new HBox(closeBtn);
+        footerBox.setAlignment(Pos.CENTER_RIGHT);
+        footerBox.setPadding(new Insets(12, 18, 12, 18));
+        footerBox.setStyle(
+                "-fx-background-color: " + AppTheme.CARD_BG + ";" +
+                "-fx-border-color: " + AppTheme.BORDER_COLOR + ";" +
+                "-fx-border-width: 1px 0 0 0;"
+        );
+
+        var root = new VBox(headerBox, bodyWrapper, footerBox);
+        root.setPrefWidth(width);
+
+        Scene scene = new Scene(root);
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE || e.getCode() == KeyCode.ENTER) {
+                stage.close();
+                e.consume();
+            }
+        });
+
+        stage.setScene(scene);
+        stage.showAndWait();
+    }
+
+    private VBox createSectionCard(String title, Node[] rows) {
+        var card = new VBox(8);
+        card.setStyle(AppTheme.CARD_STYLE);
+
+        var headerLbl = new Label(title);
+        headerLbl.setStyle(AppTheme.SECTION_HEADER_STYLE);
+        card.getChildren().add(headerLbl);
+
+        var separator = new Separator();
+        separator.setStyle("-fx-opacity: 0.6;");
+        card.getChildren().add(separator);
+
+        for (Node row : rows) {
+            card.getChildren().add(row);
+        }
+        return card;
+    }
+
+    private HBox createShortcutRow(String keys, String description) {
+        var keyBadge = new Label(keys);
+        keyBadge.setMinWidth(Region.USE_PREF_SIZE);
+        keyBadge.setStyle(
+                "-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
+                "-fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + ";" +
+                "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
+                "-fx-font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;" +
+                "-fx-font-size: 11.5px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 3px 8px;" +
+                "-fx-background-radius: 5px;" +
+                "-fx-border-radius: 5px;"
+        );
+
+        var keyContainer = new HBox(keyBadge);
+        keyContainer.setPrefWidth(195);
+        keyContainer.setMinWidth(195);
+        keyContainer.setAlignment(Pos.CENTER_LEFT);
+
+        var descLbl = new Label(description);
+        descLbl.setWrapText(true);
+        descLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        HBox.setHgrow(descLbl, Priority.ALWAYS);
+
+        var row = new HBox(10, keyContainer, descLbl);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private HBox createNormRow(String normCode, String description) {
+        var badge = new Label(normCode);
+        badge.setMinWidth(95);
+        badge.setAlignment(Pos.CENTER);
+        badge.setStyle(
+                "-fx-background-color: " + AppTheme.TEAL_LIGHT_BG + ";" +
+                "-fx-border-color: " + AppTheme.TEAL_LIGHT_BORDER + ";" +
+                "-fx-text-fill: " + AppTheme.PRIMARY_TEAL_DARK + ";" +
+                "-fx-font-size: 11.5px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-padding: 3px 8px;" +
+                "-fx-background-radius: 10px;" +
+                "-fx-border-radius: 10px;"
+        );
+
+        var descLbl = new Label(description);
+        descLbl.setWrapText(true);
+        descLbl.setStyle("-fx-font-size: 12.5px; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        HBox.setHgrow(descLbl, Priority.ALWAYS);
+
+        var row = new HBox(10, badge, descLbl);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private HBox createInfoRow(String label, String value) {
+        var keyLbl = new Label(label);
+        keyLbl.setPrefWidth(115);
+        keyLbl.setMinWidth(115);
+        keyLbl.setStyle(AppTheme.LABEL_MUTED_STYLE);
+
+        var valLbl = new Label(value);
+        valLbl.setWrapText(true);
+        valLbl.setStyle("-fx-font-size: 12.5px; -fx-font-weight: bold; -fx-text-fill: " + AppTheme.TEXT_MAIN + ";");
+        HBox.setHgrow(valLbl, Priority.ALWAYS);
+
+        var row = new HBox(10, keyLbl, valLbl);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
     }
 }

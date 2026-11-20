@@ -157,13 +157,13 @@ tk.tahri.grafino/
     ├── SimulationCoordinator.java    # Coordonnateur de la simulation synchrone et des diagnostics temps réel
     ├── Grafcet.java           # Canvas fluide (Smart Snap, auto-layout, Undo/Redo, multi-sélection Lasso, Ghost Preview)
     ├── ActionBar.java         # Barre d'action contextuelle verticale fixe à gauche (séquences T+S, divergences/convergences ET/OU, boucle S0, insertion sur lien)
-    ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, badge linting, simulation)
+    ├── AppMenuBar.java        # Barre de menus principale (Fichier, Édition, Affichage, Simulation, Aide, modales À propos & Raccourcis stylisées AppTheme)
     ├── TopToolBar.java        # Alias rétrocompatible vers AppMenuBar
     ├── SimulationPanel.java   # Pupitre virtuel droit dédupliqué (boutons poussoirs/bascules %I, lampes LED %Q, compteurs)
     ├── TimingDiagramPanel.java# Chronogramme interactif multi-voies (zoom temporel, curseurs Δt, time-travel, export CSV)
-    ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, puces cliquables %Q, compteur, liste d'actions)
-    ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, puces capteurs %I/opérateurs, tempo t/Xi/d, test compteur)
-    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M, adaptation adresse/défaut par type)
+    ├── StepProperty.java      # Sidebar d'étape en accordéon (initiale CEI 60848, puces %Q, compteur strictement lié aux variables INT, liste d'actions)
+    ├── TransitionProperty.java# Sidebar de transition en accordéon (condition ST, puces %I/opérateurs, tempo t/Xi/d, test compteur strictement lié aux variables INT)
+    └── VariableTable.java     # Table des variables (onglets chromatiques, recherche, boutons %I/%Q/%M, filtrage strict INT des compteurs, adaptation adresse/défaut par type)
 ```
 
 ### Principes appliqués :

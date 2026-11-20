@@ -130,10 +130,13 @@ public class TransitionProperty extends VBox {
 
         // --- Accordéon 3 : Test de Compteur CEI 61131-3 (Replié par défaut) ---
         var counterNode = createCounterContent(counterVariables, receptivityField);
+        String counterBadgeText = (counterVariables != null && !counterVariables.isEmpty())
+                ? counterVariables.size() + " INT"
+                : null;
         var counterSection = new CollapsibleSection(
                 "🔢",
                 "Test de Compteur",
-                "CEI 61131-3",
+                counterBadgeText,
                 counterNode,
                 false // Replié par défaut
         );
@@ -366,6 +369,14 @@ public class TransitionProperty extends VBox {
     private Node createCounterContent(List<Variable> counterVariables, TextField targetField) {
         var box = new VBox(8);
 
+        if (counterVariables == null || counterVariables.isEmpty()) {
+            var emptyLabel = new Label("Aucun compteur (variable INT) défini dans la table.");
+            emptyLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: " + AppTheme.TEXT_HINT + "; -fx-font-style: italic;");
+            emptyLabel.setWrapText(true);
+            box.getChildren().add(emptyLabel);
+            return box;
+        }
+
         // Ligne 1 : Choix du compteur
         var row = new HBox(8);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -374,17 +385,12 @@ public class TransitionProperty extends VBox {
         cLbl.setPrefWidth(70);
 
         var counterCombo = new ComboBox<String>();
-        counterCombo.setEditable(true);
         counterCombo.setPrefWidth(90);
-        if (counterVariables != null && !counterVariables.isEmpty()) {
-            for (Variable v : counterVariables) {
-                counterCombo.getItems().add(v.getName());
-            }
+        for (Variable v : counterVariables) {
+            counterCombo.getItems().add(v.getName());
         }
-        if (counterCombo.getItems().isEmpty()) {
-            counterCombo.getItems().addAll("C1", "C2");
-        }
-        counterCombo.setValue(counterCombo.getItems().getFirst());
+        String defaultCounter = counterCombo.getItems().getFirst();
+        counterCombo.setValue(defaultCounter);
 
         // Opérateur
         var opCombo = new ComboBox<String>();
@@ -424,7 +430,7 @@ public class TransitionProperty extends VBox {
 
         Runnable updatePreview = () -> {
             String cName = counterCombo.getValue() != null && !counterCombo.getValue().isBlank()
-                    ? counterCombo.getValue().trim() : "C1";
+                    ? counterCombo.getValue().trim() : defaultCounter;
             String opRaw = opCombo.getValue() != null ? opCombo.getValue().split(" ")[0] : "<";
             int val = 5;
             try {
