@@ -352,7 +352,7 @@ public class AppMenuBar extends MenuBar {
         normsCard.setStyle(AppTheme.CARD_STYLE);
 
         var infoCard = createSectionCard("Informations techniques", new Node[]{
-                createInfoRow("Version", "1.1.0"),
+                createInfoRow("Version", "1.1.1"),
                 createInfoRow("Plateforme", "Java 27 / JavaFX 27"),
                 createInfoRow("Public cible", "BTS CRSA, BTS CIRA, BUT GEII, Écoles d'ingénieurs"),
                 createInfoRow("Licence", "Open-source pédagogique")
